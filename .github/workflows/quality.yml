@@ -1,0 +1,45 @@
+name: Qualidade
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Formatação, análise e testes
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Obter código
+        uses: actions/checkout@v6.0.2
+
+      - name: Instalar Flutter
+        uses: subosito/flutter-action@v2.23.0
+        with:
+          flutter-version: 3.41.1
+          channel: stable
+          cache: true
+
+      - name: Resolver dependências
+        run: flutter pub get
+
+      - name: Verificar formatação
+        run: dart format --output=none --set-exit-if-changed .
+
+      - name: Executar análise estática
+        run: flutter analyze
+
+      - name: Executar testes
+        run: flutter test

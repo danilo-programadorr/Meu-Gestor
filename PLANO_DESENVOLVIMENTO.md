@@ -1,0 +1,542 @@
+# Plano de desenvolvimento — Meu Gestor Financeiro
+
+## 1. Situação e autoridade
+
+- Especificação oficial integral: ESPECIFICACAO_FUNCIONAL.md.
+- Regras permanentes aprovadas: AGENTS.md.
+- Modelo detalhado proposto: MODELO_FIRESTORE.md.
+- Rastreabilidade: MATRIZ_REQUISITOS.md.
+- Data desta revisão: 30 de julho de 2026.
+- Os comandos públicos usam caminhos relativos à raiz do repositório.
+- A fundação local autorizada da Etapa 2 foi criada e validada nos limites da seção 16.
+- Todas as ações externas de Firebase, Google Cloud e Gemini são exclusivamente manuais pelo solicitante; o agente limita-se a orientar, preparar código autorizado e verificar resultados locais após confirmação.
+
+## 2. Decisões aprovadas
+
+1. Plataforma inicial Android.
+2. Arquitetura preparada para Web, Windows e iOS.
+3. Uso pessoal e individual na primeira versão.
+4. Português do Brasil, moeda BRL, símbolo R$, datas dd/MM/yyyy e fuso America/Sao_Paulo.
+5. Flutter, Dart, arquitetura limpa e modular, Riverpod e go_router.
+6. Firebase Authentication com e-mail/senha e Google.
+7. Cloud Firestore, Cloud Functions, Firebase Cloud Messaging, Firebase App Check, Firebase Crashlytics e Firebase Analytics.
+8. Gemini somente por Cloud Function segura.
+9. Dinheiro armazenado em centavos inteiros.
+10. Ambientes development e production separados.
+11. Cadastro financeiro manual e sem integração bancária automática na primeira versão.
+12. JBR/OpenJDK 21.0.9 do Android Studio será utilizado.
+13. Nenhum outro Java será instalado.
+14. safe.directory global do Git não será alterado neste momento.
+15. O bloqueio Flutter na sandbox não representa falha confirmada da instalação local.
+16. Firebase CLI e FlutterFire CLI não serão instaladas até nova autorização.
+17. Dados de demonstração são permitidos somente em development/testes, desativados por padrão e isolados de produção.
+18. Contas a receber são entidade própria em receivables e vinculam recebimentos a rendas sem duplicação.
+19. Reserva financeira é meta vinculada a conta; movimentos da meta são a fonte de verdade.
+20. Confiança das rendas usa 100%, 80%, 50% e 20%, com projeções nominal e conservadora.
+21. Risco financeiro usa regras determinísticas críticas, de risco, atenção e saudável, com prevalência do nível mais grave.
+22. Recorrência em dia inexistente usa o último dia do mês em America/Sao_Paulo.
+23. Compra no fechamento ou depois entra na próxima fatura; melhor dia inicial é o dia seguinte.
+24. Taxas nunca são inventadas, usam pontos-base e podem ser desconhecidas.
+25. Pagamentos parciais são imutáveis e corrigidos por cancelamento ou compensação auditável.
+26. Gasto acima da média usa três meses completos, 20% e diferença mínima de R$ 50,00.
+27. Assinaturas apenas geram pergunta de uso; sugestão depende da resposta.
+28. Operações críticas offline só confirmam após servidor; conflitos nunca usam last-write-wins silencioso.
+29. Aplicação de simulação exige prévia, confirmação, atomicidade e auditoria.
+30. Cloud Storage futuro está aprovado com PDF/JPEG/PNG, 10 MB e cinco anexos, mas ativação/faturamento não.
+31. CSV, Excel e PDF serão gerados localmente na primeira versão dentro dos limites do dispositivo.
+32. Gemini usa Function, Auth, App Check, resposta estruturada, 10 análises/dia e cerca de 2.000 tokens de saída.
+33. Plano anticrise é híbrido: regras decidem e Gemini apenas explica.
+34. Analytics começa desativado; IA tem consentimento separado; Crashlytics não registra dados sensíveis.
+35. Retenção inicial: IA/notificações 90 dias, auditoria 180 dias, órfãos 30 dias.
+36. Backups de produção são planejados para 30 dias, sem ativação paga autorizada.
+37. Notificação bloqueada usa texto genérico por padrão.
+38. Blaze pode ser considerado, mas faturamento não está autorizado.
+39. O identificador definitivo do aplicativo Android é `br.com.hellenfaro.meugestorfinanceiro`.
+40. O nome interno do projeto Flutter é `meu_gestor_financeiro` e o nome exibido é Meu Gestor Financeiro.
+41. O saldo canônico deriva de saldo inicial, entradas e saídas confirmadas e transferências confirmadas; nenhum saldo materializado é canônico.
+42. Antes de `emailVerified=true`, somente confirmação, reenvio, atualização, logout, exclusão e documentos jurídicos são permitidos; Google segue o estado do Firebase Authentication.
+43. Reajustes são fixos ou percentuais, possuem vigência e entidade relacionada, afetam ocorrências futuras e exigem confirmação/auditoria quando retroativos.
+44. Formas iniciais de recebimento e pagamento seguem as enumerações da seção 30 da especificação.
+45. Decisões de Gemini, Firebase, serviços pagos, jurídico, dívida, cartão e Analytics são portões das respectivas etapas e não bloqueiam a fundação local.
+46. O projeto deve ser operado a partir da raiz do repositório; caminhos absolutos locais não fazem parte da documentação pública.
+47. Firebase, Google Cloud e Gemini serão operados manualmente pelo solicitante; o agente não executa autenticação, seleção/criação de projetos, configuração de serviços, credenciais, faturamento ou deploy e nunca solicita segredos no chat.
+
+## 3. Estado do ambiente
+
+| Item | Estado |
+|---|---|
+| Flutter | 3.41.1 stable validado |
+| Dart | 3.11.0 stable encontrado no SDK Flutter |
+| Git | 2.49.0.windows.1 instalado |
+| Android Studio | 2025.3 instalado |
+| Java | JBR/OpenJDK 21.0.9 fornecido pelo Android Studio |
+| Firebase CLI | launcher standalone oficial baixado; versão não validada por falha `firepit`; fora do PATH |
+| FlutterFire CLI | 1.4.0 ativado e validado; diretório Pub adicionado ao PATH do usuário |
+| Node.js | 24.18.0 instalado |
+| npm | comando com falha e não autorizado para reparo |
+| Repositório do aplicativo | Git presente, branch `main` baseada no histórico remoto e sem alteração global de safe.directory |
+
+O diagnóstico detalhado da máquina permanece local em `docs/internal/` e não integra a documentação pública.
+
+## 4. Arquitetura recomendada
+
+### 4.1 Visão geral
+
+~~~text
+Aplicativo Flutter Android
+  |
+  +-- apresentação: telas, widgets, rotas, acessibilidade
+  +-- aplicação: casos de uso, orquestração, permissões
+  +-- domínio: dinheiro, datas, regras, projeções, decisões
+  +-- dados: repositórios, DTOs, cache e sincronização
+  |
+Firebase SDKs
+  +-- Authentication
+  +-- Firestore com persistência offline
+  +-- Cloud Storage futuro somente para anexos
+  +-- Cloud Functions callable e agendadas
+  +-- Cloud Messaging
+  +-- App Check
+  +-- Crashlytics
+  +-- Analytics
+        |
+Cloud Functions seguras
+  +-- regras privilegiadas e idempotência
+  +-- notificações e recorrências
+  +-- projeções e resumos
+  +-- exportações
+  +-- exclusão LGPD
+  +-- Gemini por segredo ou identidade de serviço
+~~~
+
+### 4.2 Camadas
+
+- Apresentação: páginas, widgets, controladores Riverpod, navegação go_router, máscaras e semântica acessível.
+- Aplicação: casos de uso, políticas de autorização, coordenação de repositórios e estados.
+- Domínio: entidades, objetos de valor, cálculos e regras sem dependência de Flutter ou Firebase.
+- Dados: DTOs, conversores, repositórios Firestore, armazenamento seguro, anexos e sincronização.
+- Backend: Functions com validação, App Check, rate limit, idempotência, auditoria e integrações externas.
+
+### 4.3 Princípios
+
+- Organização por funcionalidade.
+- Dependências apontam para o domínio.
+- Firestore é acessado por repositórios tipados.
+- Cálculos financeiros são determinísticos e centralizados.
+- Gemini explica e orienta, mas não substitui cálculos nem grava dados financeiros.
+- Estado local seguro guarda somente dados apropriados, nunca chaves Gemini.
+- Firestore offline oferece cache e fila para consultas e novos cadastros.
+- Transferências, pagamentos, recebimentos, cancelamentos e aplicação de simulações podem ser preparados offline, mas só são confirmados após sincronização, revisão de versão e validação do servidor.
+- Conflitos exibem as versões ao usuário; last-write-wins silencioso é proibido.
+- Resumos são reconstruíveis; lançamentos canônicos preservam a fonte de verdade.
+- Validação ocorre no formulário, domínio, Security Rules e Functions.
+- Acessibilidade não depende apenas de cor.
+
+## 5. Tecnologias e bibliotecas planejadas
+
+As versões serão resolvidas e fixadas somente após autorização.
+
+### Aplicativo Flutter
+
+| Pacote ou SDK | Finalidade |
+|---|---|
+| flutter_riverpod | estado e injeção de dependências |
+| go_router | navegação e guardas de autenticação |
+| firebase_core | inicialização Firebase |
+| firebase_auth | e-mail/senha, Google e sessão |
+| cloud_firestore | dados e sincronização offline |
+| cloud_functions | chamadas seguras ao backend |
+| firebase_messaging | notificações FCM |
+| firebase_app_check | redução de abuso |
+| firebase_crashlytics | falhas em produção |
+| firebase_analytics | métricas sujeitas a privacidade e consentimento |
+| firebase_storage | comprovantes e anexos após autorização de Storage/faturamento |
+| flutter_secure_storage | armazenamento local seguro |
+| flutter_local_notifications | alertas locais |
+| timezone | agendamento em America/Sao_Paulo |
+| intl | BRL, pt-BR e datas |
+| freezed_annotation e json_annotation | modelos imutáveis e serialização |
+| file_picker ou image_picker | seleção de comprovantes conforme fluxo aprovado |
+| path_provider e share_plus | geração e compartilhamento local de exportações |
+
+### Desenvolvimento e testes
+
+- flutter_lints, riverpod_lint e custom_lint.
+- build_runner, freezed e json_serializable.
+- flutter_test, integration_test e mocktail.
+- Firebase Emulator Suite para Authentication, Firestore, Functions e Storage.
+- Ferramentas de teste de Security Rules.
+
+### Backend
+
+- Runtime Node.js suportado pelo Firebase na data de implementação.
+- firebase-functions e firebase-admin.
+- SDK oficial Gemini ou Vertex AI escolhido após decisão de provedor.
+- Bibliotecas de PDF, CSV e planilha serão escolhidas para geração local; Function de exportação grande fica para decisão futura.
+
+## 6. Estrutura de pastas
+
+~~~text
+meu_gestor_financeiro/
++-- android/
++-- lib/
+|   +-- app/
+|   |   +-- bootstrap/
+|   |   +-- routing/
+|   |   +-- theme/
+|   |   +-- l10n/
+|   |   +-- app.dart
+|   +-- core/
+|   |   +-- analytics/
+|   |   +-- crash_reporting/
+|   |   +-- errors/
+|   |   +-- money/
+|   |   +-- security/
+|   |   +-- storage/
+|   |   +-- sync/
+|   |   +-- time/
+|   |   +-- validation/
+|   |   +-- widgets/
+|   +-- features/
+|   |   +-- onboarding/
+|   |   +-- authentication/
+|   |   +-- consent/
+|   |   +-- dashboard/
+|   |   +-- calendar/
+|   |   +-- accounts/
+|   |   +-- categories/
+|   |   +-- incomes/
+|   |   +-- expenses/
+|   |   +-- recurring_entries/
+|   |   +-- timeline/
+|   |   +-- forecasts/
+|   |   +-- credit_cards/
+|   |   +-- invoices/
+|   |   +-- installments/
+|   |   +-- debts/
+|   |   +-- budgets/
+|   |   +-- goals/
+|   |   +-- purchase_assessment/
+|   |   +-- simulations/
+|   |   +-- debt_strategies/
+|   |   +-- crisis_plan/
+|   |   +-- ai_assistant/
+|   |   +-- recommendations/
+|   |   +-- reports/
+|   |   +-- exports/
+|   |   +-- notifications/
+|   |   +-- attachments/
+|   |   +-- profile/
+|   |   +-- privacy/
+|   |   +-- settings/
+|   +-- main.dart
++-- functions/
+|   +-- src/
+|   |   +-- ai/
+|   |   +-- alerts/
+|   |   +-- audit/
+|   |   +-- projections/
+|   |   +-- recurrence/
+|   |   +-- summaries/
+|   |   +-- users/
+|   +-- test/
++-- firebase/
+|   +-- firestore.rules
+|   +-- firestore.indexes.json
+|   +-- storage.rules
++-- test/
++-- integration_test/
++-- docs/
+|   +-- adr/
++-- AGENTS.md
++-- DIAGNOSTICO_AMBIENTE.md
++-- ESPECIFICACAO_FUNCIONAL.md
++-- MATRIZ_REQUISITOS.md
++-- MODELO_FIRESTORE.md
++-- PLANO_DESENVOLVIMENTO.md
+~~~
+
+Web, Windows e iOS não serão gerados na primeira versão, mas domínio, aplicação e contratos não dependerão do Android.
+
+## 7. Entidades e modelo de dados
+
+Entidades centrais:
+
+- perfil, consentimento e dispositivo;
+- conta, categoria, renda, conta a receber, despesa, pagamento e transferência;
+- recorrência e ocorrência idempotente;
+- cartão, fatura, parcela e dívida;
+- orçamento, meta e movimento de meta;
+- projeções nominal/conservadora, resumo mensal, simulação e avaliação de compra;
+- estratégia de dívida e plano anticrise;
+- notificação local/remota;
+- análise financeira por IA;
+- anexo, exportação e auditoria.
+
+O modelo completo com caminhos, modelos Dart, campos, tipos, obrigatoriedade, índices, validações, conversores e matriz de acesso está em MODELO_FIRESTORE.md. Ele segue as coleções sugeridas na especificação e adiciona somente estruturas necessárias a recorrência, transferências, dispositivos, anexos, exportações, resumos e auditoria.
+
+## 8. Telas e navegação
+
+As 30 telas mínimas da especificação serão mantidas:
+
+1. abertura;
+2. apresentação inicial;
+3. login;
+4. cadastro;
+5. recuperação de senha;
+6. dashboard;
+7. calendário financeiro;
+8. linha do tempo do saldo;
+9. lista de receitas;
+10. cadastro de receita;
+11. lista de despesas;
+12. cadastro de despesa;
+13. contas vencidas;
+14. contas e carteiras;
+15. cartões;
+16. faturas;
+17. dívidas;
+18. parcelamentos;
+19. orçamentos;
+20. metas;
+21. simulador;
+22. Posso comprar?;
+23. assistente financeiro com IA;
+24. recomendações;
+25. plano anticrise;
+26. relatórios;
+27. notificações;
+28. configurações;
+29. perfil;
+30. privacidade e consentimentos.
+
+Fluxo principal:
+
+~~~text
+Abertura
+  -> apresentação e termos
+  -> cadastro ou login
+  -> confirmação de e-mail quando aplicável
+  -> configuração inicial de conta, renda e despesas
+  -> dashboard
+       -> calendário e linha do tempo
+       -> receitas, despesas, contas e cartões
+       -> dívidas, orçamento e metas
+       -> projeções, Posso comprar? e simulador
+       -> IA, recomendações e plano anticrise
+       -> relatórios e exportações
+       -> notificações, perfil, privacidade e configurações
+~~~
+
+Rotas sensíveis exigem sessão válida. IA exige consentimento específico. Exclusão de conta exige reautenticação e confirmação.
+
+## 9. Regras de negócio e cálculos
+
+### 9.1 Fórmulas oficiais
+
+- saldo atual = soma dos saldos das contas;
+- saldo projetado = saldo atual + receitas previstas - despesas previstas;
+- dinheiro livre = receitas recebidas e previstas confiáveis - despesas essenciais - contas pendentes - compromissos reservados;
+- percentual comprometido = despesas obrigatórias dividido pela renda mensal confiável, multiplicado por 100.
+
+### 9.2 Invariantes
+
+- Valores persistidos em centavos inteiros.
+- Limite de cartão não é dinheiro disponível.
+- Transferência não é receita nem despesa.
+- Renda prevista não é garantida e possui nível de confiança.
+- Pesos de confiança: confirmada 100%, alta 80%, média 50% e baixa 20%; cancelada ou atrasada sem nova previsão vale 0%.
+- Saldo bancário, saldo projetado, dinheiro reservado e dinheiro livre são conceitos distintos.
+- Pagamento de fatura não duplica despesa.
+- Pagamento parcial preserva histórico e saldo restante.
+- Recorrências e parcelas usam chave idempotente.
+- Juros desconhecidos não são inventados.
+- Simulação não altera dados reais sem confirmação.
+- Projeção sem dados suficientes mostra baixa confiança.
+- Cálculos não dependem do Gemini.
+- Reserva é meta vinculada a conta; movimentos da meta são canônicos e o resumo da conta é derivado.
+
+### 9.3 Projeções e risco
+
+Horizontes: 30 dias, 3 meses, 6 meses e 12 meses.
+
+Entradas: saldo, rendas, confiança, despesas, atrasos, parcelas, faturas, dívidas, reajustes, metas e reservas.
+
+Saídas: projeção nominal, projeção conservadora, menor saldo, primeiro dia negativo, dias de risco, meses com déficit/sobra, comprometimento, capacidade de pagamento e valor seguro para gastos não essenciais.
+
+Níveis de risco: saudável, atenção, risco e crítico, com as condições determinísticas da seção 29.5 da especificação. Prevalece o nível mais grave e cada classificação lista os fatos causadores.
+
+## 10. Cloud Functions planejadas
+
+1. gerar rendas recorrentes;
+2. gerar contas recorrentes;
+3. gerar parcelas e faturas sem duplicação;
+4. atualizar atrasos;
+5. calcular projeções protegidas;
+6. gerar resumos mensais;
+7. verificar alertas;
+8. enviar FCM;
+9. processar Gemini;
+10. aplicar rate limit e prevenção de abuso;
+11. registrar auditoria sem dados sensíveis;
+12. reservar extensão futura para exportações grandes, somente após nova aprovação;
+13. excluir conta e dados;
+14. manter campos derivados de cartões, faturas, dívidas, orçamento e metas.
+
+Toda função terá autenticação, App Check quando aplicável, validação de esquema, idempotência, timeout, limite, código de erro seguro e testes.
+
+## 11. Segurança, privacidade, offline e observabilidade
+
+- Firestore e Storage negam acesso por padrão.
+- Cada usuário acessa somente o próprio caminho.
+- Admin SDK não confia no cliente e revalida proprietário.
+- Segredos Gemini ficam no Secret Manager ou identidade de serviço.
+- Anexos têm tipo, tamanho, caminho, hash, retenção e acesso controlados.
+- Logs, Crashlytics e Analytics não recebem valores, descrições, anexos, tokens ou prompts.
+- Analytics e IA respeitam consentimento e opção de desativação.
+- Armazenamento seguro local não é fonte canônica de dados financeiros.
+- Cache offline informa estado de sincronização e possíveis pendências.
+- Operações críticas concorrentes usam transação, lote ou Function.
+- Exclusão de conta cobre Auth, Firestore, Storage, tokens, análises e exportações.
+- Exportações têm prazo, acesso temporário e aviso de sensibilidade.
+
+## 12. Etapas de desenvolvimento
+
+A ordem oficial de seis etapas será preservada. Cada etapa só começa após autorização.
+
+### Etapa 1 — Planejamento
+
+- especificação, matriz e decisões;
+- arquitetura, pastas, entidades e navegação;
+- modelo Firestore e Storage;
+- regras de cálculo;
+- dependências, custos, segurança e testes;
+- critérios de aceite por requisito.
+- ADRs das decisões aprovadas.
+
+Situação: documentação atualizada; conflitos remanescentes estão na seção 15.
+
+### Etapa 2 — Projeto base
+
+- uso do identificador Android aprovado `br.com.hellenfaro.meugestorfinanceiro` quando a criação do projeto for autorizada;
+- nome Dart `meu_gestor_financeiro` e nome exibido Meu Gestor Financeiro;
+- confirmação do Flutter local;
+- projeto Android e configuração development;
+- temas claro/escuro, pt-BR, rotas, Riverpod e erros;
+- objetos de valor iniciais de dinheiro e moeda, análise estática rigorosa e testes unitários;
+- estrutura preparada para ambientes development e production, sem conexão externa.
+
+Situação: fundação local criada e validada com `flutter analyze` e `flutter test`. A validação visual Android foi adiada por decisão do solicitante e permanece pendente, sem representar falha. Firebase, autenticação no aplicativo, App Check, emuladores, armazenamento seguro, Crashlytics, Analytics e dados de demonstração não fizeram parte deste incremento.
+
+### Etapa 3 — Controle financeiro principal
+
+- contas, carteiras e categorias;
+- rendas, contas a receber, despesas, pagamentos e recorrências;
+- comprovantes;
+- dashboard, calendário e linha do tempo;
+- reserva por meta vinculada, projeções nominal/conservadora e risco explicável;
+- offline, versões, conflitos explícitos, sincronização e testes centrais.
+
+### Etapa 4 — Recursos avançados
+
+- cartões, faturas, parcelas e dívidas;
+- regras aprovadas de fechamento, último dia do mês, taxas em pontos-base e pagamentos imutáveis;
+- orçamento e metas;
+- Posso comprar? e simulador;
+- gasto acima da média e revisão de assinaturas;
+- avalanche, bola de neve e método personalizado;
+- alertas locais, FCM e Functions agendadas.
+
+### Etapa 5 — Inteligência artificial
+
+- consentimento e opção sem IA;
+- Function segura para Gemini;
+- modelo configurável, 10 análises/dia, timeout, custo e saída estruturada de aproximadamente 2.000 tokens;
+- análises estruturadas e histórico;
+- recomendações explicáveis;
+- plano anticrise semanal e mensal;
+- limites de uso, custo, privacidade e testes de abuso.
+
+### Etapa 6 — Relatórios e segurança
+
+- relatórios e filtros;
+- PDF, CSV e planilha compatível com Excel gerados localmente;
+- regras finais Firestore e Storage;
+- App Check aplicado;
+- exclusão, retenção, exportação LGPD e auditoria;
+- documentação e teste de restauração de backup, sem ativação paga automática;
+- testes completos, documentação, desempenho e preparação Android.
+
+## 13. Estratégia de testes
+
+- Unitários: dinheiro, saldos, confiança, recorrência, parcelas, faturas, juros, projeções, risco, orçamento, metas, estratégias e plano anticrise.
+- Widget: formulários, máscaras, estados, acessibilidade, confirmação e telas vazias.
+- Integração: autenticação, confirmação de e-mail, jornadas financeiras, offline/sincronização, anexos, notificações e exportações.
+- Security Rules: acesso próprio, acesso cruzado negado, campos protegidos, tipos e transições.
+- Functions: autenticação, App Check, idempotência, rate limit, recorrência, alertas, Gemini, exclusão e exportações.
+- Datas: fuso São Paulo, meses de 28 a 31 dias, virada de ano e meses curtos.
+- Monetários: arredondamento e ausência de double persistido.
+- Regressão: lançamentos e notificações duplicadas.
+- Operacionais: Crashlytics sem PII, Analytics conforme consentimento e custos monitorados.
+
+## 14. Custos e riscos
+
+- Cloud Functions, Cloud Storage, Gemini, exportações e tarefas agendadas podem exigir Blaze.
+- Firestore cobra operações, índices, armazenamento e tráfego acima das cotas.
+- Anexos e exportações elevam armazenamento e saída.
+- Projeções e dashboard podem causar leituras excessivas sem resumos e paginação.
+- FCM não tem custo direto relevante, mas Functions e Firestore usados para disparo podem cobrar.
+- Crashlytics e Analytics exigem governança de privacidade.
+- Gemini exige limites por usuário, tokens máximos e alertas de faturamento.
+- Alertas de orçamento não interrompem cobrança.
+- Dados financeiros e anexos elevam impacto LGPD e de incidente.
+- Sincronização offline pode gerar conflito; transições financeiras precisam de política explícita.
+
+## 15. Requisitos indefinidos ou conflitantes
+
+1. O modelo Gemini definitivo será decidido na Etapa 5.
+2. As regiões e os identificadores dos projetos Firebase development e production serão decididos antes da configuração Firebase.
+3. Cloud Storage, plano Blaze e qualquer faturamento continuam dependendo de estimativa e autorização separada.
+4. Backups pagos, responsável por autorizar restauração e procedimento operacional final ainda precisam de aprovação.
+5. Textos jurídicos, versões de termos, política de privacidade e revisão jurídica final devem ser concluídos antes da publicação.
+6. O método personalizado de dívidas precisa de pesos entre juros, risco de corte, atraso e essencialidade antes desse módulo.
+7. A regra de juros estimados/rotativo de cartão precisa de fórmula operacional antes do módulo de cartões.
+8. O limiar que caracteriza juros elevados precisa ser definido antes do plano de dívidas.
+9. O catálogo permitido de eventos Analytics e a base legal final precisam ser aprovados antes da ativação do Analytics.
+10. As prioridades de contas a receber ainda precisam ser aprovadas antes desse módulo.
+
+## 16. Portão para implementação
+
+A fundação local autorizada da Etapa 2 foi concluída. Toda ação externa de Firebase, Google Cloud e Gemini é manual pelo solicitante. O agente pode orientar e verificar arquivos gerados, mas não autenticar, selecionar/criar projetos, configurar serviços, criar credenciais, ativar faturamento ou executar deploy. Operações Git exigem autorização específica.
+
+## 17. Etapa 3A — Ferramentas e descoberta do Firebase
+
+- Situação em 29/07/2026: encerrada no limite autorizado; nenhuma correção ou reinstalação da Firebase CLI será tentada pelo agente.
+- Firebase CLI: launcher oficial baixado em `%LOCALAPPDATA%\FirebaseCLI\firebase.exe`, porém `firebase --version` falha na preparação `firepit`; versão não validada e pasta não adicionada ao PATH.
+- FlutterFire CLI: versão `1.4.0` ativada e validada; `%LOCALAPPDATA%\Pub\Cache\bin` foi acrescentado ao PATH do usuário.
+- Autenticação Google: não executada porque a Firebase CLI não está funcional.
+- Projetos Firebase: não listados, selecionados, criados ou modificados.
+- Validação Android: pendente por decisão, não falha; nenhum APK ou AVD foi criado.
+- Código e configuração do aplicativo: inalterados.
+- Próximo portão: o solicitante executará manualmente qualquer ação externa e confirmará o resultado; o agente poderá então verificar os arquivos gerados sem receber segredos.
+
+## 18. Etapa 3B — Integração Firebase Android, autenticação e sistema visual
+
+Situação em 30/07/2026: implementação local concluída e sujeita à validação final por análise, testes e APK debug ao término do incremento.
+
+- O solicitante configurou manualmente o projeto Firebase development, registrou o aplicativo Android, habilitou email/senha e Google, criou Firestore em modo produção e forneceu `android/app/google-services.json`.
+- A inspeção local confirmou uma única entrada Android com package exato `br.com.hellenfaro.meugestorfinanceiro` e configuração correspondente ao ambiente development; o conteúdo do arquivo não foi exibido e permanece ignorado pelo Git.
+- O plugin Gradle `com.google.gms.google-services` 4.5.0 foi aplicado com Kotlin DSL.
+- Dependências limitadas a `firebase_core` 4.12.1, `firebase_auth` 6.5.6, `cloud_firestore` 6.7.1 e `google_sign_in` 7.2.0, todas BSD-3-Clause.
+- Firebase é inicializado sem `firebase_options.dart`, usando a configuração Android oficial somente em `APP_ENV=development`.
+- `APP_ENV=production` não inicializa Firebase, não usa fallback development e exibe indisponibilidade segura.
+- Build release com `APP_ENV=production` também é bloqueado enquanto `LEGAL_DOCUMENTS_STATUS=official` não for informado.
+- A autenticação segue camadas `domain`, `data` e `presentation`; widgets não chamam Firebase diretamente.
+- Foram implementados login email/senha, criação de conta com displayName e verificação, Google, recuperação genérica, verificação com cooldown, atualização, logout e guardas de rota.
+- Usuário não verificado acessa somente confirmação, reenvio, atualização, logout e documentos legais. Exclusão não foi exposta porque reautenticação e exclusão integral segura pertencem a incremento posterior.
+- A página autenticada é técnica e não contém dashboard ou dados financeiros fictícios.
+- `cloud_firestore` foi adicionado, mas não há leitura, gravação, listener, perfil, coleção, documento, consentimento, regra ou índice criado.
+- O sistema visual e o hero fotográfico isolado estão documentados em `docs/design/SISTEMA_VISUAL.md`.
+- Os documentos legais existentes são provisórios, exclusivos de development e não podem ser apresentados como versão final.
+- Web, Windows e iOS exigirão configuração Firebase oficial específica quando forem adicionados.
+- A validação manual Android aprovou e-mail/senha, cadastro, recuperação, confirmação, navegação e interface. O login Google recebeu correção local após atualização da configuração Firebase e aguarda novo teste manual.

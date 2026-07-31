@@ -1,0 +1,83 @@
+# Flutter e Dart
+.dart_tool/
+.packages
+.pub/
+.pub-cache/
+build/
+coverage/
+.flutter-plugins
+.flutter-plugins-dependencies
+*.lock.tmp
+**/doc/api/
+**/ios/Flutter/.last_build_id
+
+# IDE e sistema
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.DS_Store
+Thumbs.db
+desktop.ini
+.atom/
+.history
+.svn/
+.swiftpm/
+
+# Android local e assinatura
+android/local.properties
+android/key.properties
+**/key.properties
+**/*.jks
+**/*.keystore
+**/*.p12
+**/*.pem
+**/google-services.json
+/android/app/debug/
+/android/app/profile/
+/android/app/release/
+
+# Firebase e Google
+**/GoogleService-Info.plist
+**/firebase_options.dart
+.firebaserc
+service-account*.json
+*serviceAccount*.json
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# Variáveis, segredos e credenciais
+.env
+.env.*
+!.env.example
+secrets/
+credentials/
+*.secret
+*.secrets
+*.credentials
+
+# Binários e resultados
+*.apk
+*.aab
+*.ipa
+*.app
+*.log
+*.tmp
+*.bak
+app.*.symbols
+app.*.map.json
+
+# Arquivos locais e internos
+docs/design/referencias/
+docs/internal/
+.local/
+.build/
+.buildlog/
+migrate_working_dir/
+
+# Arquivos temporários gerais
+*.class
+*.pyc
+*.swp

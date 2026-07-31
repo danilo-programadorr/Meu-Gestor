@@ -1,0 +1,50 @@
+name: Relatar um problema
+description: Informe um comportamento reproduzível sem incluir dados sensíveis.
+title: "bug: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado pelo relato. Não publique credenciais, dados pessoais, informações financeiras ou detalhes de vulnerabilidades. Para segurança, use SECURITY.md.
+  - type: textarea
+    id: description
+    attributes:
+      label: Descrição
+      description: O que aconteceu e qual comportamento era esperado?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Passos para reproduzir
+      description: Use dados neutros e remova qualquer informação pessoal.
+      placeholder: |
+        1. Abra a tela...
+        2. Toque em...
+        3. Observe...
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Ambiente
+      description: Informe versão do app, Android e modelo do dispositivo sem identificadores únicos.
+      placeholder: "APK debug, Android 15"
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidência sanitizada
+      description: Cole somente mensagens sem tokens, e-mails, caminhos pessoais ou dados financeiros.
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmações
+      options:
+        - label: Removi credenciais, dados pessoais e informações financeiras do relato.
+          required: true
+        - label: Verifiquei que o problema ainda não possui issue equivalente.
+          required: true

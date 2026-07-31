@@ -1,0 +1,49 @@
+name: Sugerir uma melhoria
+description: Proponha uma necessidade compatível com a especificação e o roadmap.
+title: "feat: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problema a resolver
+      description: Explique a necessidade do usuário sem incluir dados reais.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Solução proposta
+      description: Descreva comportamento, benefício e resultado esperado.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Área
+      options:
+        - Autenticação e privacidade
+        - Contas e movimentações
+        - Planejamento e projeções
+        - Acessibilidade e interface
+        - Relatórios
+        - Segurança
+        - Documentação
+        - Outra
+    validations:
+      required: true
+  - type: textarea
+    id: risks
+    attributes:
+      label: Riscos e alternativas
+      description: Considere privacidade, segurança, custo e alternativas mais simples.
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmações
+      options:
+        - label: A sugestão não contém dados pessoais, financeiros ou credenciais.
+          required: true
+        - label: Entendo que itens do roadmap ainda dependem de planejamento e autorização.
+          required: true
