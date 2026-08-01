@@ -23,3 +23,17 @@ Os mantenedores farão triagem e responderão conforme disponibilidade e gravida
 ## Escopo de dados
 
 Nunca envie senhas, tokens, chaves privadas, contas de serviço, arquivos `google-services.json`, dados financeiros reais ou informações pessoais em um relatório. Se uma credencial tiver sido exposta, revogue-a e faça a rotação no provedor correspondente.
+
+## Dados financeiros implementados
+
+Perfil, contas, categorias e lançamentos usam caminhos subordinados ao UID. Acesso financeiro exige email verificado e perfil jurídico atual. Categorias e lançamentos usam campos fechados, timestamps do servidor e exclusão negada. Logs locais de diagnóstico registram somente operação, etapa, duração, categoria técnica, tipo/código sanitizado e estado final; nunca registram valores, descrições, notas, IDs de documentos, email ou tokens.
+
+As regras de perfil, contas, categorias, lançamentos e owner foram publicadas manualmente no projeto development. A validação real no Emulator Suite permanece futura; não flexibilize regras para contornar erros de configuração ou publicação.
+
+## Acesso proprietário
+
+O papel `owner` é concedido somente por um documento administrativo criado manualmente em `system_admins/{uid}`. O aplicativo usa o UID da sessão, lê somente o próprio documento diretamente do servidor e não possui API para criar, editar, excluir ou listar administradores.
+
+E-mail, senha, UID hardcoded, parâmetro de rota, preferência ou armazenamento local nunca autorizam owner. O documento é válido somente em development e a decisão falha fechada diante de cache, timeout, erro ou incompatibilidade.
+
+Capabilities owner liberam funcionalidades do produto e futuros recursos comerciais, mas não ignoram Security Rules, isolamento por UID, autenticação, validações financeiras, concorrência, integridade ou limites técnicos contra abuso. Diagnósticos omitem identidade, conteúdo administrativo, tokens, project ID e dados financeiros.

@@ -102,7 +102,24 @@ O tema claro usa superfícies auxiliares centralizadas, com texto escuro e açã
 
 ## 11. Limitações conhecidas
 
-- A validação manual em dispositivo Android aprovou a interface, navegação e fluxos de autenticação por e-mail; o login Google corrigido aguarda novo teste do APK atualizado.
+- A validação manual em dispositivo Android aprovou a interface, navegação, fluxos de autenticação por e-mail e login Google.
+- As telas de configuração de perfil, perfil e consentimentos reutilizam SafeArea, rolagem, escala tipográfica, semântica e estados de carregamento do sistema visual aprovado.
 - Golden tests não foram introduzidos porque nenhuma dependência ou baseline visual adicional foi autorizada.
 - Web, Windows e iOS exigirão configuração Firebase oficial específica e revisão responsiva quando forem adicionados.
 - Os textos jurídicos no aplicativo são provisórios e exclusivos de development; produção permanece bloqueada.
+
+## 12. Aplicação em categorias e lançamentos
+
+- Ícone e cor de categoria vêm de catálogos fechados e sempre aparecem acompanhados de texto.
+- Receita e despesa usam sinal, rótulo e ícone; verde/vermelho não são o único meio de distinção.
+- Formulários monetários aceitam padrão BRL, mas persistem somente centavos inteiros positivos.
+- Estados vazio, carregando, erro, confirmado e cancelado possuem mensagens explícitas.
+- Filtros e resumos permitem quebra de texto; ações da home usam largura total em telas estreitas.
+
+## 13. Aplicação no acesso proprietário
+
+- O selo “Acesso proprietário” usa `ActionChip`, ícone administrativo, contraste do tema e alvo de toque nativo.
+- A semântica anuncia a finalidade completa do selo sem expor identidade técnica.
+- A Área do proprietário usa cartões, textos e ícones; nenhum estado depende apenas de cor.
+- Conteúdo administrativo permanece oculto durante carregamento ou falha de autorização.
+- A página usa SafeArea, rolagem, largura máxima e textos flexíveis para tema claro/escuro, tela pequena e fonte ampliada.

@@ -1,0 +1,660 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isVerifiedOwner(userId) {
+      return request.auth != null
+        && request.auth.uid == userId
+        && request.auth.token.email_verified == true;
+    }
+
+    function isActiveOwner() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && exists(
+          /databases/$(database)/documents/system_admins/$(request.auth.uid)
+        )
+        && get(
+          /databases/$(database)/documents/system_admins/$(request.auth.uid)
+        ).data.role == 'owner'
+        && get(
+          /databases/$(database)/documents/system_admins/$(request.auth.uid)
+        ).data.active == true
+        && get(
+          /databases/$(database)/documents/system_admins/$(request.auth.uid)
+        ).data.environment == 'development'
+        && get(
+          /databases/$(database)/documents/system_admins/$(request.auth.uid)
+        ).data.schemaVersion == 1
+        && get(
+          /databases/$(database)/documents/system_admins/$(request.auth.uid)
+        ).data.grantedAt is timestamp;
+    }
+
+    function profileFields() {
+      return [
+        'ownerId',
+        'displayName',
+        'locale',
+        'currencyCode',
+        'timeZone',
+        'emailVerifiedSnapshot',
+        'termsVersionAccepted',
+        'termsAcceptedAt',
+        'privacyVersionAccepted',
+        'privacyAcceptedAt',
+        'aiConsentEnabled',
+        'aiConsentUpdatedAt',
+        'analyticsConsentEnabled',
+        'analyticsConsentUpdatedAt',
+        'createdAt',
+        'updatedAt',
+        'schemaVersion'
+      ];
+    }
+
+    function hasExactProfileFields(data) {
+      return data.keys().hasAll(profileFields())
+        && data.keys().hasOnly(profileFields());
+    }
+
+    function isValidDisplayName(displayName) {
+      return displayName is string
+        && displayName.size() >= 2
+        && displayName.size() <= 80
+        && displayName.matches('^[^\\x00-\\x20\\x7F].*[^\\x00-\\x20\\x7F]$')
+        && !displayName.matches('.*[\\x00-\\x1F\\x7F].*')
+        && !displayName.matches('.*  .*');
+    }
+
+    function hasValidProfileTypes(data) {
+      return data.ownerId is string
+        && data.displayName is string
+        && data.locale is string
+        && data.currencyCode is string
+        && data.timeZone is string
+        && data.emailVerifiedSnapshot is bool
+        && data.termsVersionAccepted is string
+        && data.termsAcceptedAt is timestamp
+        && data.privacyVersionAccepted is string
+        && data.privacyAcceptedAt is timestamp
+        && data.aiConsentEnabled is bool
+        && data.aiConsentUpdatedAt is timestamp
+        && data.analyticsConsentEnabled is bool
+        && data.analyticsConsentUpdatedAt is timestamp
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && data.schemaVersion is int;
+    }
+
+    function hasValidFixedValues(data, userId) {
+      return data.ownerId == userId
+        && data.locale == 'pt-BR'
+        && data.currencyCode == 'BRL'
+        && data.timeZone == 'America/Sao_Paulo'
+        && data.emailVerifiedSnapshot == true
+        && data.termsVersionAccepted == 'terms-dev-1.0.0'
+        && data.privacyVersionAccepted == 'privacy-dev-1.0.0'
+        && data.schemaVersion == 1
+        && isValidDisplayName(data.displayName);
+    }
+
+    function isValidProfile(data, userId) {
+      return hasExactProfileFields(data)
+        && hasValidProfileTypes(data)
+        && hasValidFixedValues(data, userId);
+    }
+
+    function isValidCreate(userId) {
+      let data = request.resource.data;
+      return isValidProfile(data, userId)
+        && data.termsAcceptedAt == request.time
+        && data.privacyAcceptedAt == request.time
+        && data.aiConsentUpdatedAt == request.time
+        && data.analyticsConsentUpdatedAt == request.time
+        && data.createdAt == request.time
+        && data.updatedAt == request.time;
+    }
+
+    function hasValidPairedTransition(valueField, timestampField) {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return (
+          changed.hasAny([valueField])
+          && changed.hasAny([timestampField])
+          && request.resource.data[timestampField] == request.time
+        ) || (
+          !changed.hasAny([valueField])
+          && !changed.hasAny([timestampField])
+          && request.resource.data[timestampField] == resource.data[timestampField]
+        );
+    }
+
+    function isValidUpdate(userId) {
+      let data = request.resource.data;
+      let changed = data.diff(resource.data).affectedKeys();
+      return isValidProfile(data, userId)
+        && changed.hasAll(['updatedAt'])
+        && changed.hasOnly([
+          'displayName',
+          'emailVerifiedSnapshot',
+          'termsVersionAccepted',
+          'termsAcceptedAt',
+          'privacyVersionAccepted',
+          'privacyAcceptedAt',
+          'aiConsentEnabled',
+          'aiConsentUpdatedAt',
+          'analyticsConsentEnabled',
+          'analyticsConsentUpdatedAt',
+          'updatedAt'
+        ])
+        && data.updatedAt == request.time
+        && data.ownerId == resource.data.ownerId
+        && data.createdAt == resource.data.createdAt
+        && data.locale == resource.data.locale
+        && data.currencyCode == resource.data.currencyCode
+        && data.timeZone == resource.data.timeZone
+        && data.schemaVersion == resource.data.schemaVersion
+        && hasValidPairedTransition(
+          'aiConsentEnabled',
+          'aiConsentUpdatedAt'
+        )
+        && hasValidPairedTransition(
+          'analyticsConsentEnabled',
+          'analyticsConsentUpdatedAt'
+        )
+        && hasValidPairedTransition(
+          'termsVersionAccepted',
+          'termsAcceptedAt'
+        )
+        && hasValidPairedTransition(
+          'privacyVersionAccepted',
+          'privacyAcceptedAt'
+        );
+    }
+
+    function accountFields() {
+      return [
+        'ownerId',
+        'name',
+        'type',
+        'openingBalanceCents',
+        'currencyCode',
+        'includeInTotal',
+        'isArchived',
+        'archivedAt',
+        'createdAt',
+        'updatedAt',
+        'schemaVersion'
+      ];
+    }
+
+    function hasExactAccountFields(data) {
+      return data.keys().hasAll(accountFields())
+        && data.keys().hasOnly(accountFields());
+    }
+
+    function isValidAccountName(name) {
+      return name is string
+        && name.size() >= 2
+        && name.size() <= 60
+        && name.matches('^[^\\x00-\\x20\\x7F].*[^\\x00-\\x20\\x7F]$')
+        && !name.matches('.*[\\x00-\\x1F\\x7F].*')
+        && !name.matches('.*  .*');
+    }
+
+    function isValidAccountType(type) {
+      return type is string
+        && type in [
+          'checking',
+          'savings',
+          'cash',
+          'digitalWallet',
+          'investment',
+          'other'
+        ];
+    }
+
+    function hasValidAccountTypes(data) {
+      return data.ownerId is string
+        && data.name is string
+        && data.type is string
+        && data.openingBalanceCents is int
+        && data.currencyCode is string
+        && data.includeInTotal is bool
+        && data.isArchived is bool
+        && (data.archivedAt == null || data.archivedAt is timestamp)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && data.schemaVersion is int;
+    }
+
+    function isValidAccount(data, userId) {
+      return hasExactAccountFields(data)
+        && hasValidAccountTypes(data)
+        && data.ownerId == userId
+        && isValidAccountName(data.name)
+        && isValidAccountType(data.type)
+        && data.openingBalanceCents >= -9999999999
+        && data.openingBalanceCents <= 9999999999
+        && data.currencyCode == 'BRL'
+        && data.schemaVersion == 1
+        && data.isArchived == (data.archivedAt != null);
+    }
+
+    function isValidAccountCreate(userId) {
+      let data = request.resource.data;
+      return isValidAccount(data, userId)
+        && data.isArchived == false
+        && data.archivedAt == null
+        && data.createdAt == request.time
+        && data.updatedAt == request.time;
+    }
+
+    function hasValidArchiveTransition() {
+      let data = request.resource.data;
+      return (
+          data.isArchived == resource.data.isArchived
+          && data.archivedAt == resource.data.archivedAt
+        ) || (
+          resource.data.isArchived == false
+          && data.isArchived == true
+          && data.archivedAt == request.time
+        ) || (
+          resource.data.isArchived == true
+          && data.isArchived == false
+          && data.archivedAt == null
+        );
+    }
+
+    function isValidAccountUpdate(userId) {
+      let data = request.resource.data;
+      let changed = data.diff(resource.data).affectedKeys();
+      return isValidAccount(data, userId)
+        && changed.hasAll(['updatedAt'])
+        && changed.hasOnly([
+          'name',
+          'type',
+          'openingBalanceCents',
+          'includeInTotal',
+          'isArchived',
+          'archivedAt',
+          'updatedAt'
+        ])
+        && data.updatedAt == request.time
+        && data.ownerId == resource.data.ownerId
+        && data.createdAt == resource.data.createdAt
+        && data.currencyCode == resource.data.currencyCode
+        && data.schemaVersion == resource.data.schemaVersion
+        && hasValidArchiveTransition();
+    }
+
+    function categoryFields() {
+      return [
+        'ownerId',
+        'name',
+        'kind',
+        'iconKey',
+        'colorKey',
+        'isArchived',
+        'archivedAt',
+        'createdAt',
+        'updatedAt',
+        'schemaVersion'
+      ];
+    }
+
+    function hasExactCategoryFields(data) {
+      return data.keys().hasAll(categoryFields())
+        && data.keys().hasOnly(categoryFields());
+    }
+
+    function isValidCategoryName(name) {
+      return name is string
+        && name.size() >= 2
+        && name.size() <= 40
+        && name.matches('^[^\\x00-\\x20\\x7F].*[^\\x00-\\x20\\x7F]$')
+        && !name.matches('.*[\\x00-\\x1F\\x7F].*')
+        && !name.matches('.*  .*');
+    }
+
+    function isValidCategoryKind(kind) {
+      return kind is string && kind in ['income', 'expense'];
+    }
+
+    function isValidCategoryIcon(iconKey) {
+      return iconKey is string
+        && iconKey in [
+          'salary',
+          'extraIncome',
+          'sale',
+          'refund',
+          'food',
+          'home',
+          'transport',
+          'health',
+          'education',
+          'leisure',
+          'subscription',
+          'shopping',
+          'bill',
+          'other'
+        ];
+    }
+
+    function isValidCategoryColor(colorKey) {
+      return colorKey is string
+        && colorKey in [
+          'cyan',
+          'blue',
+          'green',
+          'purple',
+          'orange',
+          'pink',
+          'red',
+          'yellow',
+          'teal',
+          'gray'
+        ];
+    }
+
+    function hasValidCategoryTypes(data) {
+      return data.ownerId is string
+        && data.name is string
+        && data.kind is string
+        && data.iconKey is string
+        && data.colorKey is string
+        && data.isArchived is bool
+        && (data.archivedAt == null || data.archivedAt is timestamp)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && data.schemaVersion is int;
+    }
+
+    function isValidCategory(data, userId) {
+      return hasExactCategoryFields(data)
+        && hasValidCategoryTypes(data)
+        && data.ownerId == userId
+        && isValidCategoryName(data.name)
+        && isValidCategoryKind(data.kind)
+        && isValidCategoryIcon(data.iconKey)
+        && isValidCategoryColor(data.colorKey)
+        && data.schemaVersion == 1
+        && data.isArchived == (data.archivedAt != null);
+    }
+
+    function isValidCategoryCreate(userId) {
+      let data = request.resource.data;
+      return isValidCategory(data, userId)
+        && data.isArchived == false
+        && data.archivedAt == null
+        && data.createdAt == request.time
+        && data.updatedAt == request.time;
+    }
+
+    function hasValidCategoryArchiveTransition() {
+      let data = request.resource.data;
+      return (
+          data.isArchived == resource.data.isArchived
+          && data.archivedAt == resource.data.archivedAt
+        ) || (
+          resource.data.isArchived == false
+          && data.isArchived == true
+          && data.archivedAt == request.time
+        ) || (
+          resource.data.isArchived == true
+          && data.isArchived == false
+          && data.archivedAt == null
+        );
+    }
+
+    function isValidCategoryUpdate(userId) {
+      let data = request.resource.data;
+      let changed = data.diff(resource.data).affectedKeys();
+      return isValidCategory(data, userId)
+        && changed.hasAll(['updatedAt'])
+        && changed.hasOnly([
+          'name',
+          'iconKey',
+          'colorKey',
+          'isArchived',
+          'archivedAt',
+          'updatedAt'
+        ])
+        && data.updatedAt == request.time
+        && data.ownerId == resource.data.ownerId
+        && data.kind == resource.data.kind
+        && data.createdAt == resource.data.createdAt
+        && data.schemaVersion == resource.data.schemaVersion
+        && hasValidCategoryArchiveTransition();
+    }
+
+    function transactionFields() {
+      return [
+        'ownerId',
+        'accountId',
+        'categoryId',
+        'kind',
+        'description',
+        'amountCents',
+        'occurredAt',
+        'notes',
+        'isVoided',
+        'voidedAt',
+        'createdAt',
+        'updatedAt',
+        'schemaVersion'
+      ];
+    }
+
+    function hasExactTransactionFields(data) {
+      return data.keys().hasAll(transactionFields())
+        && data.keys().hasOnly(transactionFields());
+    }
+
+    function isValidReferenceId(value) {
+      return value is string
+        && value.size() >= 1
+        && value.size() <= 150
+        && !value.matches('.*/.*');
+    }
+
+    function isValidTransactionDescription(description) {
+      return description is string
+        && description.size() >= 2
+        && description.size() <= 120
+        && description.matches('^[^\\x00-\\x20\\x7F].*[^\\x00-\\x20\\x7F]$')
+        && !description.matches('.*[\\x00-\\x1F\\x7F].*')
+        && !description.matches('.*  .*');
+    }
+
+    function isValidTransactionNotes(notes) {
+      return notes is string
+        && notes.size() <= 500
+        && !notes.matches('.*[\\x00-\\x1F\\x7F].*');
+    }
+
+    function hasValidTransactionTypes(data) {
+      return data.ownerId is string
+        && data.accountId is string
+        && data.categoryId is string
+        && data.kind is string
+        && data.description is string
+        && data.amountCents is int
+        && data.occurredAt is timestamp
+        && data.notes is string
+        && data.isVoided is bool
+        && (data.voidedAt == null || data.voidedAt is timestamp)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && data.schemaVersion is int;
+    }
+
+    function isValidTransaction(data, userId) {
+      return hasExactTransactionFields(data)
+        && hasValidTransactionTypes(data)
+        && data.ownerId == userId
+        && isValidReferenceId(data.accountId)
+        && isValidReferenceId(data.categoryId)
+        && isValidCategoryKind(data.kind)
+        && isValidTransactionDescription(data.description)
+        && data.amountCents > 0
+        && data.amountCents <= 9999999999
+        && data.occurredAt <= request.time
+        && isValidTransactionNotes(data.notes)
+        && data.schemaVersion == 1
+        && data.isVoided == (data.voidedAt != null);
+    }
+
+    function isActiveAccountReference(userId, accountId) {
+      let accountPath = /databases/$(database)/documents/users/$(userId)/accounts/$(accountId);
+      return exists(accountPath)
+        && get(accountPath).data.ownerId == userId
+        && get(accountPath).data.isArchived == false;
+    }
+
+    function isActiveCategoryReference(userId, categoryId, kind) {
+      let categoryPath = /databases/$(database)/documents/users/$(userId)/categories/$(categoryId);
+      return exists(categoryPath)
+        && get(categoryPath).data.ownerId == userId
+        && get(categoryPath).data.isArchived == false
+        && get(categoryPath).data.kind == kind;
+    }
+
+    function isValidTransactionCreate(userId) {
+      let data = request.resource.data;
+      return isValidTransaction(data, userId)
+        && data.isVoided == false
+        && data.voidedAt == null
+        && data.createdAt == request.time
+        && data.updatedAt == request.time
+        && isActiveAccountReference(userId, data.accountId)
+        && isActiveCategoryReference(userId, data.categoryId, data.kind);
+    }
+
+    function hasImmutableTransactionFields(data) {
+      return data.ownerId == resource.data.ownerId
+        && data.accountId == resource.data.accountId
+        && data.kind == resource.data.kind
+        && data.amountCents == resource.data.amountCents
+        && data.createdAt == resource.data.createdAt
+        && data.schemaVersion == resource.data.schemaVersion;
+    }
+
+    function isValidTransactionDescriptiveUpdate(userId) {
+      let data = request.resource.data;
+      let changed = data.diff(resource.data).affectedKeys();
+      return resource.data.isVoided == false
+        && data.isVoided == false
+        && data.voidedAt == null
+        && changed.hasAll(['updatedAt'])
+        && changed.hasOnly([
+          'description',
+          'categoryId',
+          'occurredAt',
+          'notes',
+          'updatedAt'
+        ])
+        && data.updatedAt == request.time
+        && isActiveCategoryReference(userId, data.categoryId, data.kind);
+    }
+
+    function isValidTransactionVoid() {
+      let data = request.resource.data;
+      let changed = data.diff(resource.data).affectedKeys();
+      return resource.data.isVoided == false
+        && resource.data.voidedAt == null
+        && data.isVoided == true
+        && data.voidedAt == request.time
+        && data.updatedAt == request.time
+        && changed.hasAll(['isVoided', 'voidedAt', 'updatedAt'])
+        && changed.hasOnly(['isVoided', 'voidedAt', 'updatedAt']);
+    }
+
+    function isValidTransactionUpdate(userId) {
+      let data = request.resource.data;
+      return isValidTransaction(data, userId)
+        && hasImmutableTransactionFields(data)
+        && (
+          isValidTransactionDescriptiveUpdate(userId)
+          || isValidTransactionVoid()
+        );
+    }
+
+    function hasCurrentLegalProfile(userId) {
+      let profilePath = /databases/$(database)/documents/users/$(userId);
+      return exists(profilePath)
+        && isValidProfile(get(profilePath).data, userId);
+    }
+
+    match /system_admins/{adminUid} {
+      allow get: if request.auth != null
+        && request.auth.uid == adminUid
+        && request.auth.token.email_verified == true;
+      allow list, create, update, delete: if false;
+    }
+
+    match /users/{userId} {
+      allow get: if isVerifiedOwner(userId);
+      allow list: if false;
+      allow create: if isVerifiedOwner(userId) && isValidCreate(userId);
+      allow update: if isVerifiedOwner(userId) && isValidUpdate(userId);
+      allow delete: if false;
+
+      match /accounts/{accountId} {
+        allow get, list: if isVerifiedOwner(userId)
+          && hasCurrentLegalProfile(userId);
+        allow create: if isVerifiedOwner(userId)
+          && hasCurrentLegalProfile(userId)
+          && isValidAccountCreate(userId);
+        allow update: if isVerifiedOwner(userId)
+          && hasCurrentLegalProfile(userId)
+          && isValidAccountUpdate(userId);
+        allow delete: if false;
+
+        match /{document=**} {
+          allow read, write: if false;
+        }
+      }
+
+      match /categories/{categoryId} {
+        allow get, list: if isVerifiedOwner(userId)
+          && hasCurrentLegalProfile(userId);
+        allow create: if isVerifiedOwner(userId)
+          && hasCurrentLegalProfile(userId)
+          && isValidCategoryCreate(userId);
+        allow update: if isVerifiedOwner(userId)
+          && hasCurrentLegalProfile(userId)
+          && isValidCategoryUpdate(userId);
+        allow delete: if false;
+
+        match /{document=**} {
+          allow read, write: if false;
+        }
+      }
+
+      match /transactions/{transactionId} {
+        allow get, list: if isVerifiedOwner(userId)
+          && hasCurrentLegalProfile(userId);
+        allow create: if isVerifiedOwner(userId)
+          && hasCurrentLegalProfile(userId)
+          && isValidTransactionCreate(userId);
+        allow update: if isVerifiedOwner(userId)
+          && hasCurrentLegalProfile(userId)
+          && isValidTransactionUpdate(userId);
+        allow delete: if false;
+
+        match /{document=**} {
+          allow read, write: if false;
+        }
+      }
+
+      match /{document=**} {
+        allow read, write: if false;
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

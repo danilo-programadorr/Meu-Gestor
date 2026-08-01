@@ -10,7 +10,7 @@ Este documento detalha a estrutura solicitada na seção 19 de ESPECIFICACAO_FUN
 - Percentuais financeiros usam pontos-base inteiros quando precisão decimal for necessária: 100 pontos-base equivalem a 1%.
 - Datas de negócio usam Timestamp; a apresentação converte para America/Sao_Paulo e dd/MM/yyyy.
 - createdAt e updatedAt são Timestamp de servidor.
-- Documentos financeiros mutáveis contêm revision: int, incrementado em cada alteração confirmada pelo servidor.
+- Documentos financeiros mutáveis futuros poderão conter revision: int. As coleções `accounts`, `categories` e `transactions` dos incrementos atuais possuem esquemas exatos aprovados e não contêm `revision`.
 - Documentos contêm schemaVersion: int.
 - Exclusões que afetem histórico são lógicas por status ou isArchived; exclusão física segue a política LGPD aprovada.
 - IDs não contêm e-mail, nome, CPF, descrição financeira ou outro dado pessoal.
@@ -36,27 +36,77 @@ Este documento detalha a estrutura solicitada na seção 19 de ESPECIFICACAO_FUN
 | aiConsentEnabled | bool | sim | Desativado até escolha explícita |
 | aiConsentUpdatedAt | timestamp | sim | Auditoria da escolha |
 | analyticsConsentEnabled | bool | sim | Conforme base legal e decisão pendente |
+| analyticsConsentUpdatedAt | timestamp | sim | Auditoria independente da preferência de Analytics |
 | createdAt | timestamp | sim | Imutável |
 | updatedAt | timestamp | sim | Timestamp de servidor |
 | schemaVersion | int | sim | Positivo |
 
-Regra: o usuário lê e atualiza somente campos permitidos do próprio perfil. Campos de auditoria protegidos são atualizados por função. Enquanto Firebase Authentication não informar `emailVerified=true`, nenhuma leitura ou escrita financeira é permitida. O usuário não verificado fica restrito aos fluxos de confirmação, reenvio, atualização do estado, logout, exclusão e consulta de termos/política. Provedor Google segue o valor oficial de `emailVerified` do Authentication.
+Regra inicial da Etapa 3C: o usuário lê somente o próprio documento por caminho exato e atualiza apenas `displayName`, preferências opcionais, versões jurídicas atuais, snapshot de verificação e `updatedAt`, sempre com transições validadas. `ownerId`, `createdAt`, locale, moeda, fuso e `schemaVersion` são imutáveis. Exclusão, listagem e todas as subcoleções permanecem negadas. Enquanto Firebase Authentication não informar `emailVerified=true` no usuário recarregado e `email_verified=true` no token atualizado, nenhuma leitura ou escrita do perfil é tentada. Provedor Google segue o valor oficial de `emailVerified` do Authentication.
+
+Versões development iniciais: `terms-dev-1.0.0` e `privacy-dev-1.0.0`. Os dois aceites obrigatórios e os consentimentos opcionais usam `FieldValue.serverTimestamp()`. `aiConsentUpdatedAt` e `analyticsConsentUpdatedAt` mudam somente quando suas respectivas preferências mudam. O perfil possui `schemaVersion` 1 e exatamente os campos desta tabela.
 
 ## 3. Cadastros e movimentos financeiros
 
 ### users/{userId}/accounts/{accountId} — AccountModel
 
-Campos obrigatórios: ownerId: string, name: string, type: string, currencyCode: string, openingBalanceCents: int, reservedAmountCents: int, displayOrder: int, isArchived: bool, revision: int, createdAt, updatedAt e schemaVersion.
+O ID da conta é o ID do documento e não é duplicado como campo.
 
-Enumeração inicial de type: checking, savings, cash, digitalWallet e other. Cartões de crédito ficam em coleção própria e não contam como dinheiro disponível.
+| Campo | Tipo | Obrigatório | Validação e uso |
+|---|---|---:|---|
+| ownerId | string | sim | Igual ao userId do caminho e imutável |
+| name | string | sim | Normalizado, 2 a 60 caracteres, sem controles ou espaços repetidos |
+| type | string | sim | checking, savings, cash, digitalWallet, investment ou other |
+| openingBalanceCents | int | sim | Entre -9.999.999.999 e 9.999.999.999 |
+| currencyCode | string | sim | BRL e imutável |
+| includeInTotal | bool | sim | Define participação no total enquanto ativa |
+| isArchived | bool | sim | false na criação; pareado com archivedAt |
+| archivedAt | timestamp ou null | sim | null ativa; timestamp do servidor arquivada |
+| createdAt | timestamp | sim | Timestamp do servidor e imutável |
+| updatedAt | timestamp | sim | Timestamp do servidor em toda alteração |
+| schemaVersion | int | sim | 1 e imutável |
 
-Validações: nome limitado; moeda BRL; valores inteiros; conta com referências não pode ser removida diretamente. A fonte canônica do saldo é `openingBalanceCents + entradas confirmadas - saídas confirmadas + transferências recebidas confirmadas - transferências enviadas confirmadas`. Nenhum campo de saldo materializado é fonte de verdade. `reservedAmountCents`, saldos calculados e resumos são protegidos, derivados e totalmente reconstruíveis. Os movimentos de metas de reserva vinculadas permanecem canônicos para a reserva.
+Não existem nesta coleção `currentBalanceCents`, `reservedAmountCents`, `displayOrder`, `revision`, cartão ou fatura. Desde a Etapa 4B, o saldo atual é derivado de `openingBalanceCents` e dos lançamentos ativos confirmados. O total usa somente contas com `isArchived=false` e `includeInTotal=true`.
+
+Quando os movimentos forem implementados, a fonte canônica será `openingBalanceCents + entradas confirmadas - saídas confirmadas + transferências recebidas confirmadas - transferências enviadas confirmadas`. Nenhum saldo materializado será fonte de verdade; caches derivados deverão ser protegidos e reconstruíveis. A correção direta do saldo inicial será então bloqueada ou convertida em ajuste auditável.
+
+Arquivamento substitui exclusão: ativa para arquivada grava `isArchived=true`, `archivedAt=request.time` e `updatedAt=request.time`; restauração grava `isArchived=false`, `archivedAt=null` e `updatedAt=request.time`.
 
 ### users/{userId}/categories/{categoryId} — CategoryModel
 
-Campos obrigatórios: ownerId, name: string, kind: string, essentiality: string, iconKey: string, colorValue: int, isArchived: bool, createdAt, updatedAt e schemaVersion.
+| Campo | Tipo | Obrigatório | Validação e uso |
+|---|---|---:|---|
+| ownerId | string | sim | Igual ao UID do caminho e imutável |
+| name | string | sim | Normalizado, 2 a 40 caracteres |
+| kind | string | sim | income ou expense; imutável |
+| iconKey | string | sim | Uma das 14 chaves aprovadas |
+| colorKey | string | sim | cyan, blue, green, purple, orange, pink, red, yellow, teal ou gray |
+| isArchived | bool | sim | false na criação; pareado com archivedAt |
+| archivedAt | timestamp ou null | sim | Timestamp servidor ao arquivar |
+| createdAt | timestamp | sim | Servidor e imutável |
+| updatedAt | timestamp | sim | Servidor em toda alteração |
+| schemaVersion | int | sim | 1 e imutável |
 
-Enumerações: kind é income ou expense; essentiality é essential, nonEssential ou unclassified. Categorias referenciadas são arquivadas, não apagadas.
+As chaves de ícone são salary, extraIncome, sale, refund, food, home, transport, health, education, leisure, subscription, shopping, bill e other. Categorias são arquivadas, nunca apagadas; uma categoria arquivada permanece disponível para interpretar o histórico, mas não aceita novos lançamentos.
+
+### users/{userId}/transactions/{transactionId} — FinancialTransaction
+
+| Campo | Tipo | Obrigatório | Validação e uso |
+|---|---|---:|---|
+| ownerId | string | sim | Igual ao UID do caminho e imutável |
+| accountId | string | sim | Conta própria ativa na criação; imutável |
+| categoryId | string | sim | Categoria própria ativa e compatível com kind |
+| kind | string | sim | income ou expense; imutável |
+| description | string | sim | Normalizada, 2 a 120 caracteres |
+| amountCents | int | sim | 1 a 9.999.999.999; imutável |
+| occurredAt | timestamp | sim | Data ocorrida, nunca futura em São Paulo |
+| notes | string | sim | Vazia ou até 500 caracteres, sem controles |
+| isVoided | bool | sim | false na criação; cancelamento irreversível |
+| voidedAt | timestamp ou null | sim | Timestamp servidor ao cancelar |
+| createdAt | timestamp | sim | Servidor e imutável |
+| updatedAt | timestamp | sim | Servidor em toda alteração |
+| schemaVersion | int | sim | 1 e imutável |
+
+O ID é somente o ID do documento. Transferências não usam esta coleção neste incremento. O saldo deriva de lançamentos não cancelados: income soma e expense subtrai. Após criação, somente `categoryId`, `description`, `occurredAt` e `notes` podem mudar enquanto o lançamento estiver ativo.
 
 ### users/{userId}/incomes/{incomeId} — IncomeModel
 
@@ -321,6 +371,21 @@ Os índices serão confirmados pelas consultas reais. Índices não utilizados s
 | Anexos | sim | metadados e arquivo próprios | varredura e remoção |
 | Exportações locais | não persistidas por padrão | sob controle do usuário | função futura exige nova aprovação |
 | Resumos e auditoria | conforme política | não | sim |
+| `system_admins/{uid}` | somente o próprio documento, por `get` e e-mail verificado | não | criação/revogação manual nesta etapa |
+
+### 9.1 Documento administrativo de development
+
+`system_admins/{uid}` usa o UID somente como ID do documento e contém exatamente:
+
+| Campo | Tipo | Obrigatório | Validação |
+|---|---|---:|---|
+| role | string | sim | `owner` |
+| active | bool | sim | true ou false |
+| environment | string | sim | `development` |
+| grantedAt | timestamp | sim | timestamp válido |
+| schemaVersion | int | sim | 1 |
+
+Não há consulta de coleção, índice composto, listener, escrita cliente ou duplicação do UID. Documento ausente significa usuário comum. Cache não confirma owner. O documento é criado, alterado, revogado ou excluído somente de forma manual no Console durante esta etapa.
 
 ## 10. Regras Firestore e Storage
 

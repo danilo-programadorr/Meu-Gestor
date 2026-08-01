@@ -6,8 +6,12 @@ import 'package:meu_gestor_financeiro/core/environment/app_environment.dart';
 import 'package:meu_gestor_financeiro/core/firebase/firebase_startup.dart';
 import 'package:meu_gestor_financeiro/features/authentication/data/auth_providers.dart';
 import 'package:meu_gestor_financeiro/features/authentication/domain/auth_user.dart';
+import 'package:meu_gestor_financeiro/features/owner_access/data/master_access_providers.dart';
+import 'package:meu_gestor_financeiro/features/profile/data/user_profile_providers.dart';
 
 import '../../../support/fake_auth_repository.dart';
+import '../../../support/fake_user_profile_repository.dart';
+import '../../../support/profile_fixtures.dart';
 
 void main() {
   testWidgets('falha de inicialização mostra mensagem segura', (
@@ -71,7 +75,7 @@ void main() {
   });
 
   testWidgets(
-    'usuário verificado acessa área autenticada sem dados financeiros',
+    'usuário verificado acessa área autenticada com entrada para contas',
     (WidgetTester tester) async {
       final FakeAuthRepository repository = FakeAuthRepository(
         initialUser: const AuthUser(
@@ -85,10 +89,8 @@ void main() {
       await _pumpApp(tester, repository: repository);
 
       expect(find.text('Área autenticada'), findsOneWidget);
-      expect(
-        find.textContaining('Nenhum dado financeiro é carregado'),
-        findsOneWidget,
-      );
+      expect(find.text('Contas e carteiras'), findsOneWidget);
+      expect(find.text('Ver contas'), findsOneWidget);
     },
   );
 
@@ -244,12 +246,20 @@ Future<void> _pumpApp(
   FirebaseStartupState startup = const FirebaseStartupAvailable(),
   AppEnvironment environment = AppEnvironment.development,
 }) async {
+  final AuthUser? user = repository.currentUser;
+  final FakeUserProfileRepository profileRepository = FakeUserProfileRepository(
+    initialProfile: user?.emailVerified == true
+        ? createTestProfile(ownerId: user!.id)
+        : null,
+  );
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
         appEnvironmentProvider.overrideWithValue(environment),
         firebaseStartupProvider.overrideWithValue(startup),
         authRepositoryProvider.overrideWithValue(repository),
+        masterAccessSubjectProvider.overrideWithValue(null),
+        userProfileRepositoryProvider.overrideWithValue(profileRepository),
       ],
       child: const MeuGestorFinanceiroApp(),
     ),

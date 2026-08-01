@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:meu_gestor_financeiro/app/l10n/app_localizations_config.dart';
 import 'package:meu_gestor_financeiro/app/routing/app_router.dart';
 import 'package:meu_gestor_financeiro/app/theme/app_theme.dart';
+import 'package:meu_gestor_financeiro/features/owner_access/presentation/widgets/master_access_lifecycle_observer.dart';
 
 class MeuGestorFinanceiroApp extends ConsumerWidget {
   const MeuGestorFinanceiroApp({super.key});
@@ -23,6 +24,10 @@ class MeuGestorFinanceiroApp extends ConsumerWidget {
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       themeMode: ThemeMode.system,
+      builder: (BuildContext context, Widget? child) =>
+          MasterAccessLifecycleObserver(
+            child: child ?? const SizedBox.shrink(),
+          ),
       routerConfig: ref.watch(appRouterProvider),
     );
   }

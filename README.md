@@ -19,7 +19,7 @@ Em desenvolvimento · Flutter/Dart · Android · Arquitetura limpa e modular
 
 O Meu Gestor Financeiro é um aplicativo de organização financeira pessoal. Seu objetivo é reunir rendas, contas a pagar e receber, despesas, dívidas, vencimentos, projeções, metas e planejamento em uma experiência simples para quem não domina termos contábeis.
 
-O projeto está em construção incremental. A fundação e a autenticação Android já existem; os módulos financeiros avançados permanecem no roadmap e não devem ser interpretados como funcionalidades concluídas.
+O projeto está em construção incremental. A fundação, a autenticação Android e o núcleo financeiro manual já existem; os módulos financeiros avançados permanecem no roadmap e não devem ser interpretados como funcionalidades concluídas.
 
 > O projeto oferece ferramentas de organização financeira e não substitui contador, consultor financeiro, advogado ou outro profissional regulamentado.
 
@@ -35,13 +35,21 @@ Concluído e validado localmente:
 - login Google;
 - rotas protegidas por autenticação e confirmação de e-mail;
 - integração Firebase Android para ambiente de desenvolvimento;
-- testes unitários e de widgets;
-- geração local de APK debug.
+- perfil e consentimentos aprovados no fluxo Android;
+- contas e carteiras implementadas localmente com saldo inicial, total, edição, arquivamento e restauração;
+- categorias e lançamentos manuais de receitas/despesas implementados localmente;
+- saldo atual e resumo mensal derivados em centavos inteiros, sem saldo materializado;
+- filtros por tipo, conta e categoria, além de edição descritiva e cancelamento irreversível de lançamentos;
+- acesso owner seguro, confirmado pelo servidor, com Área do proprietário e revalidação;
+- capabilities preparadas para futuros recursos de assinatura, funcionalidades pagas e IA;
+- regras Firestore publicadas em development com isolamento por UID, campos fechados e negação por padrão;
+- testes unitários, de widgets, integração de fluxos e segurança estrutural.
 
 Limites atuais:
 
-- o Firestore não realiza leituras ou gravações financeiras;
-- os módulos de contas, rendas, despesas e projeções ainda não foram implementados;
+- não existem ambiente de produção, assinatura real, cobrança, Google Play Billing, Stripe ou Mercado Pago;
+- não existem consumo real de IA, transferências, cartões, faturas, contas a pagar e receber, recorrências ou parcelamentos;
+- notificações, relatórios completos, projeções e integração Open Finance ainda não foram implementados;
 - os documentos jurídicos presentes são provisórios e exclusivos de desenvolvimento;
 - não existe versão de produção publicada.
 
@@ -59,7 +67,7 @@ flowchart TD
     R["Repository contracts"]
     DATA["Data · implementações Firebase"]
     AUTH["Firebase Authentication"]
-    FS["Cloud Firestore · persistência futura"]
+    FS["Cloud Firestore · dados próprios e autorização owner"]
     NAV["go_router · navegação protegida"]
 
     P --> A
@@ -68,7 +76,7 @@ flowchart TD
     D --> R
     DATA --> R
     DATA --> AUTH
-    DATA -. futura persistência .-> FS
+    DATA --> FS
 ```
 
 As dependências apontam para o domínio. Widgets não acessam Firebase diretamente, e valores monetários são representados por objetos de valor baseados em centavos inteiros.
@@ -81,8 +89,13 @@ lib/
   core/
   features/
     authentication/
+    accounts/
+    categories/
     home/
+    owner_access/
     privacy/
+    profile/
+    transactions/
 assets/
 test/
 docs/
@@ -137,6 +150,9 @@ A suíte atual cobre:
 - inicialização do aplicativo e proteção de ambiente;
 - autenticação, validação e rotas protegidas;
 - login Google e diagnóstico sanitizado;
+- perfil, consentimentos e portões jurídicos;
+- contas, categorias, lançamentos, saldo derivado e resumo mensal;
+- acesso owner, capabilities, revogação e falha fechada;
 - telas pequenas, teclado e aumento de fonte;
 - temas, contraste, semântica e acessibilidade;
 - dinheiro em centavos, operações aritméticas e formatação BRL.
@@ -149,10 +165,16 @@ O workflow [Qualidade](.github/workflows/quality.yml) executa formatação, aná
 - nenhuma senha é armazenada pelo aplicativo;
 - diagnósticos de autenticação não registram tokens, e-mails ou credenciais;
 - ambientes de desenvolvimento e produção são separados;
-- valores monetários futuros serão persistidos em centavos inteiros;
-- o Firestore deverá usar regras restritivas e isolamento por usuário antes de armazenar dados financeiros.
+- valores monetários são persistidos em centavos inteiros;
+- o Firestore aplica regras restritivas, campos fechados e isolamento por usuário.
 
 Para reportar uma vulnerabilidade, siga [SECURITY.md](SECURITY.md) e não publique credenciais em issues.
+
+### Acesso proprietário em development
+
+O projeto possui uma arquitetura de acesso proprietário baseada exclusivamente no UID autenticado e no documento protegido `system_admins/{uid}`. O cliente consulta somente o próprio documento, exige confirmação do servidor e não pode criar, editar, excluir ou listar administradores. Nenhum e-mail, UID, senha ou preferência local concede privilégios.
+
+O papel `owner` recebe capabilities centralizadas para módulos implementados, recursos experimentais e futuros recursos comerciais ou de IA. Esse bypass de produto nunca ignora Security Rules, isolamento por UID, validações financeiras, autenticação ou limites técnicos de segurança. Consulte [Acesso proprietário](docs/architecture/ACESSO_PROPRIETARIO.md).
 
 ## Roadmap
 
@@ -160,9 +182,10 @@ Para reportar uma vulnerabilidade, siga [SECURITY.md](SECURITY.md) e não publiq
 - [x] Sistema visual
 - [x] Autenticação Firebase
 - [x] Login Google
-- [ ] Perfil e consentimentos persistidos
-- [ ] Contas e carteiras
-- [ ] Rendas
+- [x] Perfil e consentimentos persistidos
+- [x] Contas e carteiras
+- [x] Categorias, receitas e despesas ocorridas
+- [x] Acesso proprietário seguro em development
 - [ ] Contas a pagar e receber
 - [ ] Dashboard
 - [ ] Projeções

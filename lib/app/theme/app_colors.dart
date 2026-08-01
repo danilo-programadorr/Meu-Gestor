@@ -15,6 +15,11 @@ abstract final class AppColors {
   static const Color textPrimary = Color(0xFFF0F6FC);
   static const Color textSecondary = Color(0xFF92A8BB);
   static const Color disabled = Color(0xFF6B8599);
+  static const Color categoryOrange = Color(0xFFF28C45);
+  static const Color categoryPink = Color(0xFFE76AA5);
+  static const Color categoryYellow = Color(0xFFF2C94C);
+  static const Color categoryTeal = Color(0xFF2AAFA1);
+  static const Color categoryGray = Color(0xFF7B8794);
 
   static const Color lightBackground = Color(0xFFF4F8FC);
   static const Color lightSurface = Color(0xFFFFFFFF);

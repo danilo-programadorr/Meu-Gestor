@@ -25,5 +25,21 @@ abstract interface class AuthRepository {
 
   Future<AuthUser?> reloadCurrentUser();
 
+  Future<AuthVerificationSnapshot> forceRefreshIdentityToken();
+
+  Future<void> updateDisplayName(String displayName);
+
   Future<void> signOut();
+}
+
+final class AuthVerificationSnapshot {
+  const AuthVerificationSnapshot({
+    required this.user,
+    required this.tokenEmailVerified,
+  });
+
+  final AuthUser? user;
+  final bool tokenEmailVerified;
+
+  bool get isFullyVerified => user?.emailVerified == true && tokenEmailVerified;
 }

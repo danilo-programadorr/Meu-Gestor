@@ -196,3 +196,69 @@
 | UX-002 | implementado na fundação | temas claro/escuro e escala de texto sem overflow | tema, tela compacta, teclado e fonte 1,6 | validação manual Android aprovada |
 | SEG-003 | implementado no incremento | configuração ignorada, sem segredos Dart e sem saída de credenciais | varredura local | revisão antes do primeiro commit |
 | SEG-005 | implementado no incremento | mensagens seguras e nenhum log de PII/credenciais | falhas tipadas e inspeção | observabilidade permanece desativada |
+
+## Rastreabilidade do incremento Etapa 3C
+
+| ID | Requisito | Prioridade | Etapa | Critério de aceite | Testes necessários | Dependências | Impacto de segurança | Impacto de custo |
+|---|---|---:|---:|---|---|---|---|---|
+| AUT-008-3C | Persistir versões aceitas de Termos e Política | P0 | E3C | Aceite afirmativo registra versões atuais e timestamps do servidor; versão antiga bloqueia a home | domínio, controlador, widget, rotas e regras | Auth verificado e Firestore development | alto: base do acesso e rastreabilidade | baixo: uma gravação por novo aceite |
+| AUT-009-3C | Exigir email confirmado também no token | P0 | E3C | Nenhuma leitura ocorre antes de recarregar Auth e obter `email_verified=true` | gate, token pendente e regras | Firebase Authentication | alto: impede acesso pré-verificação | baixo: atualização de token e leitura de perfil |
+| PERF-001-3C | Criar perfil mínimo em `users/{uid}` | P0 | E3C | Documento possui exatamente 17 campos autorizados e `schemaVersion` 1 | modelo, mapper, criação e regras | Cloud Firestore | alto: minimização e isolamento | baixo: um documento por usuário |
+| PERF-002-3C | Criar perfil de forma idempotente | P0 | E3C | Transação cria somente se ausente e preserva perfil/consentimentos existentes | controlador, concorrência e futuro emulador | transações Firestore | alto: evita sobrescrita de aceite | baixo: transação e leitura de confirmação |
+| PERF-003-3C | Ler e atualizar somente o próprio perfil | P0 | E3C | `get` próprio permitido; listagem, acesso cruzado e exclusão negados | matriz de regras pendente de emulador | Security Rules | crítico: isolamento por usuário | neutro |
+| PERF-004-3C | Validar nome e espelhar no Authentication | P0 | E3C | Nome normalizado de 2 a 80; Firestore grava primeiro; falha Auth parcial é informada | validação, controlador e falha parcial | Auth e Firestore sem transação conjunta | médio: evita inconsistência silenciosa | baixo: uma escrita por alteração |
+| CONS-001-3C | Manter consentimentos IA e Analytics separados | P0 | E3C | Ambos começam falsos e cada alteração muda somente booleano/timestamp correspondente | domínio, controlador, widget e regras | perfil Firestore | alto: escolha livre e minimização | baixo: uma escrita por salvamento |
+| CONS-002-3C | Registrar `analyticsConsentUpdatedAt` | P0 | E3C | Campo obrigatório usa timestamp do servidor e só muda com Analytics | mapper, controlador e regras | Firestore | alto: auditoria simétrica | baixo: campo adicional no perfil |
+| SEG-009-3C | Negar Firestore por padrão | P0 | E3C | caminhos desconhecidos, subcoleções, listagem e exclusão permanecem bloqueados | matriz completa; emulador pendente | regras publicadas em development | crítico | neutro |
+| OFF-001-3C | Não confiar em cache para o primeiro perfil | P0 | E3C | configuração e alterações só concluem após confirmação do servidor | gate, fake de cache e pendência | conexão com Firestore | alto: não contorna autorização | leituras adicionais de confirmação |
+
+## Rastreabilidade do incremento Etapa 4A
+
+| ID | Requisito | Prioridade | Etapa | Critério de aceite | Testes necessários | Dependências | Impacto de segurança | Impacto de custo |
+|---|---|---:|---:|---|---|---|---|---|
+| ACC-001-4A | Persistir contas na subcoleção própria com esquema exato | P0 | E4A | Documento possui somente os 11 campos aprovados; ID não é duplicado | modelo, mapper, campos ausentes/extras, regras | Firestore e perfil válido | crítico: isolamento e minimização | baixo: um documento por conta |
+| ACC-002-4A | Aceitar somente os seis tipos aprovados | P0 | E4A | checking, savings, cash, digitalWallet, investment e other são aceitos; cartão é rejeitado | enum, conversão, widget e regras | nenhuma nova dependência | médio | neutro |
+| ACC-003-4A | Normalizar e validar nome | P0 | E4A | nome final tem 2 a 60 caracteres, espaços normalizados e nenhum controle | domínio, mapper, formulário e regras | nenhuma | médio: sanitização | neutro |
+| ACC-004-4A | Armazenar saldo inicial em centavos inteiros BRL | P0 | E4A | positivos, zero, negativos e limites funcionam sem double | parser, limites, mapper, widget e regras | Money e intl existentes | crítico: integridade monetária | neutro |
+| ACC-005-4A | Calcular total somente de contas ativas incluídas | P0 | E4A | soma local ignora arquivadas e includeInTotal=false | unitários, lista vazia e limites | lista própria confirmada | alto: evita total enganoso | neutro |
+| ACC-006-4A | Criar conta de forma idempotente | P0 | E4A | um ID é reutilizado por tentativa, toques repetidos são bloqueados e sucesso exige releitura servidor | controller, fake, retry incerto e futuro emulador | transação Firestore | crítico: evita duplicação | baixo: transação e leitura de confirmação |
+| ACC-007-4A | Editar somente campos autorizados | P0 | E4A | name, type, openingBalanceCents e includeInTotal mudam; campos fixos permanecem | controller, mapper, widget e regras | documento existente | alto: protege propriedade e auditoria | baixo: escrita e confirmação |
+| ACC-008-4A | Arquivar e restaurar sem excluir | P0 | E4A | estado e archivedAt transitam pareados com timestamp servidor; documento permanece | domínio, controller, widget e regras | documento existente | alto: evita perda de dados | baixo: escrita e confirmação |
+| ACC-009-4A | Exigir Auth verificado, perfil e termos atuais | P0 | E4A | rota digitada e operações são bloqueadas antes do acesso financeiro quando o gate não é válido | rota, controller, widget e regras | Auth e perfil da Etapa 3C | crítico | baixo: regras podem avaliar leitura dependente do perfil |
+| ACC-010-4A | Consultar somente users/{uid}/accounts | P0 | E4A | nenhuma collectionGroup ou consulta global; ordenação e filtros são locais | inspeção arquitetural, repository e matriz | Firestore | crítico: isolamento | proporcional ao número de contas próprias lidas |
+| ACC-011-4A | Exigir confirmação do servidor | P0 | E4A | primeira lista e mutações não exibem confirmação a partir de cache ou escrita pendente | controller, cache fake, erro e retry | conexão de rede | alto | leituras adicionais de confirmação |
+| ACC-012-4A | Manter interface acessível e sem dados fictícios | P1 | E4A | telas vazia/lista/formulário/detalhes/arquivadas funcionam em temas, fonte ampliada e tela pequena | widgets, semântica, navegação e overflow | sistema visual existente | baixo | neutro |
+| SEG-010-4A | Aplicar regras Firestore estritas às contas | P0 | E4A | campos, tipos, limites, UID, email, timestamps e transições são validados; delete/subcoleções/desconhecidos negados | matriz completa; Emulator Suite pendente | regras publicadas em development | crítico | neutro |
+
+## Incremento Etapa 4B
+
+| ID | Requisito | Prioridade | Etapa | Critério de aceite | Testes necessários | Dependências | Impacto de segurança | Impacto de custo |
+|---|---|---:|---:|---|---|---|---|---|
+| CAT-001-4B | Persistir categorias com esquema exato e tipo imutável | P0 | E4B | Documento contém somente os 10 campos aprovados e `kind` não muda | domínio, mapper, controller, widget e regras | Firestore e perfil válido | alto | baixo |
+| CAT-002-4B | Validar nome, ícone e cor em catálogos fechados | P0 | E4B | Nome normalizado 2–40; somente 14 ícones e 10 cores | limites, conversão, formulário e regras | tokens visuais | médio | neutro |
+| CAT-003-4B | Arquivar/restaurar sem excluir | P0 | E4B | `isArchived` e `archivedAt` transitam coerentemente; histórico permanece | domínio, controller e regras | documento existente | alto | baixo |
+| TRX-001-4B | Persistir receita/despesa ocorrida com esquema exato | P0 | E4B | Documento contém somente 13 campos; valor é inteiro positivo | mapper, tipos, limites e regras | conta e categoria ativas | crítico | baixo |
+| TRX-002-4B | Validar referências próprias e tipo compatível | P0 | E4B | conta/categoria inexistente, arquivada, de outro UID ou incompatível é recusada | repositório, regras e futuro emulador | leituras dependentes | crítico | leituras adicionais em transação/regras |
+| TRX-003-4B | Impedir datas futuras e respeitar São Paulo | P0 | E4B | hoje é aceito e amanhã recusado pela data civil de São Paulo | virada do dia, mês e fuso | relógio injetável | alto | neutro |
+| TRX-004-4B | Editar somente campos descritivos | P0 | E4B | somente categoria compatível, descrição, data e notas mudam | mapper, controller e regras | lançamento ativo | crítico | baixo |
+| TRX-005-4B | Cancelar irreversivelmente sem exclusão | P0 | E4B | cancelado deixa saldo, preserva documento e não pode ser restaurado/editado | domínio, controller, saldo e regras | timestamp servidor | crítico | baixo |
+| TRX-006-4B | Criar de forma idempotente e bloquear múltiplos toques | P0 | E4B | retry incerto reutiliza ID e não duplica | fake, controller e futuro emulador | transação Firestore | crítico | transação e confirmação |
+| BAL-001-4B | Derivar saldo atual sem campo materializado | P0 | E4B | inicial + receitas ativas − despesas ativas reconcilia por conta | unitários, cancelados e contas excluídas | contas e lançamentos confirmados | crítico | leitura integral inicial |
+| BAL-002-4B | Calcular resumo mensal em centavos seguros | P0 | E4B | receitas, despesas e diferença do mês são exatas, sem `double` | BigInt, centavos, mês/fuso | Money | alto | neutro |
+| UX-001-4B | Oferecer telas, filtros e estados acessíveis sem dados fictícios | P1 | E4B | fluxos vazios/erro/sucesso, fontes ampliadas e temas funcionam | widgets, navegação e overflow | sistema visual | médio | neutro |
+| SEG-011-4B | Aplicar regras estritas a categorias e lançamentos | P0 | E4B | UID/email/perfil/campos/referências/transições são validados; delete e desconhecidos negados | matriz; Emulator Suite pendente | regras publicadas em development | crítico | neutro |
+
+## Incremento Etapa 4C
+
+| ID | Requisito | Prioridade | Etapa | Critério de aceite | Testes necessários | Dependências | Impacto de segurança | Impacto de custo |
+|---|---|---:|---:|---|---|---|---|---|
+| OWN-001-4C | Autorizar owner somente por `system_admins/{uid}` | P0 | E4C | UID vem da sessão; documento exato, ativo e development é confirmado pelo servidor | modelo, mapper, repositório e controller | Auth, ProfileGate e Firestore | crítico | uma leitura pontual por validação |
+| OWN-002-4C | Falhar fechado | P0 | E4C | cache, timeout, erro, documento ausente/inválido ou revogado nunca concedem owner | cache, timeout, falhas e revogação | conexão do servidor | crítico | retries manuais podem gerar leituras |
+| OWN-003-4C | Centralizar capabilities | P0 | E4C | owner recebe todas; comum e identificador desconhecido não recebem | domínio e segurança estática | nenhuma nova dependência | alto | neutro |
+| OWN-004-4C | Preparar bypass comercial do owner | P1 | E4C | capabilities de assinatura, recursos pagos, IA e limites comerciais existem sem cobrança real | domínio e interface | módulos comerciais futuros | médio | nenhum custo atual |
+| OWN-005-4C | Preservar limites técnicos e financeiros | P0 | E4C | owner não ignora regras, UID, integridade, autenticação, concorrência ou segurança técnica | regras e regressão | módulos existentes | crítico | neutro |
+| OWN-006-4C | Proteger `/proprietario` | P0 | E4C | somente owner confirmado vê conteúdo; loading e acesso direto negado não expõem a página | rota, gate e widgets | go_router e estado controlado | crítico | neutro |
+| OWN-007-4C | Revalidar e revogar | P0 | E4C | login, troca, retorno, atualização e revogação atualizam o estado sem callback antigo | controller, concorrência e ciclo de vida | Firestore | alto | uma leitura por revalidação |
+| OWN-008-4C | Não expor identidade ou dados | P0 | E4C | UI/logs não exibem UID, e-mail, documento, segredos, saldos ou terceiros | interface, diagnóstico e busca estática | nenhuma | crítico | neutro |
+| OWN-009-4C | Restringir regras administrativas | P0 | E4C | somente get próprio verificado; list/create/update/delete negados | matriz local; emulador pendente | regras publicadas e documento validado em development | crítico | neutro |
+| OWN-010-4C | Manter produção bloqueada | P0 | E4C | documento e código aceitam somente development | mapper, provider, regra e teste estático | ambientes separados | crítico | neutro |

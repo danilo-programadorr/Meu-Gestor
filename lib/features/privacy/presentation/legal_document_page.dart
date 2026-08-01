@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:meu_gestor_financeiro/app/theme/app_spacing.dart';
+import 'package:meu_gestor_financeiro/features/privacy/domain/legal_document_versions.dart';
 
 enum LegalDocumentType { terms, privacy }
 
@@ -32,18 +33,25 @@ class LegalDocumentPage extends StatelessWidget {
                         : 'Informações provisórias de privacidade do ambiente de desenvolvimento',
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    isTerms
+                        ? 'Versão: ${LegalDocumentVersions.terms}'
+                        : 'Versão: ${LegalDocumentVersions.privacy}',
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
                   const SizedBox(height: AppSpacing.md),
                   Text(
                     isTerms
-                        ? 'Este incremento permite criar conta, autenticar, recuperar senha, confirmar email e encerrar a sessão para testes de desenvolvimento.'
-                        : 'Neste incremento, os dados de conta são tratados pelo Firebase Authentication exclusivamente para autenticação. Nenhum dado financeiro é criado ou acessado.',
+                        ? 'Este incremento permite autenticação e criação do perfil básico para testes de desenvolvimento. O aceite desta versão é obrigatório para acessar a área autenticada.'
+                        : 'Neste incremento, o Firebase Authentication trata a identidade e o Firestore armazena somente o perfil básico e as versões e preferências de consentimento autorizadas. Nenhum dado financeiro é criado ou acessado.',
                     style: Theme.of(context).textTheme.bodyLarge,
                   ),
                   const SizedBox(height: AppSpacing.md),
                   Text(
                     isTerms
                         ? 'O uso em produção e a publicação permanecem bloqueados até a aprovação dos documentos jurídicos oficiais e das configurações de produção.'
-                        : 'Não estão ativos Analytics, Crashlytics, Storage, notificações, Gemini ou coleta de dados financeiros. O documento oficial deverá definir controlador, bases legais, retenção, direitos e canais de atendimento.',
+                        : 'IA e Analytics permanecem desativados. As preferências são separadas, opcionais e podem ser alteradas sem enviar dados a esses serviços. O documento oficial deverá definir controlador, bases legais, retenção, direitos e canais de atendimento.',
                     style: Theme.of(context).textTheme.bodyLarge,
                   ),
                 ],

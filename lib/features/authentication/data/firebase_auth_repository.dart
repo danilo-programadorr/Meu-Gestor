@@ -71,6 +71,26 @@ final class FirebaseAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<AuthVerificationSnapshot> forceRefreshIdentityToken() async {
+    try {
+      final User? refreshed = _firebaseAuth.currentUser;
+      if (refreshed == null) {
+        return const AuthVerificationSnapshot(
+          user: null,
+          tokenEmailVerified: false,
+        );
+      }
+      final IdTokenResult token = await refreshed.getIdTokenResult(true);
+      return AuthVerificationSnapshot(
+        user: _mapUser(refreshed),
+        tokenEmailVerified: token.claims?['email_verified'] == true,
+      );
+    } on FirebaseAuthException catch (error) {
+      throw _mapFirebaseFailure(error);
+    }
+  }
+
+  @override
   Future<void> sendEmailVerification() async {
     try {
       final User? user = _firebaseAuth.currentUser;
@@ -183,6 +203,23 @@ final class FirebaseAuthRepository implements AuthRepository {
     try {
       await _firebaseAuth.signOut();
       await _googleSignIn.signOut();
+    } on FirebaseAuthException catch (error) {
+      throw _mapFirebaseFailure(error);
+    }
+  }
+
+  @override
+  Future<void> updateDisplayName(String displayName) async {
+    try {
+      final User? user = _firebaseAuth.currentUser;
+      if (user == null) {
+        throw const AuthFailure(
+          kind: AuthFailureKind.missingCredential,
+          safeMessage: 'Sua sessão não está disponível. Entre novamente.',
+        );
+      }
+      await user.updateDisplayName(displayName);
+      await user.reload();
     } on FirebaseAuthException catch (error) {
       throw _mapFirebaseFailure(error);
     }

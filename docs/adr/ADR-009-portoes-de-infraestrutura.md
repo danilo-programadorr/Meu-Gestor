@@ -84,3 +84,19 @@ O solicitante realizou manualmente a configuração development no Firebase Cons
 - Textos provisórios não habilitam publicação.
 - Web, Windows e iOS continuam dependentes de configuração oficial por plataforma.
 - A validação manual Android aprovou a interface e os fluxos de autenticação por e-mail; o login Google corrigido aguarda novo teste do APK atualizado.
+
+## Adendo de 31/07/2026 — Etapa 3C em dois pontos de controle
+
+- O login Google foi aprovado em novo teste manual.
+- O Ponto de Controle 1 autoriza somente código, regras, documentação e testes locais de perfil e consentimentos.
+- `firestore.rules` não pode ser publicado pelo agente. A publicação development é manual pelo solicitante.
+- O Ponto de Controle 2, incluindo APK debug, depende da confirmação literal `REGRAS FIRESTORE PUBLICADAS`.
+- Firebase CLI, Emulator Suite, Console, deploy, commit e push continuam proibidos para o agente.
+
+## Adendo de 01/08/2026 — Estado validado até a Etapa 4C
+
+- O proprietário publicou manualmente em development as regras de perfil, contas, categorias, lançamentos e owner.
+- Perfil, consentimentos, núcleo financeiro manual e acesso owner foram validados no Android.
+- O documento `system_admins/{uid}` foi criado manualmente, sem identidade administrativa no código ou na documentação.
+- Ações futuras no Firebase, Google Cloud e Gemini continuam exclusivamente manuais pelo proprietário.
+- Testes diretos das Security Rules no Emulator Suite permanecem pendentes de autorização específica.

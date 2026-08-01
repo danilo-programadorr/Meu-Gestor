@@ -6,7 +6,7 @@
 - Regras permanentes aprovadas: AGENTS.md.
 - Modelo detalhado proposto: MODELO_FIRESTORE.md.
 - Rastreabilidade: MATRIZ_REQUISITOS.md.
-- Data desta revisão: 30 de julho de 2026.
+- Data desta revisão: 31 de julho de 2026.
 - Os comandos públicos usam caminhos relativos à raiz do repositório.
 - A fundação local autorizada da Etapa 2 foi criada e validada nos limites da seção 16.
 - Todas as ações externas de Firebase, Google Cloud e Gemini são exclusivamente manuais pelo solicitante; o agente limita-se a orientar, preparar código autorizado e verificar resultados locais após confirmação.
@@ -60,6 +60,12 @@
 45. Decisões de Gemini, Firebase, serviços pagos, jurídico, dívida, cartão e Analytics são portões das respectivas etapas e não bloqueiam a fundação local.
 46. O projeto deve ser operado a partir da raiz do repositório; caminhos absolutos locais não fazem parte da documentação pública.
 47. Firebase, Google Cloud e Gemini serão operados manualmente pelo solicitante; o agente não executa autenticação, seleção/criação de projetos, configuração de serviços, credenciais, faturamento ou deploy e nunca solicita segredos no chat.
+48. O perfil inicial usa `users/{uid}`, esquema 1, versões jurídicas development `terms-dev-1.0.0` e `privacy-dev-1.0.0` e consentimentos de IA e Analytics separados e desativados por padrão.
+49. A Etapa 3C usa regras Firestore com negação por padrão, exige email confirmado no usuário e no token e mantém subcoleções financeiras bloqueadas.
+50. Publicação de regras é manual e a validação final/APK só ocorre depois da confirmação literal `REGRAS FIRESTORE PUBLICADAS`.
+51. O papel `owner` é associado somente ao UID autenticado por `system_admins/{uid}`, exclusivamente em development, com leitura pontual confirmada pelo servidor e nenhuma escrita pelo cliente.
+52. Capabilities owner são centralizadas e incluem acesso a módulos, diagnósticos, experimentos, preferências de desenvolvimento e bypass futuro de assinatura, recursos pagos, IA e limites comerciais comuns.
+53. Capabilities comerciais não removem Security Rules, isolamento por UID, validações financeiras, autenticação, concorrência ou limites técnicos contra abuso e consumo acidental.
 
 ## 3. Estado do ambiente
 
@@ -539,4 +545,64 @@ Situação em 30/07/2026: implementação local concluída e sujeita à validaç
 - O sistema visual e o hero fotográfico isolado estão documentados em `docs/design/SISTEMA_VISUAL.md`.
 - Os documentos legais existentes são provisórios, exclusivos de development e não podem ser apresentados como versão final.
 - Web, Windows e iOS exigirão configuração Firebase oficial específica quando forem adicionados.
-- A validação manual Android aprovou e-mail/senha, cadastro, recuperação, confirmação, navegação e interface. O login Google recebeu correção local após atualização da configuração Firebase e aguarda novo teste manual.
+- A validação manual Android aprovou e-mail/senha, cadastro, recuperação, confirmação, navegação, interface e o login Google após a correção local.
+
+## 19. Etapa 3C — Segurança inicial, perfil e consentimentos
+
+Situação em 01/08/2026: concluída e aprovada manualmente, incluindo regras publicadas, perfil, consentimentos, correção do ProfileGate e teste Android.
+
+- `users/{uid}` contém somente o perfil básico autorizado, sem email, telefone, identificadores externos, aparelho ou dados financeiros.
+- O portão recarrega o usuário e força o token antes de qualquer acesso ao Firestore.
+- Perfil inexistente exige configuração e aceite explícito; perfil jurídico desatualizado exige novo aceite; perfil incompatível bloqueia a área autenticada.
+- Criação é transacional e idempotente. Perfil existente é validado e preservado.
+- Leituras e confirmações de escrita exigem origem servidor; cache não prova autorização.
+- Firestore é a fonte do nome interno depois da criação; Authentication continua sendo a identidade e recebe tentativa posterior de espelhamento do nome.
+- IA e Analytics permanecem desativados; os booleanos são apenas preferências futuras separadas.
+- `firestore.rules` do perfil foi publicado manualmente pelo proprietário e validado no fluxo real.
+- Testes de regras no Emulator Suite permanecem pendentes porque CLI e emulador não estão autorizados.
+
+## 20. Etapa 4A — Contas, carteiras e saldo inicial
+
+Situação em 01/08/2026: concluída após publicação manual das regras pelo proprietário e validação local do Ponto de Controle 2.
+
+- Escopo limitado a contas, carteiras, saldo inicial, total local, criação, leitura, edição, arquivamento e restauração.
+- Persistência exata em `users/{uid}/accounts/{accountId}`, sem `accountId` duplicado, `currentBalanceCents`, transações ou exclusão definitiva.
+- Tipos autorizados: `checking`, `savings`, `cash`, `digitalWallet`, `investment` e `other`.
+- Saldos individuais permanecem entre -9.999.999.999 e 9.999.999.999 centavos; nenhuma operação usa ponto flutuante.
+- Na entrega original da etapa, o saldo exibido era igual ao saldo inicial. A Etapa 4B passou a derivar o saldo atual dos lançamentos ativos confirmados.
+- Criação reutiliza o ID gerado durante a tentativa, bloqueia toques repetidos e só informa sucesso após releitura do servidor.
+- Leituras de lista e documento exigem confirmação do servidor; cache não é prova de autorização e a estratégia offline financeira completa permanece futura.
+- Regras locais preservam o perfil, isolam dados por UID, exigem email verificado, validam campos/transições e negam exclusão, subcoleções e caminhos desconhecidos.
+- Consultas usam apenas a subcoleção própria, sem `collectionGroup` ou índice composto; separação, ordenação e total são locais.
+- As regras de contas foram publicadas manualmente pelo proprietário; o agente não executou Firebase CLI ou deploy.
+- A validação posterior confirmou formatação, análise, testes e build debug development antes do início da Etapa 4B.
+
+## 21. Etapa 4B — Categorias, receitas, despesas e saldo atual
+
+Situação em 01/08/2026: concluída e validada manualmente após publicação das regras e correções finais de resumo, navegação, edição e data da movimentação.
+
+- Categorias próprias em `users/{uid}/categories/{categoryId}`, separadas entre receita e despesa, com ícones/cores fechados, tipo imutável e arquivamento sem exclusão.
+- Lançamentos próprios em `users/{uid}/transactions/{transactionId}`, limitados a receitas e despesas ocorridas, valor positivo em centavos e sinal derivado pelo tipo.
+- Criação exige conta e categoria ativas do mesmo usuário, com tipo compatível; edição não altera conta, tipo ou valor.
+- Cancelamento é irreversível, auditável por timestamps e não apaga o documento.
+- Saldo atual deriva do saldo inicial mais receitas ativas menos despesas ativas; nenhum saldo materializado é canônico.
+- Resumo do mês respeita a data civil de `America/Sao_Paulo`; datas futuras são recusadas.
+- Leitura e confirmação de mutações exigem servidor; filtros, ordenação e totais são locais neste volume inicial.
+- Interface inclui listas, formulários, detalhes, categorias arquivadas, filtros, resumo mensal e integração com home/contas.
+- Regras preservam perfil e contas, negam exclusões e caminhos desconhecidos e validam referências críticas.
+- O campo `occurredAt` representa somente o dia em que o dinheiro entrou ou saiu, abre calendário diário e bloqueia datas futuras pela convenção civil de São Paulo.
+- O APK final da etapa foi validado manualmente; Emulator Suite permanece pendente.
+
+## 22. Etapa 4C — Acesso proprietário seguro
+
+Situação em 01/08/2026: concluída e aprovada manualmente. As regras foram publicadas em development, o documento owner foi criado manualmente e o acesso foi validado no APK debug.
+
+- Domínio isolado com `AppRole`, `AppCapability`, `AccessContext`, `MasterAccess`, falhas e contrato de repositório.
+- Consulta exclusiva a `system_admins/{uid}` com UID recebido em tempo de execução, `Source.server` e timeout de 12 segundos.
+- Estados `idle`, `loading`, `regularUser`, `activeOwner`, `revoked`, `invalidDocument` e `recoverableError` falham fechados.
+- Owner recebe todas as capabilities registradas, incluindo preparação para ignorar futuros bloqueios comerciais, de assinatura e de IA destinados a usuários comuns.
+- Controles financeiros, isolamento por UID, regras, autenticação, concorrência e limites técnicos permanecem obrigatórios.
+- Área `/proprietario`, selo no perfil, atualização manual e revalidação no retorno ao aplicativo foram implementados.
+- Regras publicadas em development permitem somente `get` do próprio documento administrativo por usuário verificado e negam listagem e toda escrita.
+- Nenhum plano, cobrança, pagamento, loja, limite comercial real ou consumo de IA foi implementado.
+- O teste manual confirmou o selo, a Área do proprietário e a autorização server-only. Testes reais das regras no Emulator Suite permanecem pendentes.

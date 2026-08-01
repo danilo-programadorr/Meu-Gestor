@@ -14,6 +14,12 @@ final class FakeAuthRepository implements AuthRepository {
   AuthFailure? nextFailure;
   GoogleAuthOutcome googleOutcome = GoogleAuthOutcome.success;
   Completer<void>? signInBarrier;
+  Completer<void>? reloadBarrier;
+  Completer<void>? tokenBarrier;
+  bool tokenEmailVerified = true;
+  bool emitUserDuringReload = false;
+  bool clearUserDuringReload = false;
+  bool failDisplayNameMirror = false;
 
   int signInCalls = 0;
   int createAccountCalls = 0;
@@ -22,6 +28,8 @@ final class FakeAuthRepository implements AuthRepository {
   int resendCalls = 0;
   int reloadCalls = 0;
   int signOutCalls = 0;
+  int refreshIdentityCalls = 0;
+  int updateDisplayNameCalls = 0;
 
   @override
   Stream<AuthUser?> authStateChanges() async* {
@@ -60,8 +68,32 @@ final class FakeAuthRepository implements AuthRepository {
   @override
   Future<AuthUser?> reloadCurrentUser() async {
     reloadCalls += 1;
+    final Completer<void>? barrier = reloadBarrier;
+    if (barrier != null) {
+      await barrier.future;
+    }
     _throwIfNeeded();
+    if (emitUserDuringReload) {
+      emit(_user);
+    }
+    if (clearUserDuringReload) {
+      _user = null;
+    }
     return _user;
+  }
+
+  @override
+  Future<AuthVerificationSnapshot> forceRefreshIdentityToken() async {
+    refreshIdentityCalls += 1;
+    final Completer<void>? barrier = tokenBarrier;
+    if (barrier != null) {
+      await barrier.future;
+    }
+    _throwIfNeeded();
+    return AuthVerificationSnapshot(
+      user: _user,
+      tokenEmailVerified: tokenEmailVerified,
+    );
   }
 
   @override
@@ -101,6 +133,28 @@ final class FakeAuthRepository implements AuthRepository {
     signOutCalls += 1;
     _throwIfNeeded();
     emit(null);
+  }
+
+  @override
+  Future<void> updateDisplayName(String displayName) async {
+    updateDisplayNameCalls += 1;
+    if (failDisplayNameMirror) {
+      throw const AuthFailure(
+        kind: AuthFailureKind.network,
+        safeMessage: 'Não foi possível sincronizar o nome de acesso.',
+      );
+    }
+    final AuthUser? current = _user;
+    if (current != null) {
+      emit(
+        AuthUser(
+          id: current.id,
+          displayName: displayName,
+          email: current.email,
+          emailVerified: current.emailVerified,
+        ),
+      );
+    }
   }
 
   void _throwIfNeeded() {
