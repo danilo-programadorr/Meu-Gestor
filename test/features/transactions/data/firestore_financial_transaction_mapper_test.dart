@@ -99,8 +99,66 @@ void main() {
       expect(data['description'], 'Renda extra');
       expect(data['createdAt'], isA<FieldValue>());
       expect(data['updatedAt'], isA<FieldValue>());
+      expect(data['schemaVersion'], 2);
+      expect(data['originType'], 'manual');
+      expect(data['originId'], isNull);
     },
   );
+
+  test('converte esquema 2 vinculado e preserva esquema 1 manual', () {
+    final Map<String, dynamic> linked = validMap()
+      ..['schemaVersion'] = 2
+      ..['originType'] = 'payable'
+      ..['originId'] = 'payable-1';
+    final FinancialTransaction transaction =
+        FirestoreFinancialTransactionMapper.fromMap(
+          data: linked,
+          documentId: 'transaction-1',
+          expectedOwnerId: 'owner',
+          now: now,
+        );
+
+    expect(transaction.originType, FinancialTransactionOriginType.payable);
+    expect(transaction.originId, 'payable-1');
+    expect(
+      FirestoreFinancialTransactionMapper.fromMap(
+        data: validMap(),
+        documentId: 'legacy-1',
+        expectedOwnerId: 'owner',
+        now: now,
+      ).originType,
+      FinancialTransactionOriginType.manual,
+    );
+  });
+
+  test('rejeita campos de origem incompatíveis com a versão', () {
+    final Map<String, dynamic> legacyWithOrigin = validMap()
+      ..['originType'] = 'manual'
+      ..['originId'] = null;
+    final Map<String, dynamic> linkedWithoutOrigin = validMap()
+      ..['schemaVersion'] = 2
+      ..['originType'] = 'payable'
+      ..['originId'] = null;
+
+    expect(
+      () => FirestoreFinancialTransactionMapper.fromMap(
+        data: legacyWithOrigin,
+        documentId: 'legacy-1',
+        expectedOwnerId: 'owner',
+        now: now,
+      ),
+      throwsA(isA<FinancialTransactionFailure>()),
+    );
+    expect(
+      () => FirestoreFinancialTransactionMapper.fromMap(
+        data: linkedWithoutOrigin,
+        documentId: 'linked-1',
+        expectedOwnerId: 'owner',
+        now: now,
+      ),
+      throwsA(isA<FinancialTransactionFailure>()),
+    );
+  });
 
   test('edição não permite conta, tipo nem valor', () {
     final Map<String, Object> data =

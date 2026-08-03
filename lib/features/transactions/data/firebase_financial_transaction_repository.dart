@@ -279,6 +279,14 @@ final class FirebaseFinancialTransactionRepository
             code: 'transaction_already_voided',
           );
         }
+        if (current.originType != FinancialTransactionOriginType.manual) {
+          throw const FinancialTransactionFailure(
+            kind: FinancialTransactionFailureKind.failedPrecondition,
+            safeMessage:
+                'Este lançamento deve ser alterado pelo compromisso que o originou.',
+            code: 'linked_transaction_is_not_directly_editable',
+          );
+        }
         final DocumentReference<Map<String, dynamic>> categoryReference =
             _firestore
                 .collection('users')
@@ -338,6 +346,14 @@ final class FirebaseFinancialTransactionRepository
             kind: FinancialTransactionFailureKind.voided,
             safeMessage: 'Este lançamento já está cancelado.',
             code: 'transaction_already_voided',
+          );
+        }
+        if (current.originType != FinancialTransactionOriginType.manual) {
+          throw const FinancialTransactionFailure(
+            kind: FinancialTransactionFailureKind.failedPrecondition,
+            safeMessage:
+                'Este lançamento deve ser anulado pelo compromisso que o originou.',
+            code: 'linked_transaction_is_not_directly_voidable',
           );
         }
         operation.update(reference, <String, Object>{

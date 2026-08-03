@@ -143,5 +143,64 @@ void main() {
         throwsA(isA<FinancialTransactionFailure>()),
       );
     });
+    test('aceita origem vinculada somente no esquema 2', () {
+      expect(
+        () => FinancialTransaction.validate(
+          createTestTransaction(),
+          now: DateTime.utc(2026, 8, 2),
+        ),
+        returnsNormally,
+      );
+      final FinancialTransaction linked = FinancialTransaction(
+        id: 'transaction-2',
+        ownerId: 'owner',
+        accountId: 'account-1',
+        categoryId: 'category-1',
+        kind: FinancialTransactionKind.expense,
+        description: 'Conta de luz',
+        amountCents: 10000,
+        occurredAt: DateTime.utc(2026, 8, 1, 3),
+        notes: '',
+        isVoided: false,
+        voidedAt: null,
+        createdAt: DateTime.utc(2026, 8, 1, 12),
+        updatedAt: DateTime.utc(2026, 8, 1, 12),
+        schemaVersion: FinancialTransaction.linkedSchemaVersion,
+        originType: FinancialTransactionOriginType.payable,
+        originId: 'payable-1',
+      );
+
+      expect(
+        () => FinancialTransaction.validate(
+          linked,
+          now: DateTime.utc(2026, 8, 2),
+        ),
+        returnsNormally,
+      );
+      expect(
+        () => FinancialTransaction.validate(
+          FinancialTransaction(
+            id: linked.id,
+            ownerId: linked.ownerId,
+            accountId: linked.accountId,
+            categoryId: linked.categoryId,
+            kind: linked.kind,
+            description: linked.description,
+            amountCents: linked.amountCents,
+            occurredAt: linked.occurredAt,
+            notes: linked.notes,
+            isVoided: linked.isVoided,
+            voidedAt: linked.voidedAt,
+            createdAt: linked.createdAt,
+            updatedAt: linked.updatedAt,
+            schemaVersion: FinancialTransaction.currentSchemaVersion,
+            originType: FinancialTransactionOriginType.payable,
+            originId: 'payable-1',
+          ),
+          now: DateTime.utc(2026, 8, 2),
+        ),
+        throwsA(isA<FinancialTransactionFailure>()),
+      );
+    });
   });
 }

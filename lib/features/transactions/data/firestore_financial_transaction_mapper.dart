@@ -3,7 +3,7 @@ import 'package:meu_gestor_financeiro/features/transactions/domain/financial_tra
 import 'package:meu_gestor_financeiro/features/transactions/domain/financial_transaction_failure.dart';
 
 abstract final class FirestoreFinancialTransactionMapper {
-  static const Set<String> fieldNames = <String>{
+  static const Set<String> fieldNamesV1 = <String>{
     'ownerId',
     'accountId',
     'categoryId',
@@ -18,6 +18,13 @@ abstract final class FirestoreFinancialTransactionMapper {
     'updatedAt',
     'schemaVersion',
   };
+  static const Set<String> fieldNamesV2 = <String>{
+    ...fieldNamesV1,
+    'originType',
+    'originId',
+  };
+
+  static const Set<String> fieldNames = fieldNamesV2;
 
   static FinancialTransaction fromMap({
     required Map<String, dynamic> data,
@@ -26,9 +33,15 @@ abstract final class FirestoreFinancialTransactionMapper {
     required DateTime now,
   }) {
     try {
+      final int schemaVersion = _integer(data, 'schemaVersion');
+      final Set<String> expectedFields = switch (schemaVersion) {
+        FinancialTransaction.currentSchemaVersion => fieldNamesV1,
+        FinancialTransaction.linkedSchemaVersion => fieldNamesV2,
+        _ => throw _incompatible('unsupported_transaction_schema'),
+      };
       final Set<String> actualFields = data.keys.toSet();
-      if (actualFields.difference(fieldNames).isNotEmpty ||
-          fieldNames.difference(actualFields).isNotEmpty) {
+      if (actualFields.difference(expectedFields).isNotEmpty ||
+          expectedFields.difference(actualFields).isNotEmpty) {
         throw _incompatible('unexpected_transaction_fields');
       }
       final String ownerId = _string(data, 'ownerId');
@@ -46,7 +59,13 @@ abstract final class FirestoreFinancialTransactionMapper {
         voidedAt: _nullableDateTime(data, 'voidedAt'),
         createdAt: _dateTime(data, 'createdAt'),
         updatedAt: _dateTime(data, 'updatedAt'),
-        schemaVersion: _integer(data, 'schemaVersion'),
+        schemaVersion: schemaVersion,
+        originType: schemaVersion == FinancialTransaction.currentSchemaVersion
+            ? FinancialTransactionOriginType.manual
+            : _originType(data, 'originType'),
+        originId: schemaVersion == FinancialTransaction.currentSchemaVersion
+            ? null
+            : _nullableString(data, 'originId'),
       );
       if (ownerId != expectedOwnerId) {
         throw _incompatible('transaction_owner_mismatch');
@@ -69,8 +88,18 @@ abstract final class FirestoreFinancialTransactionMapper {
     required String ownerId,
     required FinancialTransactionDraft draft,
     required DateTime now,
+    FinancialTransactionOriginType originType =
+        FinancialTransactionOriginType.manual,
+    String? originId,
   }) {
     final FinancialTransactionDraft normalized = draft.normalized(now: now);
+    if (originType == FinancialTransactionOriginType.manual) {
+      if (originId != null) {
+        throw _incompatible('manual_transaction_with_origin_id');
+      }
+    } else if (!_isValidReferenceId(originId)) {
+      throw _incompatible('linked_transaction_without_origin_id');
+    }
     return <String, Object?>{
       'ownerId': ownerId,
       'accountId': normalized.accountId,
@@ -84,7 +113,9 @@ abstract final class FirestoreFinancialTransactionMapper {
       'voidedAt': null,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
-      'schemaVersion': FinancialTransaction.currentSchemaVersion,
+      'schemaVersion': FinancialTransaction.linkedSchemaVersion,
+      'originType': originType.name,
+      'originId': originId,
     };
   }
 
@@ -115,8 +146,27 @@ abstract final class FirestoreFinancialTransactionMapper {
         transaction.amountCents == normalized.amountCents &&
         transaction.occurredAt == normalized.occurredAt &&
         transaction.notes == normalized.notes &&
+        transaction.originType == FinancialTransactionOriginType.manual &&
+        transaction.originId == null &&
         !transaction.isVoided;
   }
+
+  static FinancialTransactionOriginType _originType(
+    Map<String, dynamic> data,
+    String field,
+  ) {
+    final String value = _string(data, field);
+    return FinancialTransactionOriginType.values.firstWhere(
+      (FinancialTransactionOriginType type) => type.name == value,
+      orElse: () => throw StateError('invalid_origin_type'),
+    );
+  }
+
+  static bool _isValidReferenceId(String? value) =>
+      value != null &&
+      value.isNotEmpty &&
+      value.length <= 150 &&
+      !value.contains('/');
 
   static bool _boolean(Map<String, dynamic> data, String field) {
     final Object? value = data[field];
@@ -157,6 +207,17 @@ abstract final class FirestoreFinancialTransactionMapper {
     final Object? value = data[field];
     if (value is! String) {
       throw StateError('invalid_string');
+    }
+    return value;
+  }
+
+  static String? _nullableString(Map<String, dynamic> data, String field) {
+    final Object? value = data[field];
+    if (value == null) {
+      return null;
+    }
+    if (value is! String) {
+      throw StateError('invalid_nullable_string');
     }
     return value;
   }

@@ -182,6 +182,19 @@ class HomePage extends ConsumerWidget {
                             icon: const Icon(Icons.category_outlined),
                             label: const Text('Categorias'),
                           ),
+                          const SizedBox(height: AppSpacing.sm),
+                          OutlinedButton.icon(
+                            onPressed: () => context.push(AppRoutes.payables),
+                            icon: const Icon(Icons.outbox_outlined),
+                            label: const Text('Contas a pagar'),
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          OutlinedButton.icon(
+                            onPressed: () =>
+                                context.push(AppRoutes.receivables),
+                            icon: const Icon(Icons.move_to_inbox_outlined),
+                            label: const Text('Contas a receber'),
+                          ),
                         ],
                       ),
                       const SizedBox(height: AppSpacing.lg),

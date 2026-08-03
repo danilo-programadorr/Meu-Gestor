@@ -104,9 +104,13 @@ As chaves de ícone são salary, extraIncome, sale, refund, food, home, transpor
 | voidedAt | timestamp ou null | sim | Timestamp servidor ao cancelar |
 | createdAt | timestamp | sim | Servidor e imutável |
 | updatedAt | timestamp | sim | Servidor em toda alteração |
-| schemaVersion | int | sim | 1 e imutável |
+| schemaVersion | int | sim | 1 ou 2 e imutável |
 
-O ID é somente o ID do documento. Transferências não usam esta coleção neste incremento. O saldo deriva de lançamentos não cancelados: income soma e expense subtrai. Após criação, somente `categoryId`, `description`, `occurredAt` e `notes` podem mudar enquanto o lançamento estiver ativo.
+O esquema 1 contém exatamente os treze campos acima e continua compatível como lançamento manual, sem migração em massa.
+
+O esquema 2 acrescenta os campos obrigatórios `originType` e `originId`. `originType` aceita `manual`, `payable` ou `receivable`. Origem manual exige `originId=null`; as demais exigem o ID válido do compromisso e vínculo bidirecional. Novos documentos usam esquema 2; mappers e regras mantêm o esquema 1 integralmente compatível, sem migração em massa.
+
+O ID é somente o ID do documento. Transferências não usam esta coleção neste incremento. O saldo deriva de lançamentos não cancelados: income soma e expense subtrai. Lançamento esquema 1/manual segue a edição aprovada atual. Lançamento vinculado a compromisso não pode ser editado ou anulado isoladamente.
 
 ### users/{userId}/incomes/{incomeId} — IncomeModel
 
@@ -137,62 +141,46 @@ Pesos centralizados: confirmed 100%, high 80%, medium 50% e low 20%. Renda cance
 | Campo | Tipo | Obrigatório | Validação e uso |
 |---|---|---:|---|
 | ownerId | string | sim | Imutável e igual ao caminho |
-| description | string | sim | Não vazia e limitada |
-| debtorOrSource | string ou null | não | Texto opcional e protegido |
-| categoryId | string | sim | Categoria pertencente ao usuário |
-| totalAmountCents | int | sim | Maior que zero |
-| receivedAmountCents | int | sim | Derivado dos recebimentos vinculados |
-| remainingAmountCents | int | sim | Derivado e nunca negativo |
-| expectedAt | timestamp | sim | Data prevista |
-| receivedAt | timestamp ou null | não | Data de quitação integral |
-| installmentCount | int | sim | Pelo menos 1 |
-| status | string | sim | expected, partiallyReceived, received, late, renegotiated ou cancelled |
-| priority | string | sim | Enumeração aprovada |
-| notes | string ou null | não | Texto limitado |
-| attachmentIds | lista de string | sim | No máximo cinco anexos próprios |
-| revision | int | sim | Controle de concorrência |
-| createdAt | timestamp | sim | Imutável |
-| updatedAt | timestamp | sim | Servidor |
-| schemaVersion | int | sim | Positivo |
+| description | string | sim | Normalizada, 2 a 120 caracteres |
+| categoryId | string | sim | Categoria de renda própria e ativa na criação/edição |
+| amountCents | int | sim | 1 a 9.999.999.999 |
+| dueAt | timestamp | sim | Data civil de vencimento em São Paulo |
+| status | string | sim | pending, received, cancelled ou voided |
+| receivedAt | timestamp ou null | sim | Data civil do movimento quando received/voided |
+| settlementAccountId | string ou null | sim | Conta do lançamento quando received/voided |
+| linkedTransactionId | string ou null | sim | Obrigatório quando received/voided |
+| cancelledAt | timestamp ou null | sim | Servidor somente em cancelled |
+| voidedAt | timestamp ou null | sim | Servidor somente em voided |
+| notes | string | sim | Vazia ou até 500 caracteres |
+| revision | int | sim | Começa em 1 e cresce a cada mutação |
+| createdAt | timestamp | sim | Servidor e imutável |
+| updatedAt | timestamp | sim | Servidor em toda alteração |
+| schemaVersion | int | sim | 1 e imutável |
 
-Pode representar venda, empréstimo feito a outra pessoa, reembolso, aluguel, serviço, crédito parcelado ou outro crédito. Cada recebimento fica em receivables/{receivableId}/receipts/{receiptId}, é imutável e cria ou vincula exatamente um IncomeModel por chave idempotente, sem duplicar valor.
+O atraso é derivado quando `status=pending` e `dueAt` antecede a data civil atual de São Paulo. Confirmação integral cria exatamente um `FinancialTransaction` de receita esquema 2 na mesma transação Firestore. Liquidação parcial, contraparte, prioridade, parcelas, anexos e recorrência permanecem fora de FIN-5A.
 
-### users/{userId}/expenses/{expenseId} — ExpenseModel
+### users/{userId}/payables/{payableId} — PayableModel
 
 | Campo | Tipo | Obrigatório | Validação e uso |
 |---|---|---:|---|
-| ownerId | string | sim | Imutável |
-| name | string | sim | Não vazio e limitado |
-| description | string ou null | não | Texto limitado |
-| categoryId | string | sim | Categoria de despesa do usuário |
-| expectedAmountCents | int | sim | Não negativo |
-| paidAmountCents | int | sim | Não negativo e coerente com status |
-| dueAt | timestamp | sim | Vencimento |
-| paidAt | timestamp ou null | não | Exigido conforme status |
-| recurrenceRuleId | string ou null | não | Regra do usuário |
-| occurrenceKey | string ou null | não | Chave idempotente |
-| installmentCount | int | sim | Pelo menos 1 |
-| currentInstallment | int | sim | Entre 1 e o total |
-| priority | string | sim | essential, high, medium, low ou deferrable |
-| status | string | sim | pending, paid, partiallyPaid, late, renegotiated ou cancelled |
-| interestCents | int | sim | Não negativo |
-| fineCents | int | sim | Não negativo |
-| discountCents | int | sim | Não negativo |
-| interestRateBasisPoints | int ou null | não | Taxa informada, nunca inferida |
-| paymentMethod | string | sim | pix, bankTransfer, cash, debitCard, creditCard, boleto, automaticDebit ou other |
-| accountId | string ou null | não | Conta usada quando aplicável |
-| creditCardId | string ou null | não | Cartão do usuário quando aplicável |
-| invoiceId | string ou null | não | Fatura coerente com o cartão |
-| barcode | string ou null | não | Sanitizado, limitado e ausente de logs |
-| notes | string ou null | não | Texto limitado |
-| attachmentIds | lista de string | sim | Até cinco anexos pertencentes ao usuário |
-| subscriptionReviewStatus | string ou null | não | unknown, stillUsed ou unused |
-| subscriptionLastAskedAt | timestamp ou null | não | Controle de pergunta periódica |
-| createdAt | timestamp | sim | Imutável |
-| updatedAt | timestamp | sim | Servidor |
-| schemaVersion | int | sim | Positivo |
+| ownerId | string | sim | Imutável e igual ao caminho |
+| description | string | sim | Normalizada, 2 a 120 caracteres |
+| categoryId | string | sim | Categoria de despesa própria e ativa na criação/edição |
+| amountCents | int | sim | 1 a 9.999.999.999 |
+| dueAt | timestamp | sim | Data civil de vencimento em São Paulo |
+| status | string | sim | pending, paid, cancelled ou voided |
+| paidAt | timestamp ou null | sim | Data civil do movimento quando paid/voided |
+| settlementAccountId | string ou null | sim | Conta do lançamento quando paid/voided |
+| linkedTransactionId | string ou null | sim | Obrigatório quando paid/voided |
+| cancelledAt | timestamp ou null | sim | Servidor somente em cancelled |
+| voidedAt | timestamp ou null | sim | Servidor somente em voided |
+| notes | string | sim | Vazia ou até 500 caracteres |
+| revision | int | sim | Começa em 1 e cresce a cada mutação |
+| createdAt | timestamp | sim | Servidor e imutável |
+| updatedAt | timestamp | sim | Servidor em toda alteração |
+| schemaVersion | int | sim | 1 e imutável |
 
-Pagamentos parciais exigem histórico. Cada pagamento fica em users/{userId}/expenses/{expenseId}/payments/{paymentId} com ownerId, amountCents, paidAt, accountId, interestCents, fineCents, status, cancellationOfPaymentId, compensationForPaymentId, createdAt e schemaVersion. O registro é imutável; correções usam cancelamento ou lançamento compensatório auditável.
+O atraso é derivado e nunca persistido. Confirmação integral cria exatamente um `FinancialTransaction` de despesa esquema 2 na mesma transação Firestore. Recorrência, parcelas, pagamento parcial, juros, multa, desconto, forma de pagamento, código de barras, anexos e notificações permanecem fora de FIN-5A.
 
 ### users/{userId}/adjustments/{adjustmentId} — AdjustmentModel
 
@@ -335,8 +323,10 @@ Cada coleção terá modelo Dart imutável e conversor tipado:
 | incomes | status, expectedAt crescente |
 | incomes | destinationAccountId, receivedAt decrescente |
 | incomes | categoryId, expectedAt decrescente |
-| receivables | status, expectedAt crescente |
-| receivables | categoryId, expectedAt decrescente |
+| receivables | status, dueAt crescente |
+| receivables | categoryId, dueAt decrescente |
+| payables | status, dueAt crescente |
+| payables | categoryId, dueAt decrescente |
 | expenses | status, dueAt crescente |
 | expenses | accountId, paidAt decrescente |
 | expenses | categoryId, dueAt decrescente |
@@ -360,7 +350,7 @@ Os índices serão confirmados pelas consultas reais. Índices não utilizados s
 |---|---:|---:|---:|
 | Perfil | sim | campos permitidos | campos protegidos e exclusão |
 | Contas e categorias | sim | sim, com validação | migração e auditoria |
-| Rendas, contas a receber, despesas e transferências | sim | sim, com invariantes | recorrência, atraso e resumos |
+| Rendas, contas a pagar, contas a receber e transferências | sim | sim, com invariantes | recorrência e resumos futuros |
 | Cartões e dívidas | sim | sim, com validação | campos derivados |
 | Faturas e parcelas | sim | operações permitidas | geração e campos derivados |
 | Orçamentos e metas | sim | configuração e movimentos | projeções derivadas |

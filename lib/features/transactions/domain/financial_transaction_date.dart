@@ -1,19 +1,12 @@
+import 'package:meu_gestor_financeiro/core/dates/sao_paulo_civil_date.dart';
 import 'package:meu_gestor_financeiro/features/transactions/domain/financial_transaction_failure.dart';
 
 abstract final class FinancialTransactionDate {
-  static const Duration saoPauloUtcOffset = Duration(hours: 3);
+  static DateTime fromCalendarDate(DateTime selectedDate) =>
+      SaoPauloCivilDate.fromCalendarDate(selectedDate).toStorageInstant();
 
-  static DateTime fromCalendarDate(DateTime selectedDate) => DateTime.utc(
-    selectedDate.year,
-    selectedDate.month,
-    selectedDate.day,
-    saoPauloUtcOffset.inHours,
-  );
-
-  static DateTime saoPauloCalendarDate(DateTime instant) {
-    final DateTime localFields = instant.toUtc().subtract(saoPauloUtcOffset);
-    return DateTime.utc(localFields.year, localFields.month, localFields.day);
-  }
+  static DateTime saoPauloCalendarDate(DateTime instant) =>
+      SaoPauloCivilDate.fromInstant(instant).toUtcCalendarDate();
 
   static DateTime todayInSaoPaulo(DateTime now) => saoPauloCalendarDate(now);
 

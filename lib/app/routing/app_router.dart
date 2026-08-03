@@ -17,6 +17,10 @@ import 'package:meu_gestor_financeiro/features/authentication/presentation/pages
 import 'package:meu_gestor_financeiro/features/categories/presentation/pages/archived_categories_page.dart';
 import 'package:meu_gestor_financeiro/features/categories/presentation/pages/categories_page.dart';
 import 'package:meu_gestor_financeiro/features/categories/presentation/pages/category_form_page.dart';
+import 'package:meu_gestor_financeiro/features/commitments/domain/financial_commitment.dart';
+import 'package:meu_gestor_financeiro/features/commitments/presentation/pages/commitment_details_page.dart';
+import 'package:meu_gestor_financeiro/features/commitments/presentation/pages/commitment_form_page.dart';
+import 'package:meu_gestor_financeiro/features/commitments/presentation/pages/commitments_page.dart';
 import 'package:meu_gestor_financeiro/features/home/presentation/home_page.dart';
 import 'package:meu_gestor_financeiro/features/owner_access/presentation/controllers/master_access_controller.dart';
 import 'package:meu_gestor_financeiro/features/owner_access/presentation/controllers/master_access_state.dart';
@@ -242,6 +246,54 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((Ref ref) {
         ),
       ),
       GoRoute(
+        path: AppRoutes.payables,
+        builder: (context, state) =>
+            const CommitmentsPage(kind: FinancialCommitmentKind.payable),
+      ),
+      GoRoute(
+        path: AppRoutes.newPayable,
+        builder: (context, state) =>
+            const CommitmentFormPage(kind: FinancialCommitmentKind.payable),
+      ),
+      GoRoute(
+        path: '/contas-a-pagar/:commitmentId/editar',
+        builder: (context, state) => CommitmentFormPage(
+          kind: FinancialCommitmentKind.payable,
+          commitmentId: state.pathParameters['commitmentId'],
+        ),
+      ),
+      GoRoute(
+        path: '/contas-a-pagar/:commitmentId',
+        builder: (context, state) => CommitmentDetailsPage(
+          kind: FinancialCommitmentKind.payable,
+          commitmentId: state.pathParameters['commitmentId'] ?? '',
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.receivables,
+        builder: (context, state) =>
+            const CommitmentsPage(kind: FinancialCommitmentKind.receivable),
+      ),
+      GoRoute(
+        path: AppRoutes.newReceivable,
+        builder: (context, state) =>
+            const CommitmentFormPage(kind: FinancialCommitmentKind.receivable),
+      ),
+      GoRoute(
+        path: '/contas-a-receber/:commitmentId/editar',
+        builder: (context, state) => CommitmentFormPage(
+          kind: FinancialCommitmentKind.receivable,
+          commitmentId: state.pathParameters['commitmentId'],
+        ),
+      ),
+      GoRoute(
+        path: '/contas-a-receber/:commitmentId',
+        builder: (context, state) => CommitmentDetailsPage(
+          kind: FinancialCommitmentKind.receivable,
+          commitmentId: state.pathParameters['commitmentId'] ?? '',
+        ),
+      ),
+      GoRoute(
         path: AppRoutes.profileSetup,
         builder: (context, state) => const ProfileSetupPage(),
       ),
@@ -291,5 +343,9 @@ bool _isValidProfileRoute(String location) {
       location == AppRoutes.archivedCategories ||
       location.startsWith('${AppRoutes.categories}/') ||
       location == AppRoutes.transactions ||
-      location.startsWith('${AppRoutes.transactions}/');
+      location.startsWith('${AppRoutes.transactions}/') ||
+      location == AppRoutes.payables ||
+      location.startsWith('${AppRoutes.payables}/') ||
+      location == AppRoutes.receivables ||
+      location.startsWith('${AppRoutes.receivables}/');
 }

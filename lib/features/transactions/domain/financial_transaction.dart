@@ -24,6 +24,8 @@ enum FinancialTransactionKind {
       );
 }
 
+enum FinancialTransactionOriginType { manual, payable, receivable }
+
 final class FinancialTransaction {
   const FinancialTransaction({
     required this.id,
@@ -40,9 +42,12 @@ final class FinancialTransaction {
     required this.createdAt,
     required this.updatedAt,
     required this.schemaVersion,
+    this.originType = FinancialTransactionOriginType.manual,
+    this.originId,
   });
 
   static const int currentSchemaVersion = 1;
+  static const int linkedSchemaVersion = 2;
   static const int maximumAmountCents = 9999999999;
 
   final String id;
@@ -59,6 +64,8 @@ final class FinancialTransaction {
   final DateTime createdAt;
   final DateTime updatedAt;
   final int schemaVersion;
+  final FinancialTransactionOriginType originType;
+  final String? originId;
 
   Money get amount => Money.fromCents(amountCents);
 
@@ -90,6 +97,8 @@ final class FinancialTransaction {
     createdAt: createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
     schemaVersion: schemaVersion,
+    originType: originType,
+    originId: originId,
   );
 
   static void validateAmount(int cents) {
@@ -114,7 +123,7 @@ final class FinancialTransaction {
             transaction.description ||
         FinancialTransactionText.requireNotes(transaction.notes) !=
             transaction.notes ||
-        transaction.schemaVersion != currentSchemaVersion ||
+        !_hasValidSchemaAndOrigin(transaction) ||
         transaction.isVoided != (transaction.voidedAt != null)) {
       throw const FinancialTransactionFailure(
         kind: FinancialTransactionFailureKind.incompatible,
@@ -124,6 +133,25 @@ final class FinancialTransaction {
     }
     validateAmount(transaction.amountCents);
     FinancialTransactionDate.validateNotFuture(transaction.occurredAt, now);
+  }
+
+  static bool _hasValidSchemaAndOrigin(FinancialTransaction transaction) {
+    if (transaction.schemaVersion == currentSchemaVersion) {
+      return transaction.originType == FinancialTransactionOriginType.manual &&
+          transaction.originId == null;
+    }
+    if (transaction.schemaVersion != linkedSchemaVersion) {
+      return false;
+    }
+    return switch (transaction.originType) {
+      FinancialTransactionOriginType.manual => transaction.originId == null,
+      FinancialTransactionOriginType.payable ||
+      FinancialTransactionOriginType.receivable =>
+        transaction.originId != null &&
+            transaction.originId!.isNotEmpty &&
+            transaction.originId!.length <= 150 &&
+            !transaction.originId!.contains('/'),
+    };
   }
 }
 

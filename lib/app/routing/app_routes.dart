@@ -1,3 +1,5 @@
+import 'package:meu_gestor_financeiro/features/commitments/domain/financial_commitment.dart';
+
 abstract final class AppRoutes {
   static const String root = '/';
   static const String login = '/login';
@@ -17,6 +19,10 @@ abstract final class AppRoutes {
   static const String archivedCategories = '/categorias-arquivadas';
   static const String transactions = '/lancamentos';
   static const String newTransaction = '/lancamentos/novo';
+  static const String payables = '/contas-a-pagar';
+  static const String newPayable = '/contas-a-pagar/nova';
+  static const String receivables = '/contas-a-receber';
+  static const String newReceivable = '/contas-a-receber/nova';
   static const String profileSetup = '/configurar-perfil';
   static const String legalUpdate = '/atualizar-documentos';
   static const String profile = '/perfil';
@@ -42,4 +48,20 @@ abstract final class AppRoutes {
 
   static String editTransaction(String transactionId) =>
       '/lancamentos/${Uri.encodeComponent(transactionId)}/editar';
+
+  static String commitments(FinancialCommitmentKind kind) =>
+      kind == FinancialCommitmentKind.payable ? payables : receivables;
+
+  static String newCommitment(FinancialCommitmentKind kind) =>
+      kind == FinancialCommitmentKind.payable ? newPayable : newReceivable;
+
+  static String commitmentDetails(
+    FinancialCommitmentKind kind,
+    String commitmentId,
+  ) => '${commitments(kind)}/${Uri.encodeComponent(commitmentId)}';
+
+  static String editCommitment(
+    FinancialCommitmentKind kind,
+    String commitmentId,
+  ) => '${commitmentDetails(kind, commitmentId)}/editar';
 }

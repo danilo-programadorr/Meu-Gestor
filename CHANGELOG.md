@@ -43,6 +43,14 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - 60 testes automatizados do modelo, repositório, concorrência, capabilities, interface e segurança do owner;
 - documentação de arquitetura, matriz de regras e configuração manual do owner.
 - regras Firestore de perfil, contas, categorias, lançamentos e owner publicadas manualmente em development.
+- decisões FIN-5A para compromissos em `payables` e `receivables`, com atraso derivado e estados terminais `cancelled`/`voided`;
+- objeto de data civil de São Paulo e domínio puro de contas a pagar/receber, ainda sem persistência, regras ou interface;
+- contrato futuro de confirmação/anulação atômica e suporte de domínio ao vínculo de lançamentos esquema 2, preservando compatibilidade com esquema 1.
+- persistência local de compromissos com mappers estritos e `FirebaseCommitmentRepository`;
+- confirmação e anulação atômicas com vínculo bidirecional, revisão e recuperação idempotente após falhas incertas;
+- lançamentos esquema 2 para origens manual, payable e receivable, mantendo leitura e mutação de documentos esquema 1;
+- Security Rules locais para payables/receivables e harness isolado do Firestore Emulator com Project ID `demo-*`.
+- endurecimento FIN-5A-2B das Security Rules, com despacho determinístico de estados/origens, referências pós-gravação protegidas e auditoria automática dos diagnósticos do Emulator.
 
 ### Segurança
 
@@ -59,3 +67,5 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - owner não ignora isolamento por UID, regras financeiras, autenticação ou limites técnicos de segurança.
 - lançamentos exigem conta/categoria próprias e ativas, tipo compatível e confirmação do servidor;
 - campos financeiros imutáveis após criação; cancelamento irreversível e exclusão negada.
+- compromissos isolados por UID, esquema fechado, referências próprias e liquidação obrigatoriamente atômica;
+- lançamentos vinculados não aceitam edição, anulação isolada, restauração ou exclusão.

@@ -7,6 +7,7 @@ import 'package:meu_gestor_financeiro/app/theme/app_spacing.dart';
 import 'package:meu_gestor_financeiro/core/money/money_formatter.dart';
 import 'package:meu_gestor_financeiro/features/accounts/domain/financial_account.dart';
 import 'package:meu_gestor_financeiro/features/categories/domain/financial_category.dart';
+import 'package:meu_gestor_financeiro/features/commitments/domain/financial_commitment.dart';
 import 'package:meu_gestor_financeiro/features/transactions/domain/financial_transaction.dart';
 import 'package:meu_gestor_financeiro/features/transactions/presentation/controllers/financial_transaction_action_controller.dart';
 import 'package:meu_gestor_financeiro/features/transactions/presentation/controllers/financial_transactions_controller.dart';
@@ -140,7 +141,8 @@ class _DetailsContent extends ConsumerWidget {
           ),
           title: const Text('Detalhes do lançamento'),
           actions: <Widget>[
-            if (!transaction.isVoided)
+            if (!transaction.isVoided &&
+                transaction.originType == FinancialTransactionOriginType.manual)
               IconButton(
                 tooltip: 'Editar lançamento',
                 onPressed: action.isLoading
@@ -202,6 +204,36 @@ class _DetailsContent extends ConsumerWidget {
                     ? 'Cancelado — não participa do saldo'
                     : 'Ativo',
               ),
+              if (transaction.originType !=
+                  FinancialTransactionOriginType.manual) ...<Widget>[
+                _DetailRow(
+                  label: 'Origem',
+                  value:
+                      transaction.originType ==
+                          FinancialTransactionOriginType.payable
+                      ? 'Conta a pagar vinculada'
+                      : 'Conta a receber vinculada',
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                const Text(
+                  'Este lançamento é controlado pelo compromisso de origem. Edição e anulação devem ser feitas por ele para preservar o vínculo financeiro.',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                FilledButton.tonalIcon(
+                  onPressed: () => context.push(
+                    AppRoutes.commitmentDetails(
+                      transaction.originType ==
+                              FinancialTransactionOriginType.payable
+                          ? FinancialCommitmentKind.payable
+                          : FinancialCommitmentKind.receivable,
+                      transaction.originId!,
+                    ),
+                  ),
+                  icon: const Icon(Icons.link_outlined),
+                  label: const Text('Abrir compromisso de origem'),
+                ),
+              ],
               _DetailRow(
                 label: 'Criado em',
                 value: formatFinancialDate(transaction.createdAt),
@@ -220,7 +252,9 @@ class _DetailsContent extends ConsumerWidget {
             ],
           ),
         ),
-        bottomNavigationBar: transaction.isVoided
+        bottomNavigationBar:
+            transaction.isVoided ||
+                transaction.originType != FinancialTransactionOriginType.manual
             ? null
             : SafeArea(
                 top: false,

@@ -6,6 +6,7 @@ import 'package:meu_gestor_financeiro/app/routing/safe_back_navigation.dart';
 import 'package:meu_gestor_financeiro/app/theme/app_spacing.dart';
 import 'package:meu_gestor_financeiro/features/accounts/domain/financial_account.dart';
 import 'package:meu_gestor_financeiro/features/categories/domain/financial_category.dart';
+import 'package:meu_gestor_financeiro/features/commitments/domain/financial_commitment.dart';
 import 'package:meu_gestor_financeiro/features/transactions/data/financial_transaction_providers.dart';
 import 'package:meu_gestor_financeiro/features/transactions/domain/financial_transaction.dart';
 import 'package:meu_gestor_financeiro/features/transactions/domain/financial_transaction_date.dart';
@@ -100,6 +101,10 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
                   value.transactions.findById(current.id) ?? current;
               if (effective.isVoided) {
                 return _voidedEditScaffold();
+              }
+              if (effective.originType !=
+                  FinancialTransactionOriginType.manual) {
+                return _linkedEditScaffold(effective);
               }
               _initialize(value, effective);
               return _buildForm(value, effective);
@@ -470,6 +475,50 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
           child: Text(
             'Este lançamento foi cancelado e não pode ser editado.',
             textAlign: TextAlign.center,
+          ),
+        ),
+      ),
+    ),
+  );
+
+  Widget _linkedEditScaffold(FinancialTransaction transaction) => _withSafeBack(
+    Scaffold(
+      appBar: AppBar(
+        leading: SafeBackButton(fallbackLocation: _fallbackLocation),
+        title: const Text('Editar lançamento'),
+      ),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              const Icon(Icons.link_outlined, size: 56),
+              const SizedBox(height: AppSpacing.md),
+              const Text(
+                'Este lançamento foi criado por um compromisso financeiro e não pode ser editado isoladamente.',
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              const Text(
+                'Abra o compromisso de origem para consultar ou anular a liquidação com segurança.',
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              FilledButton.icon(
+                onPressed: () => context.go(
+                  AppRoutes.commitmentDetails(
+                    transaction.originType ==
+                            FinancialTransactionOriginType.payable
+                        ? FinancialCommitmentKind.payable
+                        : FinancialCommitmentKind.receivable,
+                    transaction.originId!,
+                  ),
+                ),
+                icon: const Icon(Icons.arrow_forward_rounded),
+                label: const Text('Abrir compromisso de origem'),
+              ),
+            ],
           ),
         ),
       ),

@@ -6,7 +6,7 @@
 - Regras permanentes aprovadas: AGENTS.md.
 - Modelo detalhado proposto: MODELO_FIRESTORE.md.
 - Rastreabilidade: MATRIZ_REQUISITOS.md.
-- Data desta revisão: 31 de julho de 2026.
+- Data desta revisão: 2 de agosto de 2026.
 - Os comandos públicos usam caminhos relativos à raiz do repositório.
 - A fundação local autorizada da Etapa 2 foi criada e validada nos limites da seção 16.
 - Todas as ações externas de Firebase, Google Cloud e Gemini são exclusivamente manuais pelo solicitante; o agente limita-se a orientar, preparar código autorizado e verificar resultados locais após confirmação.
@@ -66,6 +66,13 @@
 51. O papel `owner` é associado somente ao UID autenticado por `system_admins/{uid}`, exclusivamente em development, com leitura pontual confirmada pelo servidor e nenhuma escrita pelo cliente.
 52. Capabilities owner são centralizadas e incluem acesso a módulos, diagnósticos, experimentos, preferências de desenvolvimento e bypass futuro de assinatura, recursos pagos, IA e limites comerciais comuns.
 53. Capabilities comerciais não removem Security Rules, isolamento por UID, validações financeiras, autenticação, concorrência ou limites técnicos contra abuso e consumo acidental.
+54. `FIN-5A — Compromissos financeiros` identifica o incremento operacional de contas a pagar e receber e permanece dentro da macroetapa de controle financeiro; não altera a macroetapa 5 de IA.
+55. Contas a pagar usam `payables` e contas a receber usam `receivables`; compromissos não alteram saldo antes de gerar lançamento confirmado.
+56. Atraso é derivado da data civil atual de `America/Sao_Paulo` e nunca é status persistido.
+57. `transactions` esquema 2 adiciona vínculo de origem; documentos esquema 1 continuam compatíveis como manuais, sem migração em massa.
+58. Pendência pode terminar `cancelled`; pagamento ou recebimento posteriormente anulado termina `voided` junto com a invalidação atômica do lançamento vinculado.
+59. Recorrências, parcelamentos, liquidações parciais, juros, multas, descontos e notificações não pertencem a FIN-5A.
+60. A correção do saldo inicial exige proteção no domínio, repositório e Security Rules; bloqueio apenas visual é rejeitado. A proposta técnica permanece pendente de aprovação para implementação.
 
 ## 3. Estado do ambiente
 
@@ -211,6 +218,7 @@ meu_gestor_financeiro/
 |   |   +-- calendar/
 |   |   +-- accounts/
 |   |   +-- categories/
+|   |   +-- commitments/
 |   |   +-- incomes/
 |   |   +-- expenses/
 |   |   +-- recurring_entries/
@@ -510,6 +518,8 @@ Situação: fundação local criada e validada com `flutter analyze` e `flutter 
 8. O limiar que caracteriza juros elevados precisa ser definido antes do plano de dívidas.
 9. O catálogo permitido de eventos Analytics e a base legal final precisam ser aprovados antes da ativação do Analytics.
 10. As prioridades de contas a receber ainda precisam ser aprovadas antes desse módulo.
+11. A implementação da imutabilidade do saldo inicial e da futura operação de ajuste auditável depende de aprovação específica posterior a FIN-5A-1.
+12. A infraestrutura executável do Emulator Suite exige decisão separada sobre ferramentas e dependências locais; nenhuma matriz pode ser declarada executada antes disso.
 
 ## 16. Portão para implementação
 
@@ -606,3 +616,16 @@ Situação em 01/08/2026: concluída e aprovada manualmente. As regras foram pub
 - Regras publicadas em development permitem somente `get` do próprio documento administrativo por usuário verificado e negam listagem e toda escrita.
 - Nenhum plano, cobrança, pagamento, loja, limite comercial real ou consumo de IA foi implementado.
 - O teste manual confirmou o selo, a Área do proprietário e a autorização server-only. Testes reais das regras no Emulator Suite permanecem pendentes.
+
+## 23. FIN-5A — Compromissos financeiros
+
+Situação em 02/08/2026: FIN-5A-0, FIN-5A-1 e FIN-5A-2 implementados localmente. Interface permanece fora do incremento atual; regras não foram publicadas.
+
+- FIN-5A-0 registra coleções `payables` e `receivables`, estados terminais `cancelled` e `voided`, atraso derivado, vínculo bidirecional e compatibilidade de lançamentos esquema 1/2.
+- A estratégia recomendada para saldo inicial torna o campo imutável no domínio, repositório e regras e posterga correções para movimento auditável; nenhuma parte dessa estratégia foi implementada sem nova aprovação.
+- FIN-5A-1 introduz objeto de data civil de São Paulo, entidades de contas a pagar/receber, invariantes, comandos de liquidação e contratos de repositório sem dependência Firebase.
+- FIN-5A-2 implementa mappers estritos, repositório Firestore, liquidação/anulação atômicas, transações esquema 2, regras locais e harness do Emulator Suite em projeto `demo-*`.
+- FIN-5A-2B simplifica a avaliação das regras sem mudar o modelo: autenticação/perfil são centralizados, estados e origens usam despacho determinístico, referências usam uma única leitura pós-gravação e os logs locais passam por auditoria contra limite de expressões, excesso de leituras, avaliação interrompida, valores nulos e falhas internas.
+- Compromissos pendentes, cancelados ou anulados nunca são somados ao saldo; somente o lançamento ativo vinculado é canônico.
+- Controllers, providers, páginas e rotas pertencem ao FIN-5A-3 e dependem de nova autorização.
+- A imutabilidade de `openingBalanceCents` e a operação auditável de ajuste pertencem a incremento futuro separado; nenhuma alteração desse saldo foi feita no FIN-5A-2.

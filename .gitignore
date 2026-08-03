@@ -3,6 +3,8 @@
 .packages
 .pub/
 .pub-cache/
+node_modules/
+.firebase/
 build/
 coverage/
 .flutter-plugins

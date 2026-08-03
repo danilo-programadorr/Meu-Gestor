@@ -8,29 +8,6 @@ service cloud.firestore {
         && request.auth.token.email_verified == true;
     }
 
-    function isActiveOwner() {
-      return request.auth != null
-        && request.auth.token.email_verified == true
-        && exists(
-          /databases/$(database)/documents/system_admins/$(request.auth.uid)
-        )
-        && get(
-          /databases/$(database)/documents/system_admins/$(request.auth.uid)
-        ).data.role == 'owner'
-        && get(
-          /databases/$(database)/documents/system_admins/$(request.auth.uid)
-        ).data.active == true
-        && get(
-          /databases/$(database)/documents/system_admins/$(request.auth.uid)
-        ).data.environment == 'development'
-        && get(
-          /databases/$(database)/documents/system_admins/$(request.auth.uid)
-        ).data.schemaVersion == 1
-        && get(
-          /databases/$(database)/documents/system_admins/$(request.auth.uid)
-        ).data.grantedAt is timestamp;
-    }
-
     function profileFields() {
       return [
         'ownerId',
@@ -428,7 +405,7 @@ service cloud.firestore {
         && hasValidCategoryArchiveTransition();
     }
 
-    function transactionFields() {
+    function transactionFieldsV1() {
       return [
         'ownerId',
         'accountId',
@@ -446,9 +423,21 @@ service cloud.firestore {
       ];
     }
 
+    function transactionFieldsV2() {
+      return transactionFieldsV1().concat(['originType', 'originId']);
+    }
+
     function hasExactTransactionFields(data) {
-      return data.keys().hasAll(transactionFields())
-        && data.keys().hasOnly(transactionFields());
+      let schemaVersion = data.get('schemaVersion', 0);
+      return (
+          schemaVersion == 1
+          && data.keys().hasAll(transactionFieldsV1())
+          && data.keys().hasOnly(transactionFieldsV1())
+        ) || (
+          schemaVersion == 2
+          && data.keys().hasAll(transactionFieldsV2())
+          && data.keys().hasOnly(transactionFieldsV2())
+        );
     }
 
     function isValidReferenceId(value) {
@@ -486,58 +475,164 @@ service cloud.firestore {
         && (data.voidedAt == null || data.voidedAt is timestamp)
         && data.createdAt is timestamp
         && data.updatedAt is timestamp
-        && data.schemaVersion is int;
+        && data.schemaVersion is int
+        && (
+          data.schemaVersion == 1
+          || (
+            data.originType is string
+            && (data.originId == null || data.originId is string)
+          )
+        );
+    }
+
+    function hasValidTransactionOrigin(data) {
+      return data.schemaVersion == 1
+        ? true
+        : data.originType == 'manual'
+          ? data.originId == null
+          : data.originType in ['payable', 'receivable']
+            ? isValidReferenceId(data.originId)
+            : false;
     }
 
     function isValidTransaction(data, userId) {
-      return hasExactTransactionFields(data)
-        && hasValidTransactionTypes(data)
-        && data.ownerId == userId
-        && isValidReferenceId(data.accountId)
-        && isValidReferenceId(data.categoryId)
-        && isValidCategoryKind(data.kind)
-        && isValidTransactionDescription(data.description)
-        && data.amountCents > 0
-        && data.amountCents <= 9999999999
-        && data.occurredAt <= request.time
-        && isValidTransactionNotes(data.notes)
-        && data.schemaVersion == 1
-        && data.isVoided == (data.voidedAt != null);
+      return !hasExactTransactionFields(data)
+        ? false
+        : hasValidTransactionTypes(data)
+          && data.ownerId == userId
+          && isValidReferenceId(data.accountId)
+          && isValidReferenceId(data.categoryId)
+          && isValidCategoryKind(data.kind)
+          && isValidTransactionDescription(data.description)
+          && data.amountCents > 0
+          && data.amountCents <= 9999999999
+          && data.occurredAt <= request.time
+          && isValidTransactionNotes(data.notes)
+          && data.schemaVersion in [1, 2]
+          && hasValidTransactionOrigin(data)
+          && data.isVoided == (data.voidedAt != null);
+    }
+
+    function isActiveAccountData(data, userId) {
+      return data.ownerId == userId && data.isArchived == false;
     }
 
     function isActiveAccountReference(userId, accountId) {
       let accountPath = /databases/$(database)/documents/users/$(userId)/accounts/$(accountId);
-      return exists(accountPath)
-        && get(accountPath).data.ownerId == userId
-        && get(accountPath).data.isArchived == false;
+      return !exists(accountPath)
+        ? false
+        : isActiveAccountData(get(accountPath).data, userId);
+    }
+
+    function isActiveCategoryData(data, userId, kind) {
+      return data.ownerId == userId
+        && data.isArchived == false
+        && data.kind == kind;
     }
 
     function isActiveCategoryReference(userId, categoryId, kind) {
       let categoryPath = /databases/$(database)/documents/users/$(userId)/categories/$(categoryId);
-      return exists(categoryPath)
-        && get(categoryPath).data.ownerId == userId
-        && get(categoryPath).data.isArchived == false
-        && get(categoryPath).data.kind == kind;
+      return !exists(categoryPath)
+        ? false
+        : isActiveCategoryData(get(categoryPath).data, userId, kind);
     }
 
-    function isValidTransactionCreate(userId) {
+    function isMatchingCommitmentTransaction(commitment, movementAt, transaction, userId, originType, originId, transactionKind) {
+      return commitment.ownerId == userId
+        && transaction.ownerId == userId
+        && commitment.settlementAccountId == transaction.accountId
+        && commitment.categoryId == transaction.categoryId
+        && commitment.amountCents == transaction.amountCents
+        && movementAt == transaction.occurredAt
+        && transaction.kind == transactionKind
+        && transaction.schemaVersion == 2
+        && transaction.originType == originType
+        && transaction.originId == originId;
+    }
+
+    function isValidLinkedTransactionCreateData(commitment, movementAt, userId, transactionId, data, settledStatus, transactionKind) {
+      return commitment.status == settledStatus
+        && commitment.updatedAt == request.time
+        && commitment.linkedTransactionId == transactionId
+        && isMatchingCommitmentTransaction(
+          commitment,
+          movementAt,
+          data,
+          userId,
+          data.originType,
+          data.originId,
+          transactionKind
+        );
+    }
+
+    function isValidPayableTransactionCreateData(commitment, userId, transactionId, data) {
+      return isValidLinkedTransactionCreateData(
+        commitment,
+        commitment.paidAt,
+        userId,
+        transactionId,
+        data,
+        'paid',
+        'expense'
+      );
+    }
+
+    function isValidPayableTransactionCreate(userId, transactionId, data) {
+      let originPath = /databases/$(database)/documents/users/$(userId)/payables/$(data.originId);
+      return existsAfter(originPath)
+        && isValidPayableTransactionCreateData(
+          getAfter(originPath).data,
+          userId,
+          transactionId,
+          data
+        );
+    }
+
+    function isValidReceivableTransactionCreateData(commitment, userId, transactionId, data) {
+      return isValidLinkedTransactionCreateData(
+        commitment,
+        commitment.receivedAt,
+        userId,
+        transactionId,
+        data,
+        'received',
+        'income'
+      );
+    }
+
+    function isValidReceivableTransactionCreate(userId, transactionId, data) {
+      let originPath = /databases/$(database)/documents/users/$(userId)/receivables/$(data.originId);
+      return existsAfter(originPath)
+        && isValidReceivableTransactionCreateData(
+          getAfter(originPath).data,
+          userId,
+          transactionId,
+          data
+        );
+    }
+
+    function isValidTransactionCreateOrigin(userId, transactionId, data) {
+      return data.originType == 'manual'
+        ? data.originId == null
+          && isActiveAccountReference(userId, data.accountId)
+          && isActiveCategoryReference(userId, data.categoryId, data.kind)
+        : data.originType == 'payable'
+          ? isValidPayableTransactionCreate(userId, transactionId, data)
+          : data.originType == 'receivable'
+            ? isValidReceivableTransactionCreate(userId, transactionId, data)
+            : false;
+    }
+
+    function isValidTransactionCreate(userId, transactionId) {
       let data = request.resource.data;
-      return isValidTransaction(data, userId)
-        && data.isVoided == false
-        && data.voidedAt == null
-        && data.createdAt == request.time
-        && data.updatedAt == request.time
-        && isActiveAccountReference(userId, data.accountId)
-        && isActiveCategoryReference(userId, data.categoryId, data.kind);
-    }
-
-    function hasImmutableTransactionFields(data) {
-      return data.ownerId == resource.data.ownerId
-        && data.accountId == resource.data.accountId
-        && data.kind == resource.data.kind
-        && data.amountCents == resource.data.amountCents
-        && data.createdAt == resource.data.createdAt
-        && data.schemaVersion == resource.data.schemaVersion;
+      return !isValidTransaction(data, userId)
+        ? false
+        : data.schemaVersion == 2
+          && data.isVoided == false
+          && data.voidedAt == null
+          && data.createdAt == request.time
+          && data.updatedAt == request.time
+          && isValidTransactionCreateOrigin(userId, transactionId, data);
     }
 
     function isValidTransactionDescriptiveUpdate(userId) {
@@ -555,6 +650,10 @@ service cloud.firestore {
           'updatedAt'
         ])
         && data.updatedAt == request.time
+        && isValidTransactionDescription(data.description)
+        && data.occurredAt is timestamp
+        && data.occurredAt <= request.time
+        && isValidTransactionNotes(data.notes)
         && isActiveCategoryReference(userId, data.categoryId, data.kind);
     }
 
@@ -570,26 +669,417 @@ service cloud.firestore {
         && changed.hasOnly(['isVoided', 'voidedAt', 'updatedAt']);
     }
 
-    function isValidTransactionUpdate(userId) {
-      let data = request.resource.data;
-      return isValidTransaction(data, userId)
-        && hasImmutableTransactionFields(data)
-        && (
-          isValidTransactionDescriptiveUpdate(userId)
-          || isValidTransactionVoid()
+    function isValidLinkedTransactionVoidData(commitment, movementAt, userId, transactionId, data, transactionKind) {
+      return commitment.status == 'voided'
+        && commitment.updatedAt == request.time
+        && commitment.linkedTransactionId == transactionId
+        && isMatchingCommitmentTransaction(
+          commitment,
+          movementAt,
+          data,
+          userId,
+          data.originType,
+          data.originId,
+          transactionKind
         );
+    }
+
+    function isValidPayableTransactionVoidData(commitment, userId, transactionId, data) {
+      return isValidLinkedTransactionVoidData(
+        commitment,
+        commitment.paidAt,
+        userId,
+        transactionId,
+        data,
+        'expense'
+      );
+    }
+
+    function isValidPayableTransactionVoid(userId, transactionId, data) {
+      let originPath = /databases/$(database)/documents/users/$(userId)/payables/$(data.originId);
+      return existsAfter(originPath)
+        && isValidPayableTransactionVoidData(
+          getAfter(originPath).data,
+          userId,
+          transactionId,
+          data
+        );
+    }
+
+    function isValidReceivableTransactionVoidData(commitment, userId, transactionId, data) {
+      return isValidLinkedTransactionVoidData(
+        commitment,
+        commitment.receivedAt,
+        userId,
+        transactionId,
+        data,
+        'income'
+      );
+    }
+
+    function isValidReceivableTransactionVoid(userId, transactionId, data) {
+      let originPath = /databases/$(database)/documents/users/$(userId)/receivables/$(data.originId);
+      return existsAfter(originPath)
+        && isValidReceivableTransactionVoidData(
+          getAfter(originPath).data,
+          userId,
+          transactionId,
+          data
+        );
+    }
+
+    function isValidLinkedTransactionVoid(userId, transactionId, data) {
+      return isValidTransactionVoid()
+        && (
+          data.originType == 'payable'
+          ? isValidPayableTransactionVoid(userId, transactionId, data)
+          : data.originType == 'receivable'
+            ? isValidReceivableTransactionVoid(userId, transactionId, data)
+            : false
+        );
+    }
+
+    function isValidManualTransactionUpdate(userId, data) {
+      return data.isVoided == true
+        ? isValidTransactionVoid()
+        : isValidTransactionDescriptiveUpdate(userId);
+    }
+
+    function isValidTransactionUpdate(userId, transactionId) {
+      let data = request.resource.data;
+      return data.ownerId != userId
+        ? false
+        : resource.data.schemaVersion == 1
+          ? isValidManualTransactionUpdate(userId, data)
+          : resource.data.originType == 'manual'
+            ? isValidManualTransactionUpdate(userId, data)
+            : data.isVoided == true
+              ? isValidLinkedTransactionVoid(userId, transactionId, data)
+              : false;
+    }
+
+    function commitmentFields(movementField) {
+      return [
+        'ownerId',
+        'description',
+        'categoryId',
+        'amountCents',
+        'dueAt',
+        'status',
+        movementField,
+        'settlementAccountId',
+        'linkedTransactionId',
+        'cancelledAt',
+        'voidedAt',
+        'notes',
+        'revision',
+        'createdAt',
+        'updatedAt',
+        'schemaVersion'
+      ];
+    }
+
+    function hasExactCommitmentFields(data, movementField) {
+      return data.keys().hasAll(commitmentFields(movementField))
+        && data.keys().hasOnly(commitmentFields(movementField));
+    }
+
+    function hasValidCommitmentTypes(data, movementField) {
+      return data.get('ownerId', null) is string
+        && data.get('description', null) is string
+        && data.get('categoryId', null) is string
+        && data.get('amountCents', null) is int
+        && data.get('dueAt', null) is timestamp
+        && data.get('status', null) is string
+        && (data.get(movementField, null) == null || data.get(movementField, null) is timestamp)
+        && (data.get('settlementAccountId', null) == null || data.get('settlementAccountId', null) is string)
+        && (data.get('linkedTransactionId', null) == null || data.get('linkedTransactionId', null) is string)
+        && (data.get('cancelledAt', null) == null || data.get('cancelledAt', null) is timestamp)
+        && (data.get('voidedAt', null) == null || data.get('voidedAt', null) is timestamp)
+        && data.get('notes', null) is string
+        && data.get('revision', null) is int
+        && data.get('createdAt', null) is timestamp
+        && data.get('updatedAt', null) is timestamp
+        && data.get('schemaVersion', null) is int;
+    }
+
+    function hasValidCommitmentState(data, settledStatus, movementField) {
+      return data.get('status', '') == 'pending'
+        ? data.get(movementField, null) == null
+          && data.get('settlementAccountId', null) == null
+          && data.get('linkedTransactionId', null) == null
+          && data.get('cancelledAt', null) == null
+          && data.get('voidedAt', null) == null
+        : data.get('status', '') == settledStatus
+          ? data.get(movementField, null) is timestamp
+            && isValidReferenceId(data.get('settlementAccountId', null))
+            && isValidReferenceId(data.get('linkedTransactionId', null))
+            && data.get('cancelledAt', null) == null
+            && data.get('voidedAt', null) == null
+          : data.get('status', '') == 'cancelled'
+            ? data.get(movementField, null) == null
+              && data.get('settlementAccountId', null) == null
+              && data.get('linkedTransactionId', null) == null
+              && data.get('cancelledAt', null) is timestamp
+              && data.get('voidedAt', null) == null
+            : data.get('status', '') == 'voided'
+              ? data.get(movementField, null) is timestamp
+                && isValidReferenceId(data.get('settlementAccountId', null))
+                && isValidReferenceId(data.get('linkedTransactionId', null))
+                && data.get('cancelledAt', null) == null
+                && data.get('voidedAt', null) is timestamp
+              : false;
+    }
+
+    function isValidCommitment(data, userId, settledStatus, movementField) {
+      return !hasExactCommitmentFields(data, movementField)
+        ? false
+        : hasValidCommitmentTypes(data, movementField)
+          && data.get('ownerId', '') == userId
+          && isValidTransactionDescription(data.get('description', null))
+          && isValidReferenceId(data.get('categoryId', null))
+          && data.get('amountCents', 0) > 0
+          && data.get('amountCents', 0) <= 9999999999
+          && isValidTransactionNotes(data.get('notes', null))
+          && data.get('revision', 0) >= 1
+          && data.get('schemaVersion', 0) == 1
+          && data.get('updatedAt', request.time) >= data.get('createdAt', request.time)
+          && hasValidCommitmentState(data, settledStatus, movementField);
+    }
+
+    function isValidCommitmentCreate(userId, kind, settledStatus, movementField) {
+      let data = request.resource.data;
+      return !isValidCommitment(data, userId, settledStatus, movementField)
+        ? false
+        : data.get('status', '') == 'pending'
+          && data.get('revision', 0) == 1
+          && data.get('createdAt', null) == request.time
+          && data.get('updatedAt', null) == request.time
+          && isActiveCategoryReference(userId, data.get('categoryId', ''), kind);
+    }
+
+    function isValidPendingCommitmentEdit(userId, kind) {
+      let data = request.resource.data;
+      let changed = data.diff(resource.data).affectedKeys();
+      return resource.data.status == 'pending'
+        && data.status == 'pending'
+        && changed.hasAll(['revision', 'updatedAt'])
+        && changed.hasOnly([
+          'description',
+          'categoryId',
+          'amountCents',
+          'dueAt',
+          'notes',
+          'revision',
+          'updatedAt'
+        ])
+        && data.revision == resource.data.revision + 1
+        && data.updatedAt == request.time
+        && isValidTransactionDescription(data.description)
+        && data.amountCents is int
+        && data.amountCents > 0
+        && data.amountCents <= 9999999999
+        && data.dueAt is timestamp
+        && isValidTransactionNotes(data.notes)
+        && isActiveCategoryReference(userId, data.categoryId, kind);
+    }
+
+    function isValidPendingCommitmentCancellation() {
+      let data = request.resource.data;
+      let changed = data.diff(resource.data).affectedKeys();
+      return resource.data.status == 'pending'
+        && data.status == 'cancelled'
+        && data.cancelledAt == request.time
+        && data.revision == resource.data.revision + 1
+        && data.updatedAt == request.time
+        && changed.hasAll(['status', 'cancelledAt', 'revision', 'updatedAt'])
+        && changed.hasOnly(['status', 'cancelledAt', 'revision', 'updatedAt']);
+    }
+
+    function transactionPath(userId, transactionId) {
+      return /databases/$(database)/documents/users/$(userId)/transactions/$(transactionId);
+    }
+
+    function isValidCommitmentSettlementLink(transaction, commitment, movementAt, userId, originType, originId, transactionKind) {
+      return transaction.createdAt == request.time
+        && transaction.updatedAt == request.time
+        && isMatchingCommitmentTransaction(
+          commitment,
+          movementAt,
+          transaction,
+          userId,
+          originType,
+          originId,
+          transactionKind
+        );
+    }
+
+    function isValidCommitmentSettlement(userId, originType, originId, transactionKind, settledStatus, movementField) {
+      let data = request.resource.data;
+      let changed = data.diff(resource.data).affectedKeys();
+      let hasValidTransition = resource.data.status == 'pending'
+        && data.status == settledStatus
+        && data.updatedAt == request.time
+        && data.revision == resource.data.revision + 1
+        && changed.hasAll([
+          'status',
+          movementField,
+          'settlementAccountId',
+          'linkedTransactionId',
+          'revision',
+          'updatedAt'
+        ])
+        && changed.hasOnly([
+          'status',
+          movementField,
+          'settlementAccountId',
+          'linkedTransactionId',
+          'revision',
+          'updatedAt'
+        ])
+        && isValidReferenceId(data.settlementAccountId)
+        && isValidReferenceId(data.linkedTransactionId)
+        && isActiveAccountReference(userId, data.settlementAccountId)
+        && isActiveCategoryReference(userId, data.categoryId, transactionKind);
+      return hasValidTransition
+        && existsAfter(transactionPath(userId, data.linkedTransactionId))
+        && isValidCommitmentSettlementLink(
+          getAfter(transactionPath(userId, data.linkedTransactionId)).data,
+          data,
+          data[movementField],
+          userId,
+          originType,
+          originId,
+          transactionKind
+        );
+    }
+
+    function isValidCommitmentVoidLink(transaction, commitment, movementAt, userId, originType, originId, transactionKind) {
+      return transaction.isVoided == true
+        && transaction.voidedAt == request.time
+        && transaction.updatedAt == request.time
+        && isMatchingCommitmentTransaction(
+          commitment,
+          movementAt,
+          transaction,
+          userId,
+          originType,
+          originId,
+          transactionKind
+        );
+    }
+
+    function isValidCommitmentVoid(userId, originType, originId, transactionKind, settledStatus, movementField) {
+      let data = request.resource.data;
+      let changed = data.diff(resource.data).affectedKeys();
+      let hasValidTransition = resource.data.status == settledStatus
+        && data.status == 'voided'
+        && data.voidedAt == request.time
+        && data.updatedAt == request.time
+        && data.revision == resource.data.revision + 1
+        && changed.hasAll(['status', 'voidedAt', 'revision', 'updatedAt'])
+        && changed.hasOnly(['status', 'voidedAt', 'revision', 'updatedAt'])
+        && isValidReferenceId(data.linkedTransactionId);
+      return hasValidTransition
+        && existsAfter(transactionPath(userId, data.linkedTransactionId))
+        && isValidCommitmentVoidLink(
+          getAfter(transactionPath(userId, data.linkedTransactionId)).data,
+          data,
+          data[movementField],
+          userId,
+          originType,
+          originId,
+          transactionKind
+        );
+    }
+
+    function isValidCommitmentUpdate(userId, originType, originId, kind, settledStatus, movementField) {
+      let data = request.resource.data;
+      return data.get('ownerId', '') != userId
+        ? false
+        : resource.data.get('status', '') == 'pending'
+          ? data.get('status', '') == 'pending'
+            ? isValidPendingCommitmentEdit(userId, kind)
+            : data.get('status', '') == 'cancelled'
+              ? isValidPendingCommitmentCancellation()
+              : data.get('status', '') == settledStatus
+                ? isValidCommitmentSettlement(
+                  userId,
+                  originType,
+                  originId,
+                  kind,
+                  settledStatus,
+                  movementField
+                )
+                : false
+          : resource.data.get('status', '') == settledStatus
+            ? data.get('status', '') == 'voided'
+              ? isValidCommitmentVoid(
+                userId,
+                originType,
+                originId,
+                kind,
+                settledStatus,
+                movementField
+              )
+              : false
+            : false;
+    }
+
+    function isCurrentLegalProfileData(data, userId) {
+      return hasExactProfileFields(data)
+        && data.ownerId == userId
+        && data.locale == 'pt-BR'
+        && data.currencyCode == 'BRL'
+        && data.timeZone == 'America/Sao_Paulo'
+        && data.emailVerifiedSnapshot == true
+        && data.termsVersionAccepted == 'terms-dev-1.0.0'
+        && data.termsAcceptedAt is timestamp
+        && data.privacyVersionAccepted == 'privacy-dev-1.0.0'
+        && data.privacyAcceptedAt is timestamp
+        && data.schemaVersion == 1;
     }
 
     function hasCurrentLegalProfile(userId) {
       let profilePath = /databases/$(database)/documents/users/$(userId);
-      return exists(profilePath)
-        && isValidProfile(get(profilePath).data, userId);
+      return !exists(profilePath)
+        ? false
+        : isCurrentLegalProfileData(get(profilePath).data, userId);
+    }
+
+    function hasFinancialAccess(userId) {
+      return !isVerifiedOwner(userId)
+        ? false
+        : hasCurrentLegalProfile(userId);
+    }
+
+    function isActiveOwnerDocument(owner) {
+      return owner.data.keys().hasAll([
+          'role',
+          'active',
+          'environment',
+          'grantedAt',
+          'schemaVersion'
+        ])
+        && owner.data.keys().hasOnly([
+          'role',
+          'active',
+          'environment',
+          'grantedAt',
+          'schemaVersion'
+        ])
+        && owner.data.role == 'owner'
+        && owner.data.active == true
+        && owner.data.environment == 'development'
+        && owner.data.grantedAt is timestamp
+        && owner.data.schemaVersion == 1;
     }
 
     match /system_admins/{adminUid} {
       allow get: if request.auth != null
         && request.auth.uid == adminUid
-        && request.auth.token.email_verified == true;
+        && request.auth.token.email_verified == true
+        && isActiveOwnerDocument(resource);
       allow list, create, update, delete: if false;
     }
 
@@ -601,13 +1091,10 @@ service cloud.firestore {
       allow delete: if false;
 
       match /accounts/{accountId} {
-        allow get, list: if isVerifiedOwner(userId)
-          && hasCurrentLegalProfile(userId);
-        allow create: if isVerifiedOwner(userId)
-          && hasCurrentLegalProfile(userId)
+        allow get, list: if hasFinancialAccess(userId);
+        allow create: if hasFinancialAccess(userId)
           && isValidAccountCreate(userId);
-        allow update: if isVerifiedOwner(userId)
-          && hasCurrentLegalProfile(userId)
+        allow update: if hasFinancialAccess(userId)
           && isValidAccountUpdate(userId);
         allow delete: if false;
 
@@ -617,13 +1104,10 @@ service cloud.firestore {
       }
 
       match /categories/{categoryId} {
-        allow get, list: if isVerifiedOwner(userId)
-          && hasCurrentLegalProfile(userId);
-        allow create: if isVerifiedOwner(userId)
-          && hasCurrentLegalProfile(userId)
+        allow get, list: if hasFinancialAccess(userId);
+        allow create: if hasFinancialAccess(userId)
           && isValidCategoryCreate(userId);
-        allow update: if isVerifiedOwner(userId)
-          && hasCurrentLegalProfile(userId)
+        allow update: if hasFinancialAccess(userId)
           && isValidCategoryUpdate(userId);
         allow delete: if false;
 
@@ -633,14 +1117,61 @@ service cloud.firestore {
       }
 
       match /transactions/{transactionId} {
-        allow get, list: if isVerifiedOwner(userId)
-          && hasCurrentLegalProfile(userId);
-        allow create: if isVerifiedOwner(userId)
-          && hasCurrentLegalProfile(userId)
-          && isValidTransactionCreate(userId);
-        allow update: if isVerifiedOwner(userId)
-          && hasCurrentLegalProfile(userId)
-          && isValidTransactionUpdate(userId);
+        allow get, list: if hasFinancialAccess(userId);
+        allow create: if hasFinancialAccess(userId)
+          && isValidTransactionCreate(userId, transactionId);
+        allow update: if hasFinancialAccess(userId)
+          && isValidTransactionUpdate(userId, transactionId);
+        allow delete: if false;
+
+        match /{document=**} {
+          allow read, write: if false;
+        }
+      }
+
+      match /payables/{payableId} {
+        allow get, list: if hasFinancialAccess(userId);
+        allow create: if hasFinancialAccess(userId)
+          && isValidCommitmentCreate(
+            userId,
+            'expense',
+            'paid',
+            'paidAt'
+          );
+        allow update: if hasFinancialAccess(userId)
+          && isValidCommitmentUpdate(
+            userId,
+            'payable',
+            payableId,
+            'expense',
+            'paid',
+            'paidAt'
+          );
+        allow delete: if false;
+
+        match /{document=**} {
+          allow read, write: if false;
+        }
+      }
+
+      match /receivables/{receivableId} {
+        allow get, list: if hasFinancialAccess(userId);
+        allow create: if hasFinancialAccess(userId)
+          && isValidCommitmentCreate(
+            userId,
+            'income',
+            'received',
+            'receivedAt'
+          );
+        allow update: if hasFinancialAccess(userId)
+          && isValidCommitmentUpdate(
+            userId,
+            'receivable',
+            receivableId,
+            'income',
+            'received',
+            'receivedAt'
+          );
         allow delete: if false;
 
         match /{document=**} {
