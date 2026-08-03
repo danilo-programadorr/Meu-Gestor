@@ -110,7 +110,18 @@ service cloud.firestore {
       let data = request.resource.data;
       let changed = data.diff(resource.data).affectedKeys();
       return isValidProfile(data, userId)
-        && changed.hasAll(['updatedAt'])
+        && changed.hasAny([
+          'displayName',
+          'emailVerifiedSnapshot',
+          'termsVersionAccepted',
+          'termsAcceptedAt',
+          'privacyVersionAccepted',
+          'privacyAcceptedAt',
+          'aiConsentEnabled',
+          'aiConsentUpdatedAt',
+          'analyticsConsentEnabled',
+          'analyticsConsentUpdatedAt'
+        ])
         && changed.hasOnly([
           'displayName',
           'emailVerifiedSnapshot',
@@ -247,7 +258,14 @@ service cloud.firestore {
       let data = request.resource.data;
       let changed = data.diff(resource.data).affectedKeys();
       return isValidAccount(data, userId)
-        && changed.hasAll(['updatedAt'])
+        && changed.hasAny([
+          'name',
+          'type',
+          'openingBalanceCents',
+          'includeInTotal',
+          'isArchived',
+          'archivedAt'
+        ])
         && changed.hasOnly([
           'name',
           'type',
@@ -388,7 +406,13 @@ service cloud.firestore {
       let data = request.resource.data;
       let changed = data.diff(resource.data).affectedKeys();
       return isValidCategory(data, userId)
-        && changed.hasAll(['updatedAt'])
+        && changed.hasAny([
+          'name',
+          'iconKey',
+          'colorKey',
+          'isArchived',
+          'archivedAt'
+        ])
         && changed.hasOnly([
           'name',
           'iconKey',
@@ -641,7 +665,12 @@ service cloud.firestore {
       return resource.data.isVoided == false
         && data.isVoided == false
         && data.voidedAt == null
-        && changed.hasAll(['updatedAt'])
+        && changed.hasAny([
+          'description',
+          'categoryId',
+          'occurredAt',
+          'notes'
+        ])
         && changed.hasOnly([
           'description',
           'categoryId',
@@ -665,7 +694,7 @@ service cloud.firestore {
         && data.isVoided == true
         && data.voidedAt == request.time
         && data.updatedAt == request.time
-        && changed.hasAll(['isVoided', 'voidedAt', 'updatedAt'])
+        && changed.hasAll(['isVoided', 'voidedAt'])
         && changed.hasOnly(['isVoided', 'voidedAt', 'updatedAt']);
     }
 
@@ -863,7 +892,14 @@ service cloud.firestore {
       let changed = data.diff(resource.data).affectedKeys();
       return resource.data.status == 'pending'
         && data.status == 'pending'
-        && changed.hasAll(['revision', 'updatedAt'])
+        && changed.hasAll(['revision'])
+        && changed.hasAny([
+          'description',
+          'categoryId',
+          'amountCents',
+          'dueAt',
+          'notes'
+        ])
         && changed.hasOnly([
           'description',
           'categoryId',
@@ -892,7 +928,7 @@ service cloud.firestore {
         && data.cancelledAt == request.time
         && data.revision == resource.data.revision + 1
         && data.updatedAt == request.time
-        && changed.hasAll(['status', 'cancelledAt', 'revision', 'updatedAt'])
+        && changed.hasAll(['status', 'cancelledAt', 'revision'])
         && changed.hasOnly(['status', 'cancelledAt', 'revision', 'updatedAt']);
     }
 
@@ -926,8 +962,7 @@ service cloud.firestore {
           movementField,
           'settlementAccountId',
           'linkedTransactionId',
-          'revision',
-          'updatedAt'
+          'revision'
         ])
         && changed.hasOnly([
           'status',
@@ -977,7 +1012,7 @@ service cloud.firestore {
         && data.voidedAt == request.time
         && data.updatedAt == request.time
         && data.revision == resource.data.revision + 1
-        && changed.hasAll(['status', 'voidedAt', 'revision', 'updatedAt'])
+        && changed.hasAll(['status', 'voidedAt', 'revision'])
         && changed.hasOnly(['status', 'voidedAt', 'revision', 'updatedAt'])
         && isValidReferenceId(data.linkedTransactionId);
       return hasValidTransition

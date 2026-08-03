@@ -20,6 +20,7 @@ import {
 const projectId = 'demo-meu-gestor-financeiro';
 const ownerId = 'owner-1';
 const otherId = 'owner-2';
+const rulesSource = readFileSync('firestore.rules', 'utf8');
 const past = Timestamp.fromDate(new Date('2026-08-01T12:00:00Z'));
 const dueAt = Timestamp.fromDate(new Date('2026-08-05T03:00:00Z'));
 const movementAt = Timestamp.fromDate(new Date('2026-08-02T03:00:00Z'));
@@ -183,6 +184,26 @@ function transactionRef(db, id) {
   return doc(db, `users/${ownerId}/transactions/${id}`);
 }
 
+function ruleFunctionSource(name) {
+  const marker = `function ${name}(`;
+  const start = rulesSource.indexOf(marker);
+  assert.notEqual(start, -1, `função ${name} não encontrada nas regras`);
+  const openingBrace = rulesSource.indexOf('{', start);
+  let depth = 0;
+  for (let index = openingBrace; index < rulesSource.length; index += 1) {
+    if (rulesSource[index] === '{') depth += 1;
+    if (rulesSource[index] === '}') depth -= 1;
+    if (depth === 0) return rulesSource.slice(start, index + 1);
+  }
+  assert.fail(`função ${name} não foi encerrada nas regras`);
+}
+
+function assertSameTimestamp(left, right, message) {
+  assert.ok(left instanceof Timestamp, `${message}: primeiro valor não é timestamp`);
+  assert.ok(right instanceof Timestamp, `${message}: segundo valor não é timestamp`);
+  assert.ok(left.isEqual(right), message);
+}
+
 async function seedBase(extra = async () => {}) {
   await testEnv.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore();
@@ -231,18 +252,26 @@ async function settle(db, { type = 'payable', id, transactionId, commitmentOverr
   return batch.commit();
 }
 
-async function voidSettlement(db, { type = 'payable', id, transactionId }) {
+async function voidSettlement(db, {
+  type = 'payable',
+  id,
+  transactionId,
+  commitmentOverrides = {},
+  transactionOverrides = {},
+}) {
   const batch = writeBatch(db);
   batch.update(commitmentRef(db, type, id), {
     status: 'voided',
     voidedAt: serverTimestamp(),
     revision: 3,
     updatedAt: serverTimestamp(),
+    ...commitmentOverrides,
   });
   batch.update(transactionRef(db, transactionId), {
     isVoided: true,
     voidedAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
+    ...transactionOverrides,
   });
   return batch.commit();
 }
@@ -251,7 +280,7 @@ before(async () => {
   testEnv = await initializeTestEnvironment({
     projectId,
     firestore: {
-      rules: readFileSync('firestore.rules', 'utf8'),
+      rules: rulesSource,
     },
   });
 });
@@ -445,7 +474,7 @@ describe('cancelamento, anulação e preservação de histórico', () => {
 });
 
 describe('compatibilidade e regressões das regras existentes', () => {
-  test('mantém lançamento esquema 1 manual legível, editável e anulável', async () => {
+  test('mantém lançamento esquema 1 manual legível, editável e anulável imediatamente', async () => {
     await testEnv.withSecurityRulesDisabled(async (context) => {
       await setDoc(transactionRef(context.firestore(), 'legacy-1'), legacyTransaction(ownerId));
     });
@@ -460,9 +489,11 @@ describe('compatibilidade e regressões das regras existentes', () => {
       voidedAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     }));
+    const data = (await getDoc(transactionRef(db, 'legacy-1'))).data();
+    assertSameTimestamp(data.voidedAt, data.updatedAt, 'anulação esquema 1 deve compartilhar request.time');
   });
 
-  test('mantém criação e anulação de lançamento manual esquema 2', async () => {
+  test('mantém criação e anulação imediata de lançamento manual esquema 2', async () => {
     const db = verifiedDb();
     await assertSucceeds(setDoc(transactionRef(db, 'manual-v2'), manualTransaction(ownerId)));
     await assertSucceeds(updateDoc(transactionRef(db, 'manual-v2'), {
@@ -470,6 +501,8 @@ describe('compatibilidade e regressões das regras existentes', () => {
       voidedAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     }));
+    const data = (await getDoc(transactionRef(db, 'manual-v2'))).data();
+    assertSameTimestamp(data.voidedAt, data.updatedAt, 'anulação esquema 2 deve compartilhar request.time');
   });
 
   test('mantém perfil, contas, categorias e owner protegidos', async () => {
@@ -498,5 +531,157 @@ describe('compatibilidade e regressões das regras existentes', () => {
       grantedAt: serverTimestamp(),
     }));
     await assertFails(getDoc(doc(verifiedDb(otherId), `system_admins/${ownerId}`)));
+  });
+});
+
+describe('regressão de estabilidade temporal', () => {
+  test('updatedAt permanece obrigatório sem depender de affectedKeys', () => {
+    const functions = [
+      'isValidUpdate',
+      'isValidAccountUpdate',
+      'isValidCategoryUpdate',
+      'isValidTransactionDescriptiveUpdate',
+      'isValidTransactionVoid',
+      'isValidPendingCommitmentEdit',
+      'isValidPendingCommitmentCancellation',
+      'isValidCommitmentSettlement',
+      'isValidCommitmentVoid',
+    ];
+    for (const name of functions) {
+      const source = ruleFunctionSource(name);
+      assert.match(source, /data\.updatedAt == request\.time/);
+      assert.match(source, /changed\.hasOnly\(\[[^\]]*['"]updatedAt['"]/s);
+      assert.doesNotMatch(source, /changed\.hasAll\(\[[^\]]*['"]updatedAt['"]/s);
+    }
+  });
+
+  test('liquida e anula imediatamente compromisso pago e recebido com timestamps iguais', async () => {
+    await seedPending('payable', 'payable-immediate');
+    await seedPending('receivable', 'receivable-immediate');
+    const db = verifiedDb();
+    await assertSucceeds(settle(db, {
+      id: 'payable-immediate',
+      transactionId: 'tx-payable-immediate',
+    }));
+    await assertSucceeds(settle(db, {
+      type: 'receivable',
+      id: 'receivable-immediate',
+      transactionId: 'tx-receivable-immediate',
+    }));
+    await assertSucceeds(voidSettlement(db, {
+      id: 'payable-immediate',
+      transactionId: 'tx-payable-immediate',
+    }));
+    await assertSucceeds(voidSettlement(db, {
+      type: 'receivable',
+      id: 'receivable-immediate',
+      transactionId: 'tx-receivable-immediate',
+    }));
+
+    for (const [type, id, transactionId] of [
+      ['payable', 'payable-immediate', 'tx-payable-immediate'],
+      ['receivable', 'receivable-immediate', 'tx-receivable-immediate'],
+    ]) {
+      const commitmentData = (await getDoc(commitmentRef(db, type, id))).data();
+      const transactionData = (await getDoc(transactionRef(db, transactionId))).data();
+      assert.equal(commitmentData.status, 'voided');
+      assert.equal(transactionData.isVoided, true);
+      assertSameTimestamp(
+        commitmentData.voidedAt,
+        commitmentData.updatedAt,
+        `${type}: compromisso deve compartilhar request.time`,
+      );
+      assertSameTimestamp(
+        transactionData.voidedAt,
+        transactionData.updatedAt,
+        `${type}: lançamento deve compartilhar request.time`,
+      );
+      assertSameTimestamp(
+        commitmentData.updatedAt,
+        transactionData.updatedAt,
+        `${type}: vínculo atômico deve compartilhar request.time`,
+      );
+    }
+  });
+
+  test('nega revision incorreta na liquidação e na anulação', async () => {
+    await seedPending('payable', 'payable-bad-settlement-revision');
+    await seedPending('payable', 'payable-bad-void-revision');
+    const db = verifiedDb();
+    await assertFails(settle(db, {
+      id: 'payable-bad-settlement-revision',
+      transactionId: 'tx-bad-settlement-revision',
+      commitmentOverrides: { revision: 3 },
+    }));
+    await assertSucceeds(settle(db, {
+      id: 'payable-bad-void-revision',
+      transactionId: 'tx-bad-void-revision',
+    }));
+    await assertFails(voidSettlement(db, {
+      id: 'payable-bad-void-revision',
+      transactionId: 'tx-bad-void-revision',
+      commitmentOverrides: { revision: 4 },
+    }));
+  });
+
+  test('nega updatedAt diferente de request.time', async () => {
+    await seedPending('payable', 'payable-stale-updated-at');
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(
+        transactionRef(context.firestore(), 'legacy-stale-updated-at'),
+        legacyTransaction(ownerId),
+      );
+    });
+    const db = verifiedDb();
+    await assertFails(updateDoc(commitmentRef(db, 'payable', 'payable-stale-updated-at'), {
+      status: 'cancelled',
+      cancelledAt: serverTimestamp(),
+      revision: 2,
+      updatedAt: past,
+    }));
+    await assertFails(updateDoc(transactionRef(db, 'legacy-stale-updated-at'), {
+      isVoided: true,
+      voidedAt: serverTimestamp(),
+      updatedAt: past,
+    }));
+  });
+
+  test('nega atualização sem alteração semântica', async () => {
+    await seedPending('payable', 'payable-no-semantic-change');
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(
+        transactionRef(context.firestore(), 'legacy-no-semantic-change'),
+        legacyTransaction(ownerId),
+      );
+    });
+    const db = verifiedDb();
+    await assertFails(updateDoc(transactionRef(db, 'legacy-no-semantic-change'), {
+      updatedAt: serverTimestamp(),
+    }));
+    await assertFails(updateDoc(commitmentRef(db, 'payable', 'payable-no-semantic-change'), {
+      revision: 2,
+      updatedAt: serverTimestamp(),
+    }));
+  });
+
+  test('nega campos extras e imutáveis nas transições', async () => {
+    await seedPending('payable', 'payable-immutable-transition');
+    const db = verifiedDb();
+    await assertSucceeds(setDoc(
+      transactionRef(db, 'manual-immutable-transition'),
+      manualTransaction(ownerId),
+    ));
+    await assertFails(updateDoc(transactionRef(db, 'manual-immutable-transition'), {
+      accountId: 'account-2',
+      unexpectedField: true,
+      isVoided: true,
+      voidedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }));
+    await assertFails(settle(db, {
+      id: 'payable-immutable-transition',
+      transactionId: 'tx-immutable-transition',
+      commitmentOverrides: { description: 'Alteração não permitida' },
+    }));
   });
 });
