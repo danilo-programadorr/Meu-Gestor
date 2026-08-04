@@ -96,7 +96,7 @@ class AuthScaffold extends StatelessWidget {
                                           context,
                                         ).colorScheme.outline,
                                       ),
-                                      boxShadow: AppShadows.elevated,
+                                      boxShadow: AppShadows.elevated(context),
                                     ),
                                     child: child,
                                   ),
@@ -147,7 +147,7 @@ class _FinancialMark extends StatelessWidget {
           shape: BoxShape.circle,
           color: backgroundColor,
           border: Border.all(color: foregroundColor),
-          boxShadow: AppShadows.focus,
+          boxShadow: AppShadows.focus(context),
         ),
         child: Icon(
           Icons.trending_up_rounded,

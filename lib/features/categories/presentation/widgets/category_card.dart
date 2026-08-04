@@ -8,12 +8,14 @@ class CategoryCard extends StatelessWidget {
     required this.category,
     required this.onEdit,
     required this.onArchive,
+    this.actionsEnabled = true,
     super.key,
   });
 
   final FinancialCategory category;
   final VoidCallback onEdit;
   final VoidCallback onArchive;
+  final bool actionsEnabled;
 
   @override
   Widget build(BuildContext context) {
@@ -46,12 +48,12 @@ class CategoryCard extends StatelessWidget {
             ),
             IconButton(
               tooltip: 'Editar categoria',
-              onPressed: onEdit,
+              onPressed: actionsEnabled ? onEdit : null,
               icon: const Icon(Icons.edit_outlined),
             ),
             IconButton(
               tooltip: 'Arquivar categoria',
-              onPressed: onArchive,
+              onPressed: actionsEnabled ? onArchive : null,
               icon: const Icon(Icons.archive_outlined),
             ),
           ],

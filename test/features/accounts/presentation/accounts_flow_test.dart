@@ -6,8 +6,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:meu_gestor_financeiro/app/app.dart';
 import 'package:meu_gestor_financeiro/app/routing/app_routes.dart';
+import 'package:meu_gestor_financeiro/app/theme/app_theme.dart';
 import 'package:meu_gestor_financeiro/core/environment/app_environment.dart';
 import 'package:meu_gestor_financeiro/core/firebase/firebase_startup.dart';
+import 'package:meu_gestor_financeiro/core/money/money.dart';
 import 'package:meu_gestor_financeiro/features/accounts/data/financial_account_providers.dart';
 import 'package:meu_gestor_financeiro/features/accounts/domain/financial_account.dart';
 import 'package:meu_gestor_financeiro/features/accounts/presentation/widgets/account_card.dart';
@@ -25,16 +27,51 @@ import '../../../support/financial_account_fixtures.dart';
 import '../../../support/profile_fixtures.dart';
 
 void main() {
-  testWidgets('home oferece entrada técnica para contas e carteiras', (
+  testWidgets('home remove a seção visual de contas e preserva o menu', (
     WidgetTester tester,
   ) async {
     final _WidgetContext context = await _pumpApp(tester);
     addTearDown(context.dispose);
 
-    expect(find.text('Contas e carteiras'), findsOneWidget);
-    expect(find.text('Ver contas'), findsOneWidget);
-    expect(find.text('Receitas do mês'), findsOneWidget);
-    expect(find.text('Despesas do mês'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('dashboard-header-menu-button')),
+      findsOneWidget,
+    );
+    expect(find.text('Contas e carteiras'), findsNothing);
+    expect(find.text('Ver contas'), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('dashboard-accounts-carousel')),
+      findsNothing,
+    );
+    expect(find.text('Área autenticada'), findsNothing);
+  });
+
+  testWidgets('menu navega para contas e Voltar retorna ao dashboard', (
+    WidgetTester tester,
+  ) async {
+    final _WidgetContext context = await _pumpApp(tester);
+    addTearDown(context.dispose);
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('dashboard-header-menu-button')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(
+        of: find.byType(BottomSheet),
+        matching: find.text('Contas e carteiras'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(AppBar, 'Contas e carteiras'), findsOneWidget);
+    expect(find.byTooltip('Voltar'), findsOneWidget);
+    await tester.tap(find.byTooltip('Voltar'));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey<String>('dashboard-header-menu-button')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('rota de contas permanece bloqueada sem email confirmado', (
@@ -72,7 +109,8 @@ void main() {
       findsOneWidget,
     );
     expect(find.text(r'R$ 0,00'), findsOneWidget);
-    expect(find.text('Adicionar conta'), findsNWidgets(2));
+    expect(find.text('Adicionar conta'), findsOneWidget);
+    expect(find.byTooltip('Adicionar conta'), findsOneWidget);
   });
 
   testWidgets('lista exibe total, tipos e exclusão do total', (
@@ -100,13 +138,46 @@ void main() {
     expect(find.text('Não participa do total geral'), findsOneWidget);
   });
 
+  testWidgets('lista ativa alinha editar e arquivar com confirmação segura', (
+    WidgetTester tester,
+  ) async {
+    final SemanticsHandle semantics = tester.ensureSemantics();
+    final _WidgetContext context = await _pumpAccounts(
+      tester,
+      accounts: <FinancialAccount>[createTestAccount()],
+    );
+    addTearDown(context.dispose);
+
+    final Finder edit = find.byTooltip('Editar conta');
+    final Finder archive = find.byTooltip('Arquivar conta');
+    expect(edit, findsOneWidget);
+    expect(archive, findsOneWidget);
+    expect(find.bySemanticsLabel('Editar conta'), findsOneWidget);
+    expect(find.bySemanticsLabel('Arquivar conta'), findsOneWidget);
+    expect(tester.getSize(edit).width, greaterThanOrEqualTo(44));
+    expect(tester.getSize(edit).height, greaterThanOrEqualTo(44));
+    expect(tester.getSize(archive).width, greaterThanOrEqualTo(44));
+    expect(tester.getSize(archive).height, greaterThanOrEqualTo(44));
+    expect(tester.getCenter(edit).dy, tester.getCenter(archive).dy);
+    expect(find.byIcon(Icons.delete_outline), findsNothing);
+
+    await tester.tap(archive);
+    await tester.pumpAndSettle();
+    expect(find.text('Arquivar esta conta?'), findsOneWidget);
+    expect(find.textContaining('Nenhum dado será apagado'), findsOneWidget);
+    await tester.tap(find.widgetWithText(TextButton, 'Cancelar'));
+    await tester.pumpAndSettle();
+    expect(context.accounts.archiveCalls, 0);
+    semantics.dispose();
+  });
+
   testWidgets('cria uma conta uma única vez e abre detalhes', (
     WidgetTester tester,
   ) async {
     final _WidgetContext context = await _pumpAccounts(tester);
     addTearDown(context.dispose);
 
-    await tester.tap(find.text('Adicionar conta').last);
+    await tester.tap(find.byTooltip('Adicionar conta'));
     await tester.pumpAndSettle();
     final Finder fields = find.byType(TextFormField);
     await tester.enterText(fields.at(0), '  Conta   2  ');
@@ -189,7 +260,10 @@ void main() {
     await tester.tap(find.textContaining('Contas arquivadas (1)'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Arquivada em'), findsOneWidget);
-    await tester.tap(find.text('Restaurar'));
+    final Finder restore = find.byTooltip('Restaurar conta');
+    expect(tester.getSize(restore).width, greaterThanOrEqualTo(44));
+    expect(tester.getSize(restore).height, greaterThanOrEqualTo(44));
+    await tester.tap(restore);
     await tester.pumpAndSettle();
 
     expect(context.accounts.accounts.single.isArchived, isFalse);
@@ -228,7 +302,7 @@ void main() {
     final _WidgetContext context = await _pumpAccounts(tester);
     addTearDown(context.dispose);
 
-    await tester.tap(find.text('Adicionar conta').last);
+    await tester.tap(find.byTooltip('Adicionar conta'));
     await tester.pumpAndSettle();
     await tester.tap(find.byType(TextFormField).first);
     await tester.pump();
@@ -255,6 +329,38 @@ void main() {
     );
     expect(app.themeMode, ThemeMode.system);
     semantics.dispose();
+  });
+
+  testWidgets('cartão financeiro mantém estado textual nos dois temas', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    for (final ThemeData theme in <ThemeData>[AppTheme.light, AppTheme.dark]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: theme,
+          home: Scaffold(
+            body: SafeArea(
+              child: AccountCard(
+                account: createTestAccount(),
+                currentBalance: Money.fromCents(-9999999999),
+                onTap: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Conta principal'), findsOneWidget);
+      expect(find.text('Saldo negativo'), findsOneWidget);
+      expect(find.text('-R\$ 99.999.999,99'), findsOneWidget);
+      expect(find.byIcon(Icons.arrow_forward_ios_rounded), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    }
   });
 }
 
@@ -313,9 +419,16 @@ Future<_WidgetContext> _pumpAccounts(
   List<FinancialAccount>? accounts,
 }) async {
   final _WidgetContext context = await _pumpApp(tester, accounts: accounts);
-  await tester.ensureVisible(find.text('Ver contas'));
+  await tester.tap(
+    find.byKey(const ValueKey<String>('dashboard-header-menu-button')),
+  );
   await tester.pumpAndSettle();
-  await tester.tap(find.text('Ver contas'));
+  await tester.tap(
+    find.descendant(
+      of: find.byType(BottomSheet),
+      matching: find.text('Contas e carteiras'),
+    ),
+  );
   await tester.pumpAndSettle();
   return context;
 }

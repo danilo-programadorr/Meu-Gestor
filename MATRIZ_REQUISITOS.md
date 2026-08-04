@@ -280,3 +280,51 @@
 | DAT-001-5A | Centralizar data civil de São Paulo | P0 | FIN-5A-1 | objeto válido converte calendário/instante, compara datas e preserva convenção 03:00 UTC | implementado e coberto unitariamente | nenhuma dependência nova | alto | neutro |
 | ACC-013-5A | Proteger correção do saldo inicial além da interface | P0 | FIN-5A-0 | proposta cobre domínio, mapas de atualização e regras; correção futura usa movimento auditável | estratégia documentada; implementação não autorizada | accounts, transactions e decisão futura | crítico | neutro |
 | TST-005-5A | Testar regras de compromissos no Emulator Suite | P0 | FIN-5A-2/2B | casos positivos, negativos, atômicos e regressão passam em projeto demo isolado; log não contém limite de expressões, excesso de leituras, avaliação interrompida, valor nulo ou falha interna | infraestrutura e auditoria local implementadas; 21 testes de regras | Node, Java existente e Firebase CLI local | crítico | somente custo local de execução |
+
+## Incremento UI-2 — Design system, temas e dashboard analítico
+
+| ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |
+|---|---|---:|---:|---|---|---|---|---|
+| UI-201 | Oferecer Sistema, Claro e Escuro | P0 | UI-2 | padrão segue sistema; troca preserva rota e possui semântica | implementado e aprovado visualmente no celular em 04/08/2026 | ThemeData e Riverpod | baixo | neutro |
+| UI-202 | Persistir aparência no aparelho | P0 | UI-2 | escolha reaparece após nova inicialização sem flash | implementado com uma chave não sensível | shared_preferences 2.5.5 | baixo; nenhum dado financeiro | armazenamento local mínimo |
+| UI-203 | Aplicar paletas globalmente | P0 | UI-2 | telas e componentes Material usam ColorScheme/ThemeExtension sem aqua em grandes superfícies | implementado; validação visual pendente | sistema visual | baixo | neutro |
+| UI-204 | Filtrar dashboard com dados reais | P0 | UI-2 | conta e período atualizam indicadores, gráficos, categorias e lançamentos sem escrita | implementado localmente sobre listas confirmadas | providers atuais | alto: não altera fonte canônica | CPU local proporcional à lista |
+| UI-205 | Exibir gráficos móveis acessíveis | P0 | UI-2 | comparação e rosca possuem vazio, texto, semântica, privacidade e ausência de overflow | implementado com CustomPainter | nenhuma biblioteca gráfica | médio | neutro |
+| UI-206 | Exibir contas em carrossel | P1 | UI-2 | monograma, tipo, saldo, sinal textual, detalhes e adição funcionam | implementado sem inferir instituição | modelo de contas atual | baixo | neutro |
+| ACC-2 | Criar catálogo de instituições | P2 | futuro | bancos, digitais, fintechs, carteiras, dinheiro e outro aceitam múltiplas contas sem credenciais | não implementado; decisão futura registrada | revisão de schema e marcas | alto se houver inferência indevida | a estimar |
+| UI-207 | Postergar análises inexistentes | P0 | futuro | reserva, metas, previsão e anual avançado não usam dados fictícios | fora do UI-2 e documentado | módulos futuros | alto: evita informação enganosa | neutro atual |
+
+## Incremento UI-3 — Dashboard 3.0 e contas visuais
+
+| ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |
+|---|---|---:|---:|---|---|---|---|---|
+| UI-301 | Compactar hierarquia financeira | P0 | UI-3 | saldo oficial e resultado compartilham uma superfície; receitas e despesas são equivalentes; não existe KPI de resultado duplicado | implementado e aprovado visualmente no celular em 04/08/2026 | dados e temas UI-2 | baixo | neutro |
+| UI-302 | Oferecer filtros móveis completos | P0 | UI-3 | conta, mês atual/anterior, ano, mês/ano, intervalo e limpar atualizam análises sem escrita | implementado localmente | listas confirmadas e data civil | alto: preserva fonte canônica | CPU local proporcional à lista |
+| UI-303 | Refinar gráficos com dados reais | P0 | UI-3 | barras possuem escala e valores; rosca mostra quatro categorias e agrupa o restante como Outras | implementado sem biblioteca externa | transações e categorias existentes | médio | neutro |
+| UI-304 | Refinar contas visuais | P0 | UI-3 | carrossel e lista usam monograma, tipo, saldo, estado textual e detalhe; nenhuma instituição é inferida | implementado; ACC-2 permanece futuro | contas atuais | médio | neutro |
+| UI-305 | Preservar acessibilidade responsiva | P0 | UI-3 | temas, privacidade, sem dados, muitas contas/categorias, 320 px, fonte 180%, valores grandes e semântica não geram overflow | coberto por testes de widget; aprovação manual pendente | sistema visual | médio | neutro |
+
+## Incremento UI-3A — Menu e ações contextuais
+
+| ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |
+|---|---|---:|---:|---|---|---|---|---|
+| UI-3A-01 | Agrupar a navegação secundária | P0 | UI-3A | um botão Menu abre bottom sheet rolável com Organização, Planejamento e Conta e aplicativo, preservando rotas e Voltar | implementado localmente | rotas existentes | baixo | neutro |
+| UI-3A-02 | Expor ações administrativas corretas | P0 | UI-3A | contas/categorias ativas exibem editar e arquivar lado a lado; arquivadas exibem restaurar; alvos têm ao menos 44 dp, tooltip, semântica e confirmação | implementado e coberto por widgets | controllers existentes | médio: evita toque e exclusão acidentais | neutro |
+| UI-3A-03 | Expor ações financeiras somente nos detalhes | P0 | UI-3A | lançamento manual ativo oferece edição descritiva/cancelamento; compromisso pendente oferece edição/cancelamento; liquidado oferece vínculo/anulação com impacto explicado | implementado e coberto por widgets | detalhes e operações existentes | alto: preserva histórico e saldo | neutro |
+| UI-3A-04 | Não sugerir exclusão inexistente | P0 | UI-3A | dashboard não recebe ações destrutivas e nenhuma lixeira aparece enquanto não houver exclusão permanente segura | implementado e coberto por regressão | DATA-1 futuro | alto | neutro |
+
+## Incremento UI-3B — Cabeçalho e gráfico agrupado
+
+| ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |
+|---|---|---:|---:|---|---|---|---|---|
+| UI-3B-01 | Reduzir densidade da Home | P0 | UI-3B | remover seção Contas e carteiras, carrossel, Ver todas e Adicionar conta sem remover o filtro compacto de conta | implementado localmente e coberto por widget | dashboard UI-3 | baixo | reduz widgets; neutro em leituras |
+| UI-3B-02 | Mover Menu para o cabeçalho | P0 | UI-3B | canto superior direito abre os mesmos grupos e rotas; privacidade e tema permanecem; Perfil existe somente no painel | implementado localmente e coberto por navegação, semântica e temas | UI-3A | baixo | neutro |
+| UI-3B-03 | Comparar receitas e despesas por colunas | P0 | UI-3B | duas colunas agrupadas usam escala e base comuns, profundidade discreta, valores, legenda, período, resultado, privacidade e semântica | implementado nativamente e coberto por widgets responsivos | dados reais e filtros atuais | médio: não pode distorcer proporções | CPU local neutra |
+
+## Incrementos futuros de dados, privacidade e armazenamento
+
+| ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |
+|---|---|---:|---:|---|---|---|---|---|
+| DATA-1 | Excluir com segurança itens nunca utilizados | P1 | futuro | somente contas sem lançamentos/compromissos e categorias sem referências podem ser excluídas após validação server-side concorrente, regras e auditoria | registrado; não implementado | domínio, repositórios, regras e Emulator Suite | crítico | leituras adicionais a estimar |
+| PRIV-1 | Excluir a conta e os dados do usuário | P0 | futuro | reautenticação e operação server-side idempotente aplicam retenção e confirmam o resultado sem vazamento entre UIDs | registrado; não implementado; relacionado a AUT-007 | política LGPD, Functions e regras | crítico | Functions/armazenamento a estimar |
+| STORAGE-1 | Limitar crescimento local sem perder exatidão | P0 | futuro | cache possui limite aprovado, históricos são paginados, estado por UID é descartado no logout e limpeza local nunca apaga remoto nem escrita pendente | auditoria concluída; implementação não autorizada | estratégia de agregação exata, repositórios e testes Android | crítico | reduz leituras/memória; índices a estimar |

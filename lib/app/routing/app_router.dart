@@ -35,6 +35,7 @@ import 'package:meu_gestor_financeiro/features/profile/presentation/pages/privac
 import 'package:meu_gestor_financeiro/features/profile/presentation/pages/profile_access_error_page.dart';
 import 'package:meu_gestor_financeiro/features/profile/presentation/pages/profile_page.dart';
 import 'package:meu_gestor_financeiro/features/profile/presentation/pages/profile_setup_page.dart';
+import 'package:meu_gestor_financeiro/features/transactions/domain/financial_transaction.dart';
 import 'package:meu_gestor_financeiro/features/transactions/presentation/pages/transaction_details_page.dart';
 import 'package:meu_gestor_financeiro/features/transactions/presentation/pages/transaction_form_page.dart';
 import 'package:meu_gestor_financeiro/features/transactions/presentation/pages/transactions_page.dart';
@@ -231,7 +232,13 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((Ref ref) {
       ),
       GoRoute(
         path: AppRoutes.newTransaction,
-        builder: (context, state) => const TransactionFormPage(),
+        builder: (context, state) => TransactionFormPage(
+          initialKind: switch (state.uri.queryParameters['kind']) {
+            'income' => FinancialTransactionKind.income,
+            'expense' => FinancialTransactionKind.expense,
+            _ => null,
+          },
+        ),
       ),
       GoRoute(
         path: '/lancamentos/:transactionId/editar',

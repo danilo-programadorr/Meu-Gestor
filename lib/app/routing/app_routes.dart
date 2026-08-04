@@ -19,6 +19,8 @@ abstract final class AppRoutes {
   static const String archivedCategories = '/categorias-arquivadas';
   static const String transactions = '/lancamentos';
   static const String newTransaction = '/lancamentos/novo';
+  static const String newIncome = '/lancamentos/novo?kind=income';
+  static const String newExpense = '/lancamentos/novo?kind=expense';
   static const String payables = '/contas-a-pagar';
   static const String newPayable = '/contas-a-pagar/nova';
   static const String receivables = '/contas-a-receber';

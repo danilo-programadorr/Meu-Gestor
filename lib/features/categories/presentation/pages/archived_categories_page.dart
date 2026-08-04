@@ -91,7 +91,8 @@ class ArchivedCategoriesPage extends ConsumerWidget {
                       leading: Icon(categoryIconData(category.icon)),
                       title: Text(category.name),
                       subtitle: Text(category.kind.label),
-                      trailing: TextButton.icon(
+                      trailing: IconButton(
+                        tooltip: 'Restaurar categoria',
                         onPressed:
                             ref
                                 .watch(
@@ -108,8 +109,7 @@ class ArchivedCategoriesPage extends ConsumerWidget {
                                     categoryId: category.id,
                                     archived: false,
                                   ),
-                        icon: const Icon(Icons.unarchive_outlined),
-                        label: const Text('Restaurar'),
+                        icon: const Icon(Icons.restore_rounded),
                       ),
                     ),
                   );

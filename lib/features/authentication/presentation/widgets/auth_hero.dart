@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:meu_gestor_financeiro/app/theme/app_colors.dart';
 import 'package:meu_gestor_financeiro/app/theme/app_gradients.dart';
 import 'package:meu_gestor_financeiro/app/theme/app_radius.dart';
 
@@ -26,12 +25,14 @@ class AuthHero extends StatelessWidget {
             fit: BoxFit.cover,
             errorBuilder:
                 (BuildContext context, Object error, StackTrace? stack) {
-                  return const DecoratedBox(
-                    decoration: BoxDecoration(gradient: AppGradients.accent),
+                  return DecoratedBox(
+                    decoration: const BoxDecoration(
+                      gradient: AppGradients.accent,
+                    ),
                     child: Center(
                       child: Icon(
                         Icons.account_balance_wallet_outlined,
-                        color: AppColors.textPrimary,
+                        color: Theme.of(context).colorScheme.onPrimary,
                         size: 64,
                         semanticLabel: 'Meu Gestor Financeiro',
                       ),

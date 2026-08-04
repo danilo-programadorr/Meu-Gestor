@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:meu_gestor_financeiro/app/l10n/app_localizations_config.dart';
 import 'package:meu_gestor_financeiro/app/routing/app_router.dart';
 import 'package:meu_gestor_financeiro/app/theme/app_theme.dart';
+import 'package:meu_gestor_financeiro/app/theme/app_theme_preference.dart';
 import 'package:meu_gestor_financeiro/features/owner_access/presentation/widgets/master_access_lifecycle_observer.dart';
 
 class MeuGestorFinanceiroApp extends ConsumerWidget {
@@ -11,6 +12,14 @@ class MeuGestorFinanceiroApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final AppThemePreference preference = ref.watch(
+      appThemePreferenceControllerProvider,
+    );
+    final bool animationsDisabled = WidgetsBinding
+        .instance
+        .platformDispatcher
+        .accessibilityFeatures
+        .disableAnimations;
     return MaterialApp.router(
       title: 'Meu Gestor Financeiro',
       debugShowCheckedModeBanner: false,
@@ -23,7 +32,11 @@ class MeuGestorFinanceiroApp extends ConsumerWidget {
       ],
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
-      themeMode: ThemeMode.system,
+      themeMode: preference.themeMode,
+      themeAnimationDuration: animationsDisabled
+          ? Duration.zero
+          : const Duration(milliseconds: 220),
+      themeAnimationCurve: Curves.easeOutCubic,
       builder: (BuildContext context, Widget? child) =>
           MasterAccessLifecycleObserver(
             child: child ?? const SizedBox.shrink(),

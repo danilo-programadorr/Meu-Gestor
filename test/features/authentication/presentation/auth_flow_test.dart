@@ -88,9 +88,9 @@ void main() {
 
       await _pumpApp(tester, repository: repository);
 
-      expect(find.text('Área autenticada'), findsOneWidget);
-      expect(find.text('Contas e carteiras'), findsOneWidget);
-      expect(find.text('Ver contas'), findsOneWidget);
+      expect(find.text('Área autenticada'), findsNothing);
+      expect(find.text('Olá, Pessoa!'), findsOneWidget);
+      expect(find.text('Meu Gestor Financeiro'), findsOneWidget);
     },
   );
 

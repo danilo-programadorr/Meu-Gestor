@@ -1,12 +1,20 @@
-import 'package:flutter/widgets.dart';
-import 'package:meu_gestor_financeiro/app/theme/app_colors.dart';
+import 'package:flutter/material.dart';
+import 'package:meu_gestor_financeiro/app/theme/app_theme_colors.dart';
 
 abstract final class AppShadows {
-  static const List<BoxShadow> elevated = <BoxShadow>[
-    BoxShadow(color: AppColors.shadow, blurRadius: 28, offset: Offset(0, 14)),
+  static List<BoxShadow> elevated(BuildContext context) => <BoxShadow>[
+    BoxShadow(
+      color: AppThemeColors.of(context).shadow,
+      blurRadius: 24,
+      offset: const Offset(0, 10),
+    ),
   ];
 
-  static const List<BoxShadow> focus = <BoxShadow>[
-    BoxShadow(color: Color(0x3D17CFFF), blurRadius: 16, spreadRadius: 1),
+  static List<BoxShadow> focus(BuildContext context) => <BoxShadow>[
+    BoxShadow(
+      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.20),
+      blurRadius: 14,
+      spreadRadius: 1,
+    ),
   ];
 }

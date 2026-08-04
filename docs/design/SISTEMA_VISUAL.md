@@ -15,22 +15,22 @@ Todos os valores ficam centralizados em `lib/app/theme/app_colors.dart`. Widgets
 
 | Token | Valor | Finalidade |
 |---|---:|---|
-| backgroundPrimary | `#040A1A` | fundo escuro principal |
-| backgroundSecondary | `#081129` | fundo escuro secundário |
-| backgroundElevated | `#0C2237` | elevação e fallback visual |
-| surfacePrimary | `#18203E` | campos e cartões escuros |
-| borderDefault | `#294A70` | bordas em estado normal |
-| primaryCyan | `#17CFFF` | foco, links e ação de destaque |
-| primaryBlue | `#2F80ED` | apoio de ação e gradientes |
-| chartBlue | `#5A6DA3` | gráficos futuros, não usado como estado |
-| positiveGreen | `#74BA76` | confirmação positiva acompanhada de texto/ícone |
+| backgroundPrimary | `#050B18` | fundo escuro principal |
+| backgroundSecondary | `#151E32` | superfícies escuras neutras |
+| backgroundElevated | `#1A2940` | cartões escuros elevados |
+| surfacePrimary | `#151E32` | campos e cartões escuros |
+| borderDefault | `#29445A` | bordas azul-petróleo discretas |
+| primaryCyan | `#63AFC8` | azul-gelo para ícones, foco e ações |
+| primaryBlue | `#4F8CA8` | apoio de ação e gradientes controlados |
+| chartBlue | `#8CC9D8` | destaque claro e gráficos |
+| positiveGreen | `#62B982` | receita/sucesso acompanhado de texto/ícone |
 | secondaryPurple | `#7447E8` | apoio visual futuro |
-| errorRed | `#FF6B7A` | erro acompanhado de texto/ícone |
-| textPrimary | `#F0F6FC` | texto principal no tema escuro |
-| textSecondary | `#92A8BB` | texto auxiliar no tema escuro |
-| disabled | `#6B8599` | controles inativos |
+| errorRed | `#F07B73` | despesa/erro acompanhado de texto/ícone |
+| textPrimary | `#F4F7FB` | texto principal no tema escuro |
+| textSecondary | `#AAB5C8` | texto auxiliar no tema escuro |
+| disabled | `#738095` | controles inativos |
 
-O tema claro usa superfícies auxiliares centralizadas, com texto escuro e ação azul. O tema escuro segue integralmente a base azul-marinho aprovada. Ciano não é usado como texto longo sobre fundo claro. Erro e sucesso nunca dependem somente de cor.
+O tema claro usa fundo `#F4F7FA`, superfícies brancas, cartões secundários `#EAF1F5`, ação `#3F7F99`, apoio `#D8EDF3`, texto `#142033`/`#5D6A7B` e borda `#C7D7E0`. O tema escuro evita grandes preenchimentos ciano. Erro, atenção, receita e despesa nunca dependem somente de cor.
 
 ## 3. Tipografia
 
@@ -54,8 +54,8 @@ O tema claro usa superfícies auxiliares centralizadas, com texto escuro e açã
 ## 5. Sombras, gradientes e opacidade
 
 - A elevação usa sombra escura difusa de 28 px e deslocamento vertical de 14 px.
-- Foco de marca usa brilho ciano com opacidade reduzida; nunca substitui a borda de foco.
-- Gradiente escuro oficial: `#040A1A`, `#081129`, `#041746`.
+- Foco de marca usa brilho azul-gelo com opacidade reduzida; nunca substitui a borda de foco.
+- Gradiente escuro oficial: `#050B18`, `#151E32`, `#10243A`.
 - Gradiente claro usa superfícies claras auxiliares.
 - Acentos digitais usam pontos ciano com 18% de opacidade e não recebem eventos de toque.
 - Overlays de carregamento preservam contraste e bloqueiam interação duplicada.
@@ -98,7 +98,7 @@ O tema claro usa superfícies auxiliares centralizadas, com texto escuro e açã
 - Ações têm rótulos, tooltips, alvo de toque e estados habilitado/desabilitado.
 - Mensagens dinâmicas usam regiões semânticas ativas.
 - SafeArea e rolagem evitam perda de conteúdo em tela pequena e teclado aberto.
-- Testes cobrem 320 × 568 px, teclado simulado, escala de texto 1,6, temas claro/escuro e semântica principal.
+- Testes cobrem 320 px, teclado simulado, escala de texto até 1,8, temas claro/escuro e semântica principal.
 
 ## 11. Limitações conhecidas
 
@@ -123,3 +123,41 @@ O tema claro usa superfícies auxiliares centralizadas, com texto escuro e açã
 - A Área do proprietário usa cartões, textos e ícones; nenhum estado depende apenas de cor.
 - Conteúdo administrativo permanece oculto durante carregamento ou falha de autorização.
 - A página usa SafeArea, rolagem, largura máxima e textos flexíveis para tema claro/escuro, tela pequena e fonte ampliada.
+
+## 14. Aplicação no dashboard financeiro
+
+- A Home segue uma hierarquia de leitura curta: cabeçalho pessoal, filtros, saldo total, resumo do período, ações rápidas, gráficos, planejamento e lançamentos recentes.
+- O cartão principal mantém saldo atual e resultado mensal como conceitos distintos. Receitas, despesas e resultado possuem texto, valor, ícone e cor semântica.
+- A comparação mensal usa `CustomPainter` nativo e legenda textual; nenhuma dependência gráfica externa foi adicionada.
+- A ocultação de valores é global para o dashboard, preserva a estrutura visual e anuncia “Valor oculto” para tecnologias assistivas.
+- Compromissos pendentes aparecem somente em planejamento e nunca são apresentados como parte do saldo real. Atrasos são derivados pela data civil de São Paulo e ficam separados dos próximos vencimentos.
+- Ações rápidas usam grade de duas colunas, alvo mínimo de 48 px, feedback Material e rotas específicas que preselecionam receita ou despesa quando aplicável.
+- O conteúdo usa largura máxima de 720 px, margem compacta até 360 px, quebra por `Wrap`, SafeArea e rolagem vertical. Carregamento mantém blocos com altura estável; vazio e erro oferecem próximo passo e retry.
+- A barra de navegação inferior não integra o produto. Privacidade, troca rápida de tema e Menu ocupam o cabeçalho; contas, categorias, lançamentos, compromissos, perfil e aparência usam o painel agrupado e preservam retorno seguro.
+- O dashboard reutiliza os providers existentes de workspace e compromissos. Não cria consultas, projeções financeiras ou fontes de verdade paralelas.
+- Cada refinamento visual permanece sujeito à aprovação manual no APK debug development antes de commit ou push.
+
+## 15. UI-2 — temas e análise local
+
+- A preferência inicial segue o sistema e pode ser alterada no cabeçalho ou em Perfil > Aparência para Sistema, Claro ou Escuro.
+- A escolha é carregada antes da árvore visual e persistida apenas no aparelho; não reinicia o roteador nem sincroniza com Firebase.
+- `ColorScheme` cobre controles Material, diálogos, bottom sheets, calendários e snackbars. `AppThemeColors` cobre receita, despesa, atenção, informação, superfícies e trilhas de gráfico.
+- O dashboard filtra dados reais por conta, mês anterior, mês atual, ano atual ou intervalo civil. Filtros nunca escrevem documentos nem alteram o saldo canônico.
+- Comparação de receitas/despesas e rosca de categorias são nativas, possuem vazio, semântica, legenda textual e ocultação conjunta de valores/percentuais.
+- O carrossel usa monogramas e ícones genéricos porque contas ainda não possuem instituição. `ACC-2 — Catálogo de bancos e fintechs` permanece futuro e não coletará credenciais.
+- Compromissos pendentes são filtrados por vencimento. Não há filtro por conta antes da liquidação porque o modelo não associa conta à pendência.
+- Reserva de emergência, metas, previsão financeira, comparação anual avançada, Open Finance e logos bancários permanecem fora do escopo.
+
+## 16. UI-3 — dashboard sofisticado e minimalista
+
+- A hierarquia móvel passa a ser: cabeçalho compacto, filtros, saldo/resultado, receitas/despesas, ações rápidas, comparação, categorias, compromissos e lançamentos.
+- Saldo oficial usa 32 px e permanece independente do período. Resultado usa 20 px na mesma superfície e não reaparece como KPI separado.
+- Receitas e despesas são dois indicadores equivalentes. Em 320 px ou fonte ampliada podem empilhar sem perder o contexto do período.
+- Ações rápidas formam faixa horizontal com continuidade visual; cada alvo preserva pelo menos 48 px e feedback Material.
+- A comparação usa duas colunas agrupadas com escala e linha de base comuns. Gradientes, topo, face lateral e sombras discretas criam profundidade 2.5D sem perspectiva exagerada; legenda, valores, período e resultado permanecem textuais.
+- A rosca usa 140–152 px, começa em coral controlado e mostra até quatro categorias reais; excedentes são somados em “Outras”.
+- A Home não duplica a lista de contas: o filtro compacto permanece no topo e Contas e carteiras é acessada pelo Menu. Carrossel, Ver todas e Adicionar conta ficam restritos às telas administrativas adequadas.
+- Contas usam monogramas e ícones genéricos. Logos e instituições continuam bloqueados até o futuro ACC-2.
+- A tela de contas usa total azul-marinho/petróleo no escuro e superfície clara no tema claro. Cartões informam saldo positivo, zerado ou negativo por ícone e texto.
+- Filtros são chips horizontais; seletores usam bottom sheets e mês/ano usa diálogo nativo. “Limpar” só aparece quando o contexto difere de todas as contas no mês atual.
+- Azul-gelo permanece restrito a seleção, ícones, bordas, gráficos e ações; grandes superfícies ciano não fazem parte da composição.

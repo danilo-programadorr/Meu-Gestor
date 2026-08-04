@@ -629,3 +629,62 @@ Situação em 02/08/2026: FIN-5A-0, FIN-5A-1 e FIN-5A-2 implementados localmente
 - Compromissos pendentes, cancelados ou anulados nunca são somados ao saldo; somente o lançamento ativo vinculado é canônico.
 - Controllers, providers, páginas e rotas pertencem ao FIN-5A-3 e dependem de nova autorização.
 - A imutabilidade de `openingBalanceCents` e a operação auditável de ajuste pertencem a incremento futuro separado; nenhuma alteração desse saldo foi feita no FIN-5A-2.
+
+## 24. UI-2 — Design system, temas e dashboard analítico
+
+Situação em 04/08/2026: implementação concluída, validações automatizadas aprovadas e experiência visual aprovada manualmente no celular após a UI-3B.
+
+- Temas claro e escuro completos usam `ColorScheme` e `AppThemeColors`; a preferência Sistema/Claro/Escuro é local e carregada antes de `runApp`.
+- O dashboard mantém o saldo atual canônico e deriva indicadores do período sobre lançamentos próprios confirmados, sem escrita ou projeção paralela.
+- Filtros móveis cobrem conta, mês atual, mês anterior, ano e intervalo civil; gráficos e listas são atualizados de forma consistente.
+- A comparação de receitas/despesas e a rosca por categoria usam `CustomPainter`, exibem texto equivalente e ocultam valores/percentuais quando a privacidade está ativa.
+- Contas usam carrossel com monogramas e ícones genéricos. Instituições pertencem ao futuro `ACC-2`, sem Open Finance, logos ou credenciais.
+- Reserva de emergência, metas, previsão financeira e comparação anual avançada continuam futuras e não recebem dados fictícios.
+- Nenhum domínio financeiro, documento Firestore, Security Rule ou ambiente Firebase faz parte deste incremento.
+
+## 25. UI-3 — Dashboard 3.0 e contas visuais
+
+Situação em 04/08/2026: implementação local concluída e aprovada visualmente; checkpoint Git continua dependendo de autorização específica.
+
+- A direção aprovada é sofisticada e minimalista, com detalhes tecnológicos discretos e sem reprodução literal das referências externas.
+- O resumo principal concentra saldo oficial e resultado do período; receitas e despesas ficam em dois indicadores compactos, sem grade 2+1 ou KPI duplicado.
+- Filtros móveis incluem conta, mês atual/anterior, ano atual, mês/ano, intervalo personalizado e limpeza explícita. Nenhum filtro grava dados ou recalcula o saldo oficial pelo período.
+- A comparação associa valores a duas barras de escala comum. A rosca usa paleta controlada, ranking de quatro categorias e agrupamento real “Outras”.
+- Contas no dashboard respeitam 80% da largura, máximo de 280 px e 176 px de altura normal; monogramas substituem instituições ainda inexistentes.
+- A tela Contas e carteiras elimina a grande superfície ciano, reduz ações persistentes e apresenta cada conta como cartão financeiro com estado textual e acesso aos detalhes.
+- Reserva, metas, previsão, evolução anual não garantida, orçamentos, Open Finance, logos e IA permanecem fora do incremento e não recebem simulação.
+- Domínio, repositórios, Firestore, Security Rules, compromissos, saldo inicial, dependências e preferência de tema permanecem inalterados.
+
+## 26. UI-3A — Menu agrupado e ações contextuais
+
+Situação em 04/08/2026: refinamento local autorizado antes do checkpoint final, sem commit ou push.
+
+- O cartão Organizar foi substituído por um único botão Menu, que abre bottom sheet rolável com os grupos Organização, Planejamento e Conta e aplicativo.
+- Contas e carteiras, Categorias, Lançamentos, Contas a pagar, Contas a receber, Perfil e Aparência preservam as rotas e o retorno seguro existentes; Aparência continua dentro de Perfil.
+- Contas e categorias ativas apresentam edição e arquivamento lado a lado; itens arquivados apresentam restauração. Arquivamento exige confirmação e nunca apaga o documento.
+- Lançamentos manuais ativos apresentam edição descritiva e cancelamento lado a lado somente nos detalhes. Compromissos pendentes apresentam edição e cancelamento; liquidados apresentam lançamento vinculado e anulação.
+- Cancelamento e anulação explicam o impacto no saldo e no histórico. Nenhuma ação destrutiva foi adicionada aos lançamentos recentes do dashboard e nenhuma lixeira é exibida.
+- Domínio, repositórios, Firestore, Security Rules, documentos financeiros, saldo, temas, gráficos, filtros e dependências permanecem inalterados.
+
+## 27. UI-3B — Cabeçalho, densidade e comparação por colunas
+
+Situação em 04/08/2026: implementação e APK debug aprovados manualmente no celular; checkpoint Git e publicação da UI acumulada autorizados.
+
+- A Home não apresenta mais a seção Contas e carteiras, o carrossel, Ver todas ou o cartão Adicionar conta. O filtro compacto de conta permanece no topo e continua controlando todos os dados analíticos.
+- O Menu agrupado foi movido para o canto superior direito do cabeçalho. Privacidade e troca rápida de tema permanecem visíveis; Perfil e Aparência continuam dentro do painel, sem controle de perfil duplicado.
+- Receitas x despesas usa colunas agrupadas de mesma escala e linha de base. Gradiente, topo, face lateral e sombra discretos criam profundidade 2.5D sem perspectiva ou alteração da proporção dos valores.
+- Período, valores reais, legenda, resultado textual e descrição acessível acompanham o gráfico. Privacidade, temas e comportamento responsivo continuam obrigatórios.
+- Domínio, repositórios, Firestore, Security Rules, Firebase, rotas, filtros e dependências permanecem inalterados.
+
+## 28. DATA-1, PRIV-1 e STORAGE-1 — Incrementos futuros
+
+Situação em 04/08/2026: decisões registradas; somente a auditoria local de STORAGE-1 foi autorizada. Nenhum dos três incrementos foi implementado.
+
+- `DATA-1 — Exclusão segura de itens nunca utilizados` deverá considerar contas sem lançamentos ou compromissos, categorias sem referências, validação segura no servidor, concorrência, Security Rules, histórico e auditoria. Arquivamento/restauração permanecem o único fluxo atual.
+- `PRIV-1 — Excluir minha conta e meus dados` deverá exigir reautenticação, coordenação server-side, política de retenção, idempotência, isolamento por UID e confirmação segura. O requisito também permanece rastreado por AUT-007.
+- A auditoria `STORAGE-1` constatou persistência Firestore Android no padrão do SDK, limite padrão de 100 MiB, consultas integrais sem paginação e providers financeiros `autoDispose` que mantêm listas completas enquanto observados.
+- A proposta futura recomenda limite inicial de 40 MiB, páginas de 50 documentos para históricos, invalidação explícita de estado dependente de UID no logout/troca de usuário e uma opção separada “Limpar dados locais” com bloqueio por operações pendentes e aviso de que nenhum dado remoto será apagado.
+- Paginar o histórico não pode tornar saldo e indicadores parciais. A implementação deverá separar páginas visuais das agregações financeiras exatas e aprovar previamente a estratégia de agregação/reconstrução.
+- `clearPersistence()` não deve ser chamado no logout comum: exige instância Firestore sem uso, pode eliminar escritas pendentes, não faz sobrescrita segura do disco e requer ciclo de reinicialização controlado.
+- Não existem arquivos temporários de runtime nem cache persistente de imagens implementados. A única preferência própria local é `appearance.theme_mode`; a imagem de autenticação é um asset empacotado no APK.
+- O tamanho real do banco local não foi medido porque não havia dispositivo Android conectado; essa medição deverá usar apenas diagnóstico autorizado em build debug, sem copiar conteúdo financeiro.

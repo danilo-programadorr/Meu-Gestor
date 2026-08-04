@@ -97,6 +97,17 @@ class ArchivedAccountsPage extends ConsumerWidget {
                         account: account,
                         onTap: () =>
                             context.push(AppRoutes.accountDetails(account.id)),
+                        onRestore: () => ref
+                            .read(
+                              financialAccountActionControllerProvider.notifier,
+                            )
+                            .setArchived(
+                              accountId: account.id,
+                              archived: false,
+                            ),
+                        actionsEnabled: !ref
+                            .watch(financialAccountActionControllerProvider)
+                            .isLoading,
                       ),
                       if (archivedAt != null)
                         Padding(
@@ -107,29 +118,6 @@ class ArchivedAccountsPage extends ConsumerWidget {
                             'Arquivada em ${DateFormat('dd/MM/yyyy', 'pt_BR').format(archivedAt.toLocal())}',
                           ),
                         ),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton.icon(
-                          onPressed:
-                              ref
-                                  .watch(
-                                    financialAccountActionControllerProvider,
-                                  )
-                                  .isLoading
-                              ? null
-                              : () => ref
-                                    .read(
-                                      financialAccountActionControllerProvider
-                                          .notifier,
-                                    )
-                                    .setArchived(
-                                      accountId: account.id,
-                                      archived: false,
-                                    ),
-                          icon: const Icon(Icons.unarchive_outlined),
-                          label: const Text('Restaurar'),
-                        ),
-                      ),
                       const SizedBox(height: AppSpacing.sm),
                     ],
                   );

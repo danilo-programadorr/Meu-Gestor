@@ -5,6 +5,7 @@ import 'package:meu_gestor_financeiro/app/routing/app_routes.dart';
 import 'package:meu_gestor_financeiro/app/routing/safe_back_navigation.dart';
 import 'package:meu_gestor_financeiro/app/theme/app_spacing.dart';
 import 'package:meu_gestor_financeiro/features/accounts/domain/financial_account.dart';
+import 'package:meu_gestor_financeiro/features/accounts/presentation/controllers/financial_account_action_controller.dart';
 import 'package:meu_gestor_financeiro/features/accounts/presentation/controllers/financial_accounts_controller.dart';
 import 'package:meu_gestor_financeiro/features/accounts/presentation/widgets/account_card.dart';
 import 'package:meu_gestor_financeiro/features/accounts/presentation/widgets/account_view_support.dart';
@@ -18,6 +19,23 @@ class AccountsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.listen<FinancialAccountActionState>(
+      financialAccountActionControllerProvider,
+      (
+        FinancialAccountActionState? previous,
+        FinancialAccountActionState next,
+      ) {
+        if (previous?.status != next.status && next.message != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text(next.message!)));
+            }
+          });
+        }
+      },
+    );
     final AsyncValue<FinancialAccountsState> accountsState = ref.watch(
       financialAccountsControllerProvider,
     );
@@ -29,6 +47,9 @@ class AccountsPage extends ConsumerWidget {
       transactionsState: transactionsState,
       now: ref.watch(financialClockProvider)(),
     );
+    final FinancialAccountActionState accountAction = ref.watch(
+      financialAccountActionControllerProvider,
+    );
     return SafeBackScope(
       fallbackLocation: AppRoutes.home,
       child: Scaffold(
@@ -37,16 +58,16 @@ class AccountsPage extends ConsumerWidget {
           title: const Text('Contas e carteiras'),
           actions: <Widget>[
             IconButton(
+              tooltip: 'Adicionar conta',
+              onPressed: () => context.push(AppRoutes.newAccount),
+              icon: const Icon(Icons.add_rounded),
+            ),
+            IconButton(
               tooltip: 'Contas arquivadas',
               onPressed: () => context.push(AppRoutes.archivedAccounts),
               icon: const Icon(Icons.archive_outlined),
             ),
           ],
-        ),
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: () => context.push(AppRoutes.newAccount),
-          icon: const Icon(Icons.add_rounded),
-          label: const Text('Adicionar conta'),
         ),
         body: SafeArea(
           child: workspace.when(
@@ -84,14 +105,14 @@ class AccountsPage extends ConsumerWidget {
                   AppSpacing.md,
                   AppSpacing.md,
                   AppSpacing.md,
-                  104,
+                  AppSpacing.xxl,
                 ),
                 children: <Widget>[
                   AccountsTotalCard(
                     total: data.summary.totalCurrentBalance,
                     activeAccountCount: data.accounts.activeAccounts.length,
                   ),
-                  const SizedBox(height: AppSpacing.sm),
+                  const SizedBox(height: AppSpacing.md),
                   Row(
                     children: <Widget>[
                       const Icon(Icons.cloud_done_outlined, size: 18),
@@ -102,6 +123,7 @@ class AccountsPage extends ConsumerWidget {
                                   data.transactions.isServerConfirmed
                               ? 'Lista confirmada pelo servidor'
                               : 'Dados locais — confirmação pendente',
+                          style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ),
                     ],
@@ -110,9 +132,20 @@ class AccountsPage extends ConsumerWidget {
                   if (data.accounts.activeAccounts.isEmpty)
                     const _EmptyAccounts()
                   else ...<Widget>[
-                    Text(
-                      'Contas ativas',
-                      style: Theme.of(context).textTheme.titleLarge,
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: Text(
+                            'Contas ativas',
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                        ),
+                        TextButton.icon(
+                          onPressed: () => context.push(AppRoutes.newAccount),
+                          icon: const Icon(Icons.add_rounded, size: 18),
+                          label: const Text('Adicionar'),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     for (final FinancialAccount account
@@ -124,14 +157,21 @@ class AccountsPage extends ConsumerWidget {
                         ),
                         onTap: () =>
                             context.push(AppRoutes.accountDetails(account.id)),
+                        onEdit: () =>
+                            context.push(AppRoutes.editAccount(account.id)),
+                        onArchive: () => _confirmArchive(context, ref, account),
+                        actionsEnabled: !accountAction.isLoading,
                       ),
                   ],
                   const SizedBox(height: AppSpacing.lg),
-                  OutlinedButton.icon(
-                    onPressed: () => context.push(AppRoutes.archivedAccounts),
-                    icon: const Icon(Icons.archive_outlined),
-                    label: Text(
-                      'Contas arquivadas (${data.accounts.archivedAccounts.length})',
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: () => context.push(AppRoutes.archivedAccounts),
+                      icon: const Icon(Icons.archive_outlined),
+                      label: Text(
+                        'Contas arquivadas (${data.accounts.archivedAccounts.length})',
+                      ),
                     ),
                   ),
                 ],
@@ -141,6 +181,40 @@ class AccountsPage extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _confirmArchive(
+    BuildContext context,
+    WidgetRef ref,
+    FinancialAccount account,
+  ) async {
+    final bool confirmed =
+        await showDialog<bool>(
+          context: context,
+          builder: (BuildContext dialogContext) => AlertDialog(
+            title: const Text('Arquivar esta conta?'),
+            content: const Text(
+              'Ela deixará de aparecer entre as contas ativas e de participar do total. '
+              'Você poderá restaurá-la depois. Nenhum dado será apagado.',
+            ),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Cancelar'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text('Arquivar'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (confirmed) {
+      await ref
+          .read(financialAccountActionControllerProvider.notifier)
+          .setArchived(accountId: account.id, archived: true);
+    }
   }
 }
 

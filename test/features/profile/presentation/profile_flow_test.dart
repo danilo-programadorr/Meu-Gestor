@@ -73,7 +73,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(context.profiles.createCalls, 1);
-    expect(find.text('Área autenticada'), findsOneWidget);
+    expect(find.text('Olá, Pessoa!'), findsOneWidget);
     expect(context.profiles.profile?.aiConsentEnabled, isFalse);
     expect(context.profiles.profile?.analyticsConsentEnabled, isFalse);
   });
@@ -87,12 +87,20 @@ void main() {
     );
     addTearDown(context.dispose);
 
-    await _tapVisible(tester, find.text('Abrir perfil'));
-    await tester.pumpAndSettle();
+    await _openProfileFromHome(tester);
     expect(find.text('Pessoa Teste'), findsOneWidget);
     expect(find.text('Email'), findsOneWidget);
     expect(find.text('Confirmado'), findsOneWidget);
     expect(find.text('owner'), findsNothing);
+
+    await tester.scrollUntilVisible(
+      find.text('Aparência'),
+      220,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(find.text('Sistema'), findsOneWidget);
+    expect(find.text('Claro'), findsOneWidget);
+    expect(find.text('Escuro'), findsOneWidget);
 
     await _tapVisible(tester, find.text('Privacidade e consentimentos'));
     await tester.pumpAndSettle();
@@ -266,9 +274,28 @@ void main() {
 }
 
 Future<void> _tapVisible(WidgetTester tester, Finder finder) async {
-  await tester.ensureVisible(finder);
+  await tester.scrollUntilVisible(
+    finder,
+    220,
+    scrollable: find.byType(Scrollable).last,
+  );
   await tester.pumpAndSettle();
-  await tester.tap(finder);
+  await tester.tap(finder.last);
+}
+
+Future<void> _openProfileFromHome(WidgetTester tester) async {
+  await tester.tap(
+    find.byKey(const ValueKey<String>('dashboard-header-menu-button')),
+  );
+  await tester.pumpAndSettle();
+  final Finder profile = find.descendant(
+    of: find.byType(BottomSheet),
+    matching: find.text('Perfil'),
+  );
+  await tester.ensureVisible(profile);
+  await tester.pumpAndSettle();
+  await tester.tap(profile);
+  await tester.pumpAndSettle();
 }
 
 final class _WidgetContext {

@@ -44,7 +44,7 @@ void main() {
   ) async {
     final _Harness harness = await _openDetails(tester);
     addTearDown(harness.dispose);
-    expect(find.text('Editar dados descritivos'), findsOneWidget);
+    expect(find.byTooltip('Editar dados descritivos'), findsOneWidget);
   });
 
   testWidgets('16. lançamento cancelado não mostra edição', (
@@ -55,7 +55,7 @@ void main() {
       transaction: createTestTransaction(isVoided: true),
     );
     addTearDown(harness.dispose);
-    expect(find.text('Editar dados descritivos'), findsNothing);
+    expect(find.byTooltip('Editar dados descritivos'), findsNothing);
     expect(find.text('Cancelado — não participa do saldo'), findsWidgets);
   });
 
@@ -64,7 +64,7 @@ void main() {
   ) async {
     final _Harness harness = await _openDetails(tester);
     addTearDown(harness.dispose);
-    await tester.tap(find.text('Editar dados descritivos'));
+    await tester.tap(find.byTooltip('Editar dados descritivos'));
     await tester.pumpAndSettle();
     expect(find.text('Editar lançamento'), findsOneWidget);
   });
@@ -223,7 +223,7 @@ void main() {
   ) async {
     final _Harness harness = await _openDetails(tester);
     addTearDown(harness.dispose);
-    expect(find.text('Cancelar lançamento'), findsOneWidget);
+    expect(find.byTooltip('Cancelar lançamento'), findsOneWidget);
   });
 
   testWidgets('25. cancelamento exige confirmação', (
@@ -231,7 +231,7 @@ void main() {
   ) async {
     final _Harness harness = await _openDetails(tester);
     addTearDown(harness.dispose);
-    await tester.tap(find.text('Cancelar lançamento'));
+    await tester.tap(find.byTooltip('Cancelar lançamento'));
     await tester.pumpAndSettle();
     expect(find.text('Cancelar este lançamento?'), findsOneWidget);
     expect(
@@ -262,8 +262,7 @@ void main() {
     final _Harness harness = await _openDetails(tester);
     addTearDown(harness.dispose);
     await _confirmCancellation(tester);
-    expect(find.text('Editar dados descritivos'), findsNothing);
-    expect(find.byTooltip('Editar lançamento'), findsNothing);
+    expect(find.byTooltip('Editar dados descritivos'), findsNothing);
   });
 
   testWidgets('28. cancelado não pode ser restaurado', (
@@ -374,8 +373,9 @@ void main() {
     expect(find.widgetWithText(AppBar, 'Lançamentos'), findsOneWidget);
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
+    expect(find.text('Meu Gestor Financeiro'), findsOneWidget);
     expect(
-      find.widgetWithText(AppBar, 'Meu Gestor Financeiro'),
+      find.byKey(const ValueKey<String>('home-balance-card')),
       findsOneWidget,
     );
   });
@@ -400,8 +400,13 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpAndSettle();
-    expect(find.text('Editar dados descritivos'), findsOneWidget);
-    expect(find.text('Cancelar lançamento'), findsOneWidget);
+    final Finder edit = find.byTooltip('Editar dados descritivos');
+    final Finder cancel = find.byTooltip('Cancelar lançamento');
+    expect(edit, findsOneWidget);
+    expect(cancel, findsOneWidget);
+    expect(tester.getCenter(edit).dy, tester.getCenter(cancel).dy);
+    expect(tester.getSize(edit).height, greaterThanOrEqualTo(44));
+    expect(tester.getSize(cancel).height, greaterThanOrEqualTo(44));
     expect(tester.takeException(), isNull);
   });
 
@@ -410,14 +415,37 @@ void main() {
   ) async {
     final _Harness harness = await _openDetails(tester);
     addTearDown(harness.dispose);
-    expect(find.text('Editar dados descritivos'), findsOneWidget);
+    expect(find.byTooltip('Editar dados descritivos'), findsOneWidget);
     tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
     addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
     tester.platformDispatcher.onPlatformBrightnessChanged?.call();
     await tester.pumpAndSettle();
-    expect(find.text('Editar dados descritivos'), findsOneWidget);
-    expect(find.text('Cancelar lançamento'), findsOneWidget);
+    expect(find.byTooltip('Editar dados descritivos'), findsOneWidget);
+    expect(find.byTooltip('Cancelar lançamento'), findsOneWidget);
   });
+
+  testWidgets(
+    'categorias alinham ações, explicam arquivamento e não usam lixeira',
+    (WidgetTester tester) async {
+      final _Harness harness = await _pumpHarness(tester);
+      addTearDown(harness.dispose);
+      await _go(tester, AppRoutes.categories);
+
+      final Finder edit = find.byTooltip('Editar categoria').first;
+      final Finder archive = find.byTooltip('Arquivar categoria').first;
+      expect(tester.getCenter(edit).dy, tester.getCenter(archive).dy);
+      expect(tester.getSize(edit).width, greaterThanOrEqualTo(44));
+      expect(tester.getSize(archive).width, greaterThanOrEqualTo(44));
+      expect(find.byIcon(Icons.delete_outline), findsNothing);
+
+      await tester.tap(archive);
+      await tester.pumpAndSettle();
+      expect(find.text('Arquivar esta categoria?'), findsOneWidget);
+      expect(find.textContaining('lançamentos antigos'), findsOneWidget);
+      await tester.tap(find.widgetWithText(TextButton, 'Cancelar'));
+      await tester.pumpAndSettle();
+    },
+  );
 
   testWidgets('data 1. campo exibe Data da movimentação', (
     WidgetTester tester,
@@ -847,8 +875,8 @@ Future<_Harness> _openList(
   FinancialTransaction? transaction,
 }) async {
   final _Harness harness = await _pumpHarness(tester, transaction: transaction);
-  await tester.ensureVisible(find.text('Lançamentos'));
-  await tester.tap(find.text('Lançamentos'));
+  final BuildContext context = tester.element(find.byType(Scaffold).first);
+  unawaited(GoRouter.of(context).push<void>(AppRoutes.transactions));
   await tester.pumpAndSettle();
   return harness;
 }
@@ -894,7 +922,7 @@ Future<void> _revealTransaction(WidgetTester tester, String description) async {
 
 Future<_Harness> _openEdit(WidgetTester tester) async {
   final _Harness harness = await _openDetails(tester);
-  await tester.tap(find.text('Editar dados descritivos'));
+  await tester.tap(find.byTooltip('Editar dados descritivos'));
   await tester.pumpAndSettle();
   return harness;
 }
@@ -906,7 +934,7 @@ Future<void> _go(WidgetTester tester, String location) async {
 }
 
 Future<void> _confirmCancellation(WidgetTester tester) async {
-  await tester.tap(find.text('Cancelar lançamento'));
+  await tester.tap(find.byTooltip('Cancelar lançamento'));
   await tester.pumpAndSettle();
   await tester.tap(find.widgetWithText(FilledButton, 'Cancelar lançamento'));
   await tester.pumpAndSettle();

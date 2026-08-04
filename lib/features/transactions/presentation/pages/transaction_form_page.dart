@@ -21,9 +21,10 @@ import 'package:meu_gestor_financeiro/features/transactions/presentation/widgets
 import 'package:meu_gestor_financeiro/features/transactions/presentation/widgets/transaction_view_support.dart';
 
 class TransactionFormPage extends ConsumerStatefulWidget {
-  const TransactionFormPage({this.transactionId, super.key});
+  const TransactionFormPage({this.transactionId, this.initialKind, super.key});
 
   final String? transactionId;
+  final FinancialTransactionKind? initialKind;
 
   @override
   ConsumerState<TransactionFormPage> createState() =>
@@ -35,13 +36,19 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
-  FinancialTransactionKind _kind = FinancialTransactionKind.expense;
+  late FinancialTransactionKind _kind;
   String? _accountId;
   String? _categoryId;
   DateTime? _selectedDate;
   bool _initialized = false;
 
   bool get _isEditing => widget.transactionId != null;
+
+  @override
+  void initState() {
+    super.initState();
+    _kind = widget.initialKind ?? FinancialTransactionKind.expense;
+  }
 
   @override
   void dispose() {

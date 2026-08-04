@@ -149,21 +149,6 @@ class _DetailsContent extends ConsumerWidget {
             fallbackLocation: AppRoutes.commitments(commitment.kind),
           ),
           title: const Text('Detalhes do compromisso'),
-          actions: <Widget>[
-            if (commitment.isPending)
-              IconButton(
-                tooltip: 'Editar compromisso',
-                onPressed: action.isLoading
-                    ? null
-                    : () => context.push(
-                        AppRoutes.editCommitment(
-                          commitment.kind,
-                          commitment.id,
-                        ),
-                      ),
-                icon: const Icon(Icons.edit_outlined),
-              ),
-          ],
         ),
         body: SafeArea(
           child: ListView(
@@ -221,7 +206,8 @@ class _DetailsContent extends ConsumerWidget {
               ),
               const SizedBox(height: AppSpacing.sm),
               _BalanceNotice(commitment: commitment),
-              if (commitment.linkedTransactionId != null) ...<Widget>[
+              if (commitment.linkedTransactionId != null &&
+                  !commitment.isSettled) ...<Widget>[
                 const SizedBox(height: AppSpacing.md),
                 OutlinedButton.icon(
                   onPressed: () => context.push(
@@ -299,16 +285,91 @@ class _DetailsContent extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
-              OutlinedButton.icon(
-                onPressed: () => _confirmCancel(context, ref),
-                icon: const Icon(Icons.block_outlined),
-                label: const Text('Cancelar pendência'),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Tooltip(
+                      message: 'Editar compromisso',
+                      child: FilledButton.tonalIcon(
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size.fromHeight(48),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.xs,
+                          ),
+                        ),
+                        onPressed: () => context.push(
+                          AppRoutes.editCommitment(
+                            commitment.kind,
+                            commitment.id,
+                          ),
+                        ),
+                        icon: const Icon(Icons.edit_outlined),
+                        label: const Text('Editar'),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Tooltip(
+                      message: 'Cancelar compromisso',
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size.fromHeight(48),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.xs,
+                          ),
+                        ),
+                        onPressed: () => _confirmCancel(context, ref),
+                        icon: const Icon(Icons.block_outlined),
+                        label: const Text('Cancelar'),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ] else
-              OutlinedButton.icon(
-                onPressed: () => _confirmVoid(context, ref),
-                icon: const Icon(Icons.undo_outlined),
-                label: const Text('Anular liquidação'),
+              Row(
+                children: <Widget>[
+                  if (commitment.linkedTransactionId != null) ...<Widget>[
+                    Expanded(
+                      child: Tooltip(
+                        message: 'Ver lançamento vinculado',
+                        child: FilledButton.tonalIcon(
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size.fromHeight(48),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.xs,
+                            ),
+                          ),
+                          onPressed: () => context.push(
+                            AppRoutes.transactionDetails(
+                              commitment.linkedTransactionId!,
+                            ),
+                          ),
+                          icon: const Icon(Icons.receipt_long_outlined),
+                          label: const Text('Ver lançamento'),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                  ],
+                  Expanded(
+                    child: Tooltip(
+                      message: 'Anular liquidação',
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size.fromHeight(48),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.xs,
+                          ),
+                        ),
+                        onPressed: () => _confirmVoid(context, ref),
+                        icon: const Icon(Icons.undo_outlined),
+                        label: const Text('Anular'),
+                      ),
+                    ),
+                  ),
+                ],
               ),
           ],
         ),
@@ -600,9 +661,11 @@ class _BalanceNotice extends StatelessWidget {
           Expanded(
             child: Text(
               commitment.isSettled
-                  ? 'Somente o lançamento vinculado ativo participa do saldo real.'
+                  ? 'Somente o lançamento vinculado ativo participa do saldo real. Ao anular, os dois registros permanecem no histórico e o lançamento deixa o saldo.'
                   : commitment.isVoided
                   ? 'A liquidação e o lançamento foram anulados; este registro não participa do saldo.'
+                  : commitment.isPending
+                  ? 'Este compromisso não participa do saldo real. Se cancelado, continuará preservado no histórico.'
                   : 'Este compromisso não participa do saldo real.',
             ),
           ),

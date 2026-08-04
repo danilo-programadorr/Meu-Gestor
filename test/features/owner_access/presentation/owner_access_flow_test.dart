@@ -149,9 +149,7 @@ void main() {
         ),
       );
       addTearDown(harness.dispose);
-      await tester.ensureVisible(find.text('Lançamentos'));
-      await tester.tap(find.text('Lançamentos'));
-      await tester.pumpAndSettle();
+      await _go(tester, AppRoutes.transactions);
       expect(find.text('Novo lançamento'), findsWidgets);
     },
   );
@@ -358,8 +356,17 @@ Future<_OwnerHarness> _pumpOwnerApp(
 }
 
 Future<void> _openProfile(WidgetTester tester) async {
-  await tester.ensureVisible(find.text('Abrir perfil'));
-  await tester.tap(find.text('Abrir perfil'));
+  await tester.tap(
+    find.byKey(const ValueKey<String>('dashboard-header-menu-button')),
+  );
+  await tester.pumpAndSettle();
+  final Finder profile = find.descendant(
+    of: find.byType(BottomSheet),
+    matching: find.text('Perfil'),
+  );
+  await tester.ensureVisible(profile);
+  await tester.pumpAndSettle();
+  await tester.tap(profile);
   await tester.pumpAndSettle();
 }
 

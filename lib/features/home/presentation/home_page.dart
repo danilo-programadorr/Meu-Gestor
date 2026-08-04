@@ -2,248 +2,139 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:meu_gestor_financeiro/app/routing/app_routes.dart';
-import 'package:meu_gestor_financeiro/app/theme/app_spacing.dart';
+import 'package:meu_gestor_financeiro/app/theme/app_theme_preference.dart';
+import 'package:meu_gestor_financeiro/core/dates/sao_paulo_civil_date.dart';
 import 'package:meu_gestor_financeiro/core/environment/app_environment.dart';
-import 'package:meu_gestor_financeiro/core/money/money_formatter.dart';
-import 'package:meu_gestor_financeiro/features/authentication/presentation/controllers/auth_action_state.dart';
-import 'package:meu_gestor_financeiro/features/authentication/presentation/controllers/auth_controller.dart';
-import 'package:meu_gestor_financeiro/features/authentication/presentation/widgets/auth_components.dart';
-import 'package:meu_gestor_financeiro/features/transactions/domain/financial_balance_calculator.dart';
+import 'package:meu_gestor_financeiro/features/accounts/presentation/controllers/financial_accounts_controller.dart';
+import 'package:meu_gestor_financeiro/features/categories/presentation/controllers/financial_categories_controller.dart';
+import 'package:meu_gestor_financeiro/features/commitments/domain/financial_commitment.dart';
+import 'package:meu_gestor_financeiro/features/commitments/presentation/controllers/financial_commitments_controller.dart';
+import 'package:meu_gestor_financeiro/features/home/presentation/home_dashboard.dart';
+import 'package:meu_gestor_financeiro/features/home/presentation/home_dashboard_filter.dart';
+import 'package:meu_gestor_financeiro/features/profile/presentation/controllers/profile_gate_controller.dart';
+import 'package:meu_gestor_financeiro/features/transactions/data/financial_transaction_providers.dart';
 import 'package:meu_gestor_financeiro/features/transactions/presentation/controllers/financial_transactions_controller.dart';
 
-class HomePage extends ConsumerWidget {
+class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends ConsumerState<HomePage> {
+  bool _valuesVisible = true;
+  HomeDashboardFilter? _filter;
+
+  @override
+  Widget build(BuildContext context) {
     final AppEnvironment environment = ref.watch(appEnvironmentProvider);
-    final AuthActionState actionState = ref.watch(authControllerProvider);
-    final AsyncValue<FinancialSummary> financialSummary = ref.watch(
-      financialSummaryProvider,
+    final AsyncValue<FinancialWorkspace> workspace = ref.watch(
+      financialWorkspaceProvider,
     );
+    final AsyncValue<FinancialCommitmentsState<Payable>> payables = ref.watch(
+      payablesControllerProvider,
+    );
+    final AsyncValue<FinancialCommitmentsState<Receivable>> receivables = ref
+        .watch(receivablesControllerProvider);
+    final AsyncValue<ProfileGateState> profileGate = ref.watch(
+      profileGateControllerProvider,
+    );
+    final SaoPauloCivilDate today = SaoPauloCivilDate.fromInstant(
+      ref.watch(financialClockProvider)().toUtc(),
+    );
+    final HomeDashboardFilter filter = _filter ??=
+        HomeDashboardFilter.currentMonth(today);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Meu Gestor Financeiro'),
-        actions: <Widget>[
-          IconButton(
-            tooltip: 'Sair da conta',
-            onPressed: actionState.isLoading
-                ? null
-                : ref.read(authControllerProvider.notifier).signOut,
-            icon: const Icon(Icons.logout_rounded),
-          ),
-        ],
-      ),
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 560),
-              child: Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(AppSpacing.xl),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      Icon(
-                        Icons.verified_user_outlined,
-                        size: 64,
-                        color: Theme.of(context).colorScheme.primary,
-                        semanticLabel: 'Acesso autenticado e verificado',
-                      ),
-                      const SizedBox(height: AppSpacing.lg),
-                      Text(
-                        'Área autenticada',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.headlineSmall,
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      Text(
-                        'Seu acesso foi autenticado, o email está confirmado e '
-                        'seu perfil está pronto para organizar contas e carteiras.',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.bodyLarge,
-                      ),
-                      if (environment ==
-                          AppEnvironment.development) ...<Widget>[
-                        const SizedBox(height: AppSpacing.lg),
-                        const Chip(label: Text('Ambiente de desenvolvimento')),
-                      ],
-                      const SizedBox(height: AppSpacing.lg),
-                      financialSummary.when(
-                        loading: () => const Card(
-                          child: Padding(
-                            padding: EdgeInsets.all(AppSpacing.lg),
-                            child: Center(
-                              child: CircularProgressIndicator(
-                                semanticsLabel: 'Carregando resumo financeiro',
-                              ),
-                            ),
-                          ),
-                        ),
-                        error: (Object error, StackTrace stackTrace) => Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(AppSpacing.lg),
-                            child: Column(
-                              children: <Widget>[
-                                const Text(
-                                  'Não foi possível confirmar o resumo financeiro.',
-                                  textAlign: TextAlign.center,
-                                ),
-                                const SizedBox(height: AppSpacing.sm),
-                                OutlinedButton.icon(
-                                  onPressed: () =>
-                                      ref.invalidate(financialSummaryProvider),
-                                  icon: const Icon(Icons.refresh_rounded),
-                                  label: const Text('Tentar novamente'),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        data: (FinancialSummary summary) => Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(AppSpacing.lg),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: <Widget>[
-                                Text(
-                                  'Resumo financeiro',
-                                  style: Theme.of(context).textTheme.titleLarge,
-                                ),
-                                const SizedBox(height: AppSpacing.md),
-                                _HomeSummaryRow(
-                                  label: 'Total atual',
-                                  value: MoneyFormatter.format(
-                                    summary.totalCurrentBalance,
-                                  ),
-                                ),
-                                _HomeSummaryRow(
-                                  label: 'Receitas do mês',
-                                  value: MoneyFormatter.format(
-                                    summary.currentMonth.income,
-                                  ),
-                                ),
-                                _HomeSummaryRow(
-                                  label: 'Despesas do mês',
-                                  value: MoneyFormatter.format(
-                                    summary.currentMonth.expense,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(AppSpacing.md),
-                          child: Column(
-                            children: <Widget>[
-                              const ListTile(
-                                contentPadding: EdgeInsets.zero,
-                                leading: Icon(
-                                  Icons.account_balance_wallet_outlined,
-                                ),
-                                title: Text('Contas e carteiras'),
-                                subtitle: Text(
-                                  'Cadastre seus saldos iniciais sem dados de demonstração.',
-                                ),
-                              ),
-                              SizedBox(
-                                width: double.infinity,
-                                child: FilledButton.icon(
-                                  onPressed: () =>
-                                      context.push(AppRoutes.accounts),
-                                  icon: const Icon(Icons.arrow_forward_rounded),
-                                  label: const Text('Ver contas'),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: <Widget>[
-                          OutlinedButton.icon(
-                            onPressed: () =>
-                                context.push(AppRoutes.transactions),
-                            icon: const Icon(Icons.receipt_long_outlined),
-                            label: const Text('Lançamentos'),
-                          ),
-                          const SizedBox(height: AppSpacing.sm),
-                          OutlinedButton.icon(
-                            onPressed: () => context.push(AppRoutes.categories),
-                            icon: const Icon(Icons.category_outlined),
-                            label: const Text('Categorias'),
-                          ),
-                          const SizedBox(height: AppSpacing.sm),
-                          OutlinedButton.icon(
-                            onPressed: () => context.push(AppRoutes.payables),
-                            icon: const Icon(Icons.outbox_outlined),
-                            label: const Text('Contas a pagar'),
-                          ),
-                          const SizedBox(height: AppSpacing.sm),
-                          OutlinedButton.icon(
-                            onPressed: () =>
-                                context.push(AppRoutes.receivables),
-                            icon: const Icon(Icons.move_to_inbox_outlined),
-                            label: const Text('Contas a receber'),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: AppSpacing.lg),
-                      FilledButton.tonalIcon(
-                        onPressed: () => context.push(AppRoutes.profile),
-                        icon: const Icon(Icons.person_outline),
-                        label: const Text('Abrir perfil'),
-                      ),
-                      if (actionState.message
-                          case final String message) ...<Widget>[
-                        const SizedBox(height: AppSpacing.md),
-                        AuthErrorMessage(
-                          message: message,
-                          isError:
-                              actionState.status == AuthActionStatus.failure,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            ),
+        child: HomeDashboardBody(
+          firstName: _firstName(profileGate),
+          environment: environment,
+          valuesVisible: _valuesVisible,
+          workspace: workspace,
+          payables: payables,
+          receivables: receivables,
+          today: today,
+          filter: filter,
+          onFilterChanged: (HomeDashboardFilter value) {
+            setState(() => _filter = value);
+          },
+          onRefresh: _refreshAll,
+          callbacks: HomeDashboardCallbacks(
+            onToggleValues: () {
+              setState(() => _valuesVisible = !_valuesVisible);
+            },
+            onToggleTheme: _toggleTheme,
+            onProfile: () => _push(AppRoutes.profile),
+            onAppearance: () => _push(AppRoutes.profile),
+            onAccounts: () => _push(AppRoutes.accounts),
+            onCategories: () => _push(AppRoutes.categories),
+            onTransactions: () => _push(AppRoutes.transactions),
+            onNewIncome: () => _push(AppRoutes.newIncome),
+            onNewExpense: () => _push(AppRoutes.newExpense),
+            onNewPayable: () => _push(AppRoutes.newPayable),
+            onNewReceivable: () => _push(AppRoutes.newReceivable),
+            onPayables: () => _push(AppRoutes.payables),
+            onReceivables: () => _push(AppRoutes.receivables),
+            onTransaction: (String transactionId) =>
+                _push(AppRoutes.transactionDetails(transactionId)),
+            onRetryWorkspace: _refreshWorkspace,
+            onRetryCommitments: _refreshCommitments,
           ),
         ),
       ),
     );
   }
+
+  void _push(String location) {
+    context.push(location);
+  }
+
+  Future<void> _toggleTheme() async {
+    final Brightness brightness = Theme.of(context).brightness;
+    try {
+      await ref
+          .read(appThemePreferenceControllerProvider.notifier)
+          .toggleQuickly(brightness);
+    } on Object {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Não foi possível salvar a aparência. Tente novamente.',
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _refreshAll() => Future.wait<void>(<Future<void>>[
+    _refreshWorkspace(),
+    _refreshCommitments(),
+  ]);
+
+  Future<void> _refreshWorkspace() => Future.wait<void>(<Future<void>>[
+    ref.read(financialAccountsControllerProvider.notifier).refresh(),
+    ref.read(financialCategoriesControllerProvider.notifier).refresh(),
+    ref.read(financialTransactionsControllerProvider.notifier).refresh(),
+  ]);
+
+  Future<void> _refreshCommitments() => Future.wait<void>(<Future<void>>[
+    ref.read(payablesControllerProvider.notifier).refresh(),
+    ref.read(receivablesControllerProvider.notifier).refresh(),
+  ]);
 }
 
-class _HomeSummaryRow extends StatelessWidget {
-  const _HomeSummaryRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-    child: Row(
-      children: <Widget>[
-        Expanded(child: Text(label)),
-        Expanded(
-          child: Text(
-            value,
-            textAlign: TextAlign.end,
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-        ),
-      ],
-    ),
-  );
+String? _firstName(AsyncValue<ProfileGateState> profileGate) {
+  final ProfileGateState? state = profileGate.value;
+  if (state is! ProfileGateValid) {
+    return null;
+  }
+  final String normalized = state.profile.displayName.trim();
+  if (normalized.isEmpty) {
+    return null;
+  }
+  return normalized.split(RegExp(r'\s+')).first;
 }

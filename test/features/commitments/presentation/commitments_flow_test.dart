@@ -6,6 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:meu_gestor_financeiro/app/app.dart';
 import 'package:meu_gestor_financeiro/app/routing/app_routes.dart';
+import 'package:meu_gestor_financeiro/app/routing/safe_back_navigation.dart';
+import 'package:meu_gestor_financeiro/app/theme/app_spacing.dart';
 import 'package:meu_gestor_financeiro/core/dates/sao_paulo_civil_date.dart';
 import 'package:meu_gestor_financeiro/core/environment/app_environment.dart';
 import 'package:meu_gestor_financeiro/core/firebase/firebase_startup.dart';
@@ -17,10 +19,12 @@ import 'package:meu_gestor_financeiro/features/categories/data/financial_categor
 import 'package:meu_gestor_financeiro/features/categories/domain/financial_category.dart';
 import 'package:meu_gestor_financeiro/features/commitments/domain/financial_commitment.dart';
 import 'package:meu_gestor_financeiro/features/commitments/domain/financial_commitment_failure.dart';
+import 'package:meu_gestor_financeiro/features/commitments/presentation/controllers/financial_commitments_controller.dart';
 import 'package:meu_gestor_financeiro/features/commitments/presentation/providers/financial_commitment_providers.dart';
 import 'package:meu_gestor_financeiro/features/owner_access/data/master_access_providers.dart';
 import 'package:meu_gestor_financeiro/features/profile/data/user_profile_providers.dart';
 import 'package:meu_gestor_financeiro/features/transactions/data/financial_transaction_providers.dart';
+import 'package:meu_gestor_financeiro/features/transactions/domain/financial_transaction.dart';
 import 'package:meu_gestor_financeiro/features/transactions/presentation/widgets/positive_money_input_field.dart';
 
 import '../../../support/fake_auth_repository.dart';
@@ -44,6 +48,42 @@ void main() {
     await _reveal(tester, 'Contas a pagar');
     expect(find.text('Contas a pagar'), findsOneWidget);
     expect(find.text('Contas a receber'), findsOneWidget);
+  });
+
+  testWidgets('ações rápidas preselecionam o tipo e Voltar retorna à home', (
+    WidgetTester tester,
+  ) async {
+    final _Harness harness = await _pumpHarness(tester);
+    addTearDown(harness.dispose);
+
+    await _reveal(tester, 'Nova receita');
+    await tester.tap(find.text('Nova receita'));
+    await tester.pumpAndSettle();
+    expect(find.text('Novo lançamento'), findsOneWidget);
+    expect(
+      tester
+          .widget<SegmentedButton<FinancialTransactionKind>>(
+            find.byType(SegmentedButton<FinancialTransactionKind>),
+          )
+          .selected,
+      <FinancialTransactionKind>{FinancialTransactionKind.income},
+    );
+
+    await tester.tap(find.byType(SafeBackButton));
+    await tester.pumpAndSettle();
+    expect(find.text('Olá, Pessoa!'), findsOneWidget);
+
+    await _reveal(tester, 'Nova despesa');
+    await tester.tap(find.text('Nova despesa'));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<SegmentedButton<FinancialTransactionKind>>(
+            find.byType(SegmentedButton<FinancialTransactionKind>),
+          )
+          .selected,
+      <FinancialTransactionKind>{FinancialTransactionKind.expense},
+    );
   });
 
   testWidgets('listas vazias explicam que pendências não alteram saldo', (
@@ -72,6 +112,7 @@ void main() {
       safeMessage: 'Sem conexão com o servidor.',
       code: 'test_unavailable',
     );
+    await harness.container.read(payablesControllerProvider.notifier).refresh();
     await _go(tester, AppRoutes.payables);
     expect(find.text('Sem conexão com o servidor.'), findsOneWidget);
     harness.commitments.readFailure = null;
@@ -239,10 +280,19 @@ void main() {
     );
     await tester.enterText(_field('Descrição'), 'Consultoria revisada');
     final Finder save = find.widgetWithText(FilledButton, 'Salvar alterações');
-    await tester.ensureVisible(save);
-    await tester.drag(find.byType(Scrollable).last, const Offset(0, -80));
+    await Scrollable.ensureVisible(
+      tester.element(save),
+      alignment: 0.7,
+      duration: Duration.zero,
+    );
     await tester.pumpAndSettle();
-    await tester.tap(save);
+    await tester.pumpAndSettle();
+    await tester.tapAt(
+      Offset(
+        tester.getCenter(save).dx,
+        tester.getTopLeft(save).dy + AppSpacing.xs,
+      ),
+    );
     await tester.pumpAndSettle();
     expect(
       harness.commitments.receivables.single.description,
@@ -279,7 +329,7 @@ void main() {
         find.byType(CalendarDatePicker),
       );
       expect(picker.lastDate, DateTime(2026, 8, 15));
-      await tester.tap(find.text('Cancelar'));
+      await tester.tap(find.widgetWithText(TextButton, 'Cancelar'));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, 'Pagar'));
       await tester.pumpAndSettle();
@@ -332,14 +382,14 @@ void main() {
       tester,
       AppRoutes.commitmentDetails(FinancialCommitmentKind.payable, 'payable-1'),
     );
-    await tester.tap(find.text('Cancelar pendência'));
+    await tester.tap(find.byTooltip('Cancelar compromisso'));
     await tester.pumpAndSettle();
     expect(find.textContaining('continuará no histórico'), findsOneWidget);
     await tester.tap(find.widgetWithText(FilledButton, 'Cancelar pendência'));
     await tester.pumpAndSettle();
     expect(harness.commitments.payables.single.isCancelled, isTrue);
     expect(harness.commitments.linkedTransactions, isEmpty);
-    expect(find.text('Cancelar pendência'), findsNothing);
+    expect(find.byTooltip('Cancelar compromisso'), findsNothing);
   });
 
   testWidgets('anulação explica impacto e invalida lançamento vinculado', (
@@ -361,7 +411,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Receber'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Anular liquidação'));
+    expect(find.byTooltip('Ver lançamento vinculado'), findsOneWidget);
+    await tester.tap(find.byTooltip('Anular liquidação'));
     await tester.pumpAndSettle();
     expect(find.textContaining('não restaura a pendência'), findsOneWidget);
     await tester.tap(find.widgetWithText(FilledButton, 'Anular liquidação'));
@@ -391,7 +442,7 @@ void main() {
     harness.transactions.transactions.add(linked);
     await _go(tester, AppRoutes.transactionDetails(linked.id));
     expect(find.byTooltip('Editar lançamento'), findsNothing);
-    expect(find.text('Cancelar lançamento'), findsNothing);
+    expect(find.byTooltip('Cancelar lançamento'), findsNothing);
     expect(find.text('Conta a pagar vinculada'), findsOneWidget);
     await _reveal(tester, 'Abrir compromisso de origem');
     expect(find.text('Abrir compromisso de origem'), findsOneWidget);
@@ -477,7 +528,13 @@ void main() {
       AppRoutes.commitmentDetails(FinancialCommitmentKind.payable, 'payable-1'),
     );
     expect(find.text('Confirmar pagamento'), findsOneWidget);
-    expect(find.text('Cancelar pendência'), findsOneWidget);
+    final Finder edit = find.byTooltip('Editar compromisso');
+    final Finder cancel = find.byTooltip('Cancelar compromisso');
+    expect(edit, findsOneWidget);
+    expect(cancel, findsOneWidget);
+    expect(tester.getCenter(edit).dy, tester.getCenter(cancel).dy);
+    expect(tester.getSize(edit).height, greaterThanOrEqualTo(44));
+    expect(tester.getSize(cancel).height, greaterThanOrEqualTo(44));
     expect(tester.takeException(), isNull);
   });
 
@@ -606,11 +663,16 @@ Future<void> _go(WidgetTester tester, String location) async {
 }
 
 Future<void> _reveal(WidgetTester tester, String text) async {
-  await tester.scrollUntilVisible(
-    find.text(text),
-    220,
-    scrollable: find.byType(Scrollable).last,
-  );
+  final Finder target = find.text(text);
+  if (target.evaluate().isNotEmpty) {
+    await tester.ensureVisible(target.last);
+  } else {
+    await tester.scrollUntilVisible(
+      target,
+      220,
+      scrollable: find.byType(Scrollable).last,
+    );
+  }
   await tester.pumpAndSettle();
 }
 

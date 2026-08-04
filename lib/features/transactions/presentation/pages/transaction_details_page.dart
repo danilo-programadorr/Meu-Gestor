@@ -140,19 +140,6 @@ class _DetailsContent extends ConsumerWidget {
             fallbackLocation: AppRoutes.transactions,
           ),
           title: const Text('Detalhes do lançamento'),
-          actions: <Widget>[
-            if (!transaction.isVoided &&
-                transaction.originType == FinancialTransactionOriginType.manual)
-              IconButton(
-                tooltip: 'Editar lançamento',
-                onPressed: action.isLoading
-                    ? null
-                    : () => context.push(
-                        AppRoutes.editTransaction(transaction.id),
-                      ),
-                icon: const Icon(Icons.edit_outlined),
-              ),
-          ],
         ),
         body: SafeArea(
           child: ListView(
@@ -274,18 +261,52 @@ class _DetailsContent extends ConsumerWidget {
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: <Widget>[
-                            FilledButton.tonalIcon(
-                              onPressed: () => context.push(
-                                AppRoutes.editTransaction(transaction.id),
-                              ),
-                              icon: const Icon(Icons.edit_outlined),
-                              label: const Text('Editar dados descritivos'),
+                            const Text(
+                              'Editar preserva conta, tipo e valor. Cancelar retira o lançamento do saldo, mas mantém o histórico.',
+                              textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: AppSpacing.sm),
-                            OutlinedButton.icon(
-                              onPressed: () => _confirmVoid(context, ref),
-                              icon: const Icon(Icons.block_outlined),
-                              label: const Text('Cancelar lançamento'),
+                            Row(
+                              children: <Widget>[
+                                Expanded(
+                                  child: Tooltip(
+                                    message: 'Editar dados descritivos',
+                                    child: FilledButton.tonalIcon(
+                                      style: FilledButton.styleFrom(
+                                        minimumSize: const Size.fromHeight(48),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: AppSpacing.xs,
+                                        ),
+                                      ),
+                                      onPressed: () => context.push(
+                                        AppRoutes.editTransaction(
+                                          transaction.id,
+                                        ),
+                                      ),
+                                      icon: const Icon(Icons.edit_outlined),
+                                      label: const Text('Editar'),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: AppSpacing.sm),
+                                Expanded(
+                                  child: Tooltip(
+                                    message: 'Cancelar lançamento',
+                                    child: OutlinedButton.icon(
+                                      style: OutlinedButton.styleFrom(
+                                        minimumSize: const Size.fromHeight(48),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: AppSpacing.xs,
+                                        ),
+                                      ),
+                                      onPressed: () =>
+                                          _confirmVoid(context, ref),
+                                      icon: const Icon(Icons.block_outlined),
+                                      label: const Text('Cancelar'),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),

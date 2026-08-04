@@ -142,6 +142,9 @@ class _CategorySection extends ConsumerWidget {
             category: category,
             onEdit: () => context.push(AppRoutes.editCategory(category.id)),
             onArchive: () => _confirmArchive(context, ref, category),
+            actionsEnabled: !ref
+                .watch(financialCategoryActionControllerProvider)
+                .isLoading,
           ),
     ],
   );

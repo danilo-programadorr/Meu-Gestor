@@ -8,7 +8,7 @@ abstract final class AppGradients {
     colors: <Color>[
       AppColors.backgroundPrimary,
       AppColors.backgroundSecondary,
-      Color(0xFF041746),
+      Color(0xFF10243A),
     ],
     stops: <double>[0, 0.56, 1],
   );
@@ -19,12 +19,12 @@ abstract final class AppGradients {
     colors: <Color>[
       AppColors.lightBackground,
       AppColors.lightSurfaceElevated,
-      Color(0xFFD8EFF8),
+      AppColors.lightPrimarySoft,
     ],
     stops: <double>[0, 0.6, 1],
   );
 
   static const LinearGradient accent = LinearGradient(
-    colors: <Color>[AppColors.primaryCyan, AppColors.primaryBlue],
+    colors: <Color>[AppColors.primaryBlue, AppColors.primaryCyan],
   );
 }

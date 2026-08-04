@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:meu_gestor_financeiro/app/theme/app_colors.dart';
 import 'package:meu_gestor_financeiro/app/theme/app_radius.dart';
 import 'package:meu_gestor_financeiro/app/theme/app_spacing.dart';
 
@@ -145,6 +144,7 @@ class AuthPrimaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme colors = Theme.of(context).colorScheme;
     return Semantics(
       button: true,
       enabled: onPressed != null && !isLoading,
@@ -152,17 +152,15 @@ class AuthPrimaryButton extends StatelessWidget {
       child: ElevatedButton(
         onPressed: isLoading ? null : onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primaryActionLight,
-          disabledBackgroundColor: AppColors.disabled,
-          foregroundColor: AppColors.onPrimaryAction,
-          disabledForegroundColor: AppColors.textPrimary,
+          backgroundColor: colors.primary,
+          foregroundColor: colors.onPrimary,
         ),
         child: isLoading
-            ? const SizedBox.square(
+            ? SizedBox.square(
                 dimension: 24,
                 child: CircularProgressIndicator(
                   strokeWidth: 2.5,
-                  color: AppColors.onPrimaryAction,
+                  color: colors.onPrimary,
                 ),
               )
             : Row(
@@ -345,7 +343,9 @@ class AuthLoadingOverlay extends StatelessWidget {
           Positioned.fill(
             child: IgnorePointer(
               child: ColoredBox(
-                color: Color(0x33040A1A),
+                color: Theme.of(
+                  context,
+                ).colorScheme.scrim.withValues(alpha: 0.32),
                 child: Center(
                   child: Semantics(
                     liveRegion: true,

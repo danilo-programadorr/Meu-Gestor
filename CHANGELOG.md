@@ -51,6 +51,19 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - lançamentos esquema 2 para origens manual, payable e receivable, mantendo leitura e mutação de documentos esquema 1;
 - Security Rules locais para payables/receivables e harness isolado do Firestore Emulator com Project ID `demo-*`.
 - endurecimento FIN-5A-2B das Security Rules, com despacho determinístico de estados/origens, referências pós-gravação protegidas e auditoria automática dos diagnósticos do Emulator.
+- UI-2 com temas Sistema/Claro/Escuro, preferência local persistente e cobertura global por `ColorScheme`/`ThemeExtension`;
+- dashboard analítico com filtros locais de conta e período, comparação de receitas/despesas, distribuição por categoria e carrossel de contas usando somente dados reais;
+- adaptação para privacidade, semântica, 320 px, fonte 180% e valores financeiros máximos, sem biblioteca externa de gráficos.
+- UI-3 com Dashboard 3.0 sofisticado e compacto, resumo sem KPI duplicado, ações horizontais, comparação com valores, ranking de categorias e carrossel proporcional;
+- filtros móveis com conta informativa, seleção de mês/ano e limpeza explícita, sem alterar saldo ou documentos;
+- tela de Contas e carteiras refinada com total petróleo/claro, monogramas, estado textual do saldo e ações de menor peso visual.
+- UI-3A com Menu compacto agrupado em Organização, Planejamento e Conta e aplicativo, preservando as rotas existentes;
+- ações contextuais lado a lado com edição, arquivamento, restauração, cancelamento e anulação semanticamente corretos, sem lixeira ou exclusão permanente;
+- registro dos incrementos futuros `DATA-1`, para exclusão segura de itens nunca utilizados, e `PRIV-1`, para exclusão da conta e dos dados;
+- auditoria `STORAGE-1` do cache local, consultas, paginação, providers e logout, sem alterar comportamento ou configuração de armazenamento.
+- UI-3B com remoção da seção de contas da Home, preservando o filtro compacto de conta no topo;
+- Menu agrupado transferido para o canto superior direito do cabeçalho, sem duplicar o acesso a Perfil;
+- comparação de receitas e despesas substituída por colunas agrupadas 2.5D nativas, com escala e linha de base comuns, período, valores, legenda, resultado e semântica.
 
 ### Segurança
 
