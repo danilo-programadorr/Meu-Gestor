@@ -728,3 +728,18 @@ Situação em 10/08/2026: implementação e validações concluídas; Security R
 - A quarta aba apresenta resumo líquido, filtros, colunas de 12 meses, distribuição por ativo, lista e histórico mensal/anual somente com dados persistidos. Privacidade, temas, 320 px e fonte a 180% são preservados.
 - Proventos não criam receita no núcleo financeiro, não referenciam conta e não alteram saldo, compromissos, posição ou resumo mensal.
 - Agenda automática de proventos, amortização, eventos corporativos, cálculo tributário, DARF, notificações, assinatura e integrações permanecem fora deste incremento. A integração B3 e as integrações automáticas com corretoras foram canceladas por decisão do responsável pelo projeto: não constituem requisito, limitação pendente ou incremento futuro, e nenhuma implementação, pesquisa técnica ou preparação arquitetural deve ser iniciada. A futura cotação de mercado com atraso por provedor de dados independente permanece separada dessa decisão.
+
+## 32. SUB-1A — Domínio e contrato de entitlement Premium
+
+Situação em 10/08/2026: domínio puro, contrato, testes e documentação implementados localmente; sem cobrança, persistência, Security Rules, paywall, commit ou push.
+
+- Planos `free`, `monthly` e `annual` não armazenam preço; mensal e anual compartilham as capabilities iniciais. Plano gratuito corresponde à ausência explícita de entitlement.
+- O entitlement canônico usa `pending`, `trialing`, `active`, `gracePeriod`, `accountHold`, `paused`, `cancelled`, `expired`, `revoked` e `refunded`, com datas UTC, revisão e esquema validados.
+- Fontes são limitadas a Google Play, concessão administrativa e concessão development. Grants serão futuramente emitidos somente pelo backend, com validade, ambiente e auditoria; owner continua restrito ao próprio UID.
+- A política recebe capability, intenção e instante confiável injetado e retorna acesso integral, somente leitura ou negado com motivo, validade, carência, cancelamento pendente e necessidade de releitura. A entidade não usa relógio do aparelho.
+- Carteiras, ativos, operações e proventos são preservados após perda do Premium. A leitura futura permanece disponível; mutações e cotações são bloqueadas. Nenhum dado é apagado, nenhum preço médio é alterado e contas, saldo e resumo mensal permanecem intactos.
+- A política de transições rejeita revisão antiga/repetida, verificação e período regressivos, ambiente/owner divergentes, troca de fonte dentro do mesmo ciclo e restauração de estados terminais. Renovação e nova assinatura após expiração exigem período coerente.
+- O contrato cliente oferece somente leitura, observação confirmada, releitura de servidor e diagnóstico sanitizado. Não há métodos para ativar, renovar, revogar, reembolsar ou conceder.
+- Não existe produto configurado, compra, Google Play Billing, backend verificador, entitlement Firestore, regra Premium ou paywall. Investimentos continuam acessíveis em development e nenhuma funcionalidade atual passou a exigir Premium.
+- A futura proposta `users/{uid}/entitlements/premium` é apenas documental e depende de incremento próprio para backend, persistência, regras, Emulator Suite, custos e autorização.
+- A integração B3 e integrações automáticas com corretoras permanecem canceladas e não autorizam pesquisa ou preparação. Cotações atrasadas por provedor independente continuam bloqueadas por licenciamento e pela conclusão segura de SUB-1.

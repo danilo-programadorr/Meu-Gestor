@@ -79,10 +79,15 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - valores total ou por unidade calculados em inteiros com `BigInt` e half-up, imposto retido informado e líquido derivado sem afetar contas ou saldo;
 - quarta aba Proventos com resumo, filtros, colunas dos últimos 12 meses, distribuição, cartões e histórico mensal/anual usando somente registros reais;
 - coleção `investmentIncomeEvents`, mapper estrito, repositório confirmado pelo servidor, idempotência, revisão e regras locais testadas no Emulator `demo-*`.
+- SUB-1A com domínio puro de entitlement Premium, planos gratuito/mensal/anual, fontes Google Play e concessões controladas, sem preço ou dependência de pagamento;
+- máquina canônica de dez estados, capabilities tipadas, decisão explícita integral/somente leitura/negada e validade baseada em instante confiável injetado;
+- política de transições por revisão para eventos duplicados ou fora de ordem e contrato cliente exclusivamente de leitura, observação, releitura e diagnóstico sanitizado;
+- preservação de carteiras, ativos, operações e proventos após perda do Premium, sem alterar preço médio, contas, saldo ou resumo mensal.
 
 ### Segurança
 
 - separação entre ambientes development e production;
+- SUB-1A mantém tokens de compra, recibos, payloads e credenciais fora do domínio; grants de development falham fora do ambiente correto e nenhum método cliente concede ou altera entitlement;
 - configuração Firebase local excluída do versionamento;
 - bloqueio de inicialização Firebase production sem configuração própria;
 - bloqueio de release production enquanto documentos jurídicos oficiais estiverem pendentes.

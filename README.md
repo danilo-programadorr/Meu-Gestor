@@ -46,12 +46,13 @@ Concluído e validado localmente:
 - proventos manuais previstos, recebidos, cancelados ou anulados, com dividendos, JCP e rendimentos de FII separados do núcleo financeiro;
 - acesso owner seguro, confirmado pelo servidor, com Área do proprietário e revalidação;
 - capabilities preparadas para futuros recursos de assinatura, funcionalidades pagas e IA;
+- domínio puro SUB-1A para entitlement Premium, estados, capabilities, decisão explicável e preservação somente leitura, ainda sem cobrança ou bloqueio;
 - regras Firestore publicadas em development com isolamento por UID, campos fechados e negação por padrão;
 - testes unitários, de widgets, integração de fluxos e segurança estrutural.
 
 Limites atuais:
 
-- não existem ambiente de produção, assinatura real, cobrança, Google Play Billing, Stripe ou Mercado Pago;
+- não existem ambiente de produção, assinatura real, cobrança, paywall, produto configurado, entitlement persistido, backend de verificação, Google Play Billing, Stripe ou Mercado Pago;
 - não existem consumo real de IA, transferências, cartões, faturas, recorrências ou parcelamentos;
 - investimentos não possuem cotação, integração com corretora, Open Finance, agenda automática de proventos, cálculo tributário ou recomendação;
 - notificações, relatórios completos, projeções e integração Open Finance ainda não foram implementados;
@@ -101,6 +102,7 @@ lib/
     owner_access/
     privacy/
     profile/
+    subscriptions/
     transactions/
 assets/
 test/
@@ -161,6 +163,7 @@ A suíte atual cobre:
 - compromissos financeiros e vínculos atômicos;
 - investimentos manuais, aritmética escalada, custo médio, concorrência e anulação encadeada;
 - acesso owner, capabilities, revogação e falha fechada;
+- entitlement Premium puro, períodos, decisões de acesso, preservação de dados e transições por revisão;
 - telas pequenas, teclado e aumento de fonte;
 - temas, contraste, semântica e acessibilidade;
 - dinheiro em centavos, operações aritméticas e formatação BRL.
@@ -197,7 +200,10 @@ O papel `owner` recebe capabilities centralizadas para módulos implementados, r
 - [x] Contas a pagar e receber
 - [x] Dashboard
 - [x] Acompanhamento manual de ações e FIIs
-- [ ] Cotações e eventos de investimentos
+- [x] Proventos manuais
+- [x] Domínio e contrato de entitlement Premium (sem cobrança ou paywall)
+- [ ] Google Play Billing, backend e aplicação segura do Premium
+- [ ] Cotações atrasadas por provedor independente, condicionadas a licenciamento e SUB-1
 - [ ] Projeções
 - [ ] Cartões e faturas
 - [ ] Dívidas

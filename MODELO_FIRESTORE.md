@@ -399,6 +399,16 @@ Campos obrigatórios protegidos: ownerId, action, entityType, entityId, actorTyp
 
 Somente Cloud Functions escrevem. Não armazena valores financeiros completos, tokens, anexos, prompts ou descrições pessoais.
 
+### Proposta futura — users/{userId}/entitlements/premium
+
+Este caminho é somente proposta do SUB-1A. Nenhuma coleção, documento, índice, regra ou implementação Firebase foi criada.
+
+O documento fixo futuro poderá conter ownerId, planId, status, source, environment, capabilities, entitlementStartedAt, currentPeriodStartedAt, currentPeriodEndsAt, graceUntil, cancelAtPeriodEnd, cancelledAt, expiredAt, revokedAt, refundedAt, lastVerifiedAt, revision e schemaVersion. O contrato será fechado, versionado e escrito exclusivamente por backend após validação autoritativa.
+
+O aplicativo poderá ler somente o entitlement do próprio UID e nunca poderá criar, ativar, renovar, revogar, reembolsar ou conceder. Purchase token, recibo bruto, payload do provedor, credenciais, dados de cartão, preço e auditoria confidencial não pertencerão ao documento legível pelo cliente. Grants administrativos e de development terão validade, ambiente e trilha de auditoria server-side; owner não recebe acesso cruzado.
+
+Ausência do documento representará plano gratuito. Expiração não apagará investimentos: leitura histórica será preservada, mutações serão negadas e serviços recorrentes como cotação serão interrompidos. Persistência, backend, mappers, regras, testes e custos exigem incremento e autorização separados.
+
 ## 7. Conversores Dart
 
 Cada coleção terá modelo Dart imutável e conversor tipado:

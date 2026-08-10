@@ -37,3 +37,13 @@ O papel `owner` é concedido somente por um documento administrativo criado manu
 E-mail, senha, UID hardcoded, parâmetro de rota, preferência ou armazenamento local nunca autorizam owner. O documento é válido somente em development e a decisão falha fechada diante de cache, timeout, erro ou incompatibilidade.
 
 Capabilities owner liberam funcionalidades do produto e futuros recursos comerciais, mas não ignoram Security Rules, isolamento por UID, autenticação, validações financeiras, concorrência, integridade ou limites técnicos contra abuso. Diagnósticos omitem identidade, conteúdo administrativo, tokens, project ID e dados financeiros.
+
+## Entitlement Premium — SUB-1A
+
+O SUB-1A é somente domínio e contrato. Não existe entitlement persistido, backend verificador, Security Rule Premium, produto de loja, compra, paywall ou bloqueio ativo. Investimentos continuam acessíveis no ambiente development atual.
+
+O modelo não contém purchase token, recibo completo, payload Google, dados de cartão, preço, credencial ou identificador externo usado como autorização. O contrato cliente possui somente leitura, observação confirmada, releitura do servidor e diagnóstico sanitizado; criar, ativar, renovar, revogar, reembolsar e conceder pertencem ao futuro backend.
+
+Concessões administrativas e de development deverão ter validade e auditoria, ser emitidas somente pelo backend e respeitar o ambiente. Owner poderá receber acesso para o próprio UID, sem ignorar isolamento ou obter acesso cruzado. A decisão local é projeção de experiência e nunca substitui a futura autorização de backend e Security Rules.
+
+Após perda de Premium, dados patrimoniais não são apagados nem alterados: leitura histórica é preservada, mutações são bloqueadas e cotações deixam de ser fornecidas. Esse comportamento ainda não foi conectado aos repositórios ou à interface. A integração B3/corretoras permanece cancelada; cotações por provedor independente permanecem bloqueadas por licenciamento e SUB-1.

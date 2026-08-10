@@ -364,6 +364,18 @@
 | INV-PROV-009 | Preservar UX acessível | P0 | INV-PROV-1 | quarta aba, privacidade, temas, 320 px, fonte 180%, teclado e semântica funcionam sem overflow | implementado e coberto por widgets | sistema visual | médio | neutro |
 | INV-PROV-010 | Manter fronteiras do escopo | P0 | INV-PROV-1 | sem agenda automática, amortização, cálculo tributário, notificação, paywall ou integração financeira; integração B3 e integrações automáticas com corretoras canceladas e fora do planejamento | confirmado por auditoria de código e decisão do responsável | nenhuma dependência nova | alto | nenhum serviço externo |
 
+## Incremento SUB-1A — Domínio e contrato de entitlement Premium
+
+| ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |
+|---|---|---:|---:|---|---|---|---|---|
+| SUB-001-1A | Modelar planos e entitlement puro | P0 | SUB-1A | gratuito é ausência; mensal/anual não têm preço e compartilham capabilities; entidade não importa Flutter/Firebase/pagamentos | implementado e coberto unitariamente | nenhuma dependência nova | alto | neutro |
+| SUB-002-1A | Representar ciclo completo | P0 | SUB-1A | dez estados canônicos validam período, carência, cancelamento, expiração, revogação e reembolso | implementado e coberto | instante UTC injetado | crítico | neutro |
+| SUB-003-1A | Decidir acesso explicitamente | P0 | SUB-1A | resultado informa integral/somente leitura/negado, motivo, validade, carência, cancelamento e releitura | implementado e coberto nos limites exatos | entidade válida | crítico | neutro |
+| SUB-004-1A | Preservar dados após expiração | P0 | SUB-1A | carteira, ativos, operações e proventos permanecem legíveis; mutações e cotação são negadas; nenhum saldo muda | política de domínio implementada; aplicação futura não conectada | SUB-1B e regras futuras | crítico | reduz consumo de cotação |
+| SUB-005-1A | Reconciliar eventos determinísticos | P0 | SUB-1A | revisão antiga/repetida, período regressivo, owner/ambiente divergente e restauração terminal são negados | implementado em política de transição | backend futuro | crítico | neutro |
+| SUB-006-1A | Restringir contrato cliente | P0 | SUB-1A | repositório prevê somente leitura, observação confirmada, releitura e diagnóstico sanitizado; nenhuma mutação | interface pura criada, sem implementação | backend/persistência futuros | crítico | neutro |
+| SUB-007-1A | Manter fronteiras operacionais | P0 | SUB-1A | sem Billing, produto, backend, persistência, regras, paywall, grant owner ou bloqueio atual | confirmado por auditoria e hash das regras | autorização futura | crítico | nenhum serviço externo |
+
 ## Incrementos futuros de dados, privacidade e armazenamento
 
 | ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |
