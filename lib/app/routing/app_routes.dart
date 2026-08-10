@@ -1,4 +1,5 @@
 import 'package:meu_gestor_financeiro/features/commitments/domain/financial_commitment.dart';
+import 'package:meu_gestor_financeiro/features/investments/domain/investment_operation.dart';
 
 abstract final class AppRoutes {
   static const String root = '/';
@@ -25,6 +26,8 @@ abstract final class AppRoutes {
   static const String newPayable = '/contas-a-pagar/nova';
   static const String receivables = '/contas-a-receber';
   static const String newReceivable = '/contas-a-receber/nova';
+  static const String investments = '/investimentos';
+  static const String newInvestmentPortfolio = '/investimentos/carteira/nova';
   static const String profileSetup = '/configurar-perfil';
   static const String legalUpdate = '/atualizar-documentos';
   static const String profile = '/perfil';
@@ -66,4 +69,18 @@ abstract final class AppRoutes {
     FinancialCommitmentKind kind,
     String commitmentId,
   ) => '${commitmentDetails(kind, commitmentId)}/editar';
+
+  static String editInvestmentPortfolio(String portfolioId) =>
+      '/investimentos/carteira/${Uri.encodeComponent(portfolioId)}/editar';
+
+  static String newInvestmentAsset(String portfolioId) =>
+      '/investimentos/ativo/novo?portfolioId=${Uri.encodeQueryComponent(portfolioId)}';
+
+  static String investmentAssetDetails(String assetId) =>
+      '/investimentos/ativo/${Uri.encodeComponent(assetId)}';
+
+  static String newInvestmentOperation(
+    String assetId,
+    InvestmentOperationKind kind,
+  ) => '${investmentAssetDetails(assetId)}/operacao/nova?kind=${kind.name}';
 }

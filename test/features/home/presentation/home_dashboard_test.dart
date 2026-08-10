@@ -184,6 +184,7 @@ void main() {
 
     expect(find.text('Organização'), findsOneWidget);
     expect(find.text('Planejamento'), findsOneWidget);
+    expect(find.text('Patrimônio'), findsOneWidget);
     expect(find.text('Conta e aplicativo'), findsOneWidget);
     for (final String item in <String>[
       'Contas e carteiras',
@@ -191,6 +192,7 @@ void main() {
       'Lançamentos',
       'Contas a pagar',
       'Contas a receber',
+      'Investimentos',
       'Perfil',
       'Aparência',
     ]) {
@@ -207,6 +209,7 @@ void main() {
       'Lançamentos',
       'Contas a pagar',
       'Contas a receber',
+      'Investimentos',
       'Perfil',
       'Aparência',
     ]) {
@@ -214,7 +217,10 @@ void main() {
         find.byKey(const ValueKey<String>('dashboard-header-menu-button')),
       );
       await tester.pumpAndSettle();
-      await tester.tap(_menuItem(item));
+      final Finder destination = _menuItem(item);
+      await tester.ensureVisible(destination);
+      await tester.pumpAndSettle();
+      await tester.tap(destination);
       await tester.pumpAndSettle();
       expect(find.text('Organização'), findsNothing);
     }
@@ -224,6 +230,7 @@ void main() {
     expect(tracker.transactions, 1);
     expect(tracker.payables, 1);
     expect(tracker.receivables, 1);
+    expect(tracker.investments, 1);
     expect(tracker.profile, 1);
     expect(tracker.appearance, 1);
   });
@@ -792,6 +799,7 @@ final class _DashboardTracker {
   int newPayable = 0;
   int newReceivable = 0;
   int receivables = 0;
+  int investments = 0;
   int retryWorkspace = 0;
   int toggleTheme = 0;
   int accounts = 0;
@@ -817,6 +825,7 @@ final class _DashboardTracker {
         onNewReceivable: () => newReceivable += 1,
         onPayables: () => payables += 1,
         onReceivables: () => receivables += 1,
+        onInvestments: () => investments += 1,
         onTransaction: (String value) => transactionId = value,
         onRetryWorkspace: () => retryWorkspace += 1,
         onRetryCommitments: () {},

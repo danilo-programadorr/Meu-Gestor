@@ -64,6 +64,17 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - UI-3B com remoção da seção de contas da Home, preservando o filtro compacto de conta no topo;
 - Menu agrupado transferido para o canto superior direito do cabeçalho, sem duplicar o acesso a Perfil;
 - comparação de receitas e despesas substituída por colunas agrupadas 2.5D nativas, com escala e linha de base comuns, período, valores, legenda, resultado e semântica.
+- INV-1A com carteiras de acompanhamento, ações/FIIs manuais, compras, vendas e posições zeradas preservadas;
+- quantidades e preços escalados em inteiros, cálculos `BigInt`, custo médio móvel e resultado realizado sem ponto flutuante;
+- operações imutáveis em ordem cronológica, correção por anulação encadeada e nova operação, com IDs idempotentes e confirmação do servidor;
+- telas de investimentos no grupo Patrimônio do Menu, privacidade global, temas, estados completos, 320 px e fonte ampliada;
+- coleções `investmentPortfolios`, `investmentAssets` e `investmentOperations`, mappers estritos, repositório transacional e regras locais fechadas;
+- testes locais de domínio, mappers, repositório, controllers, widgets e Security Rules para isolamento, concorrência, venda excedente e anulação atômica.
+- UI-INV-1B com seletor compacto de carteira e navegação interna por Resumo, Ativos e Lançamentos;
+- resumo de investimentos com custo acompanhado, resultado realizado, evolução de compras/vendas e alocação por classe ou ativo usando somente operações reais;
+- busca, filtros e ordenação locais de ativos, histórico móvel responsivo e gerenciamento de carteiras sem exclusão;
+- formulário de operação com prévia canônica de valor bruto, taxas, valor final, quantidade e possível novo preço médio antes da confirmação;
+- detalhes de posição reorganizados e aviso explícito de indisponibilidade de cotação, sem dados de mercado simulados ou dependência gráfica externa.
 
 ### Segurança
 
@@ -71,6 +82,9 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - configuração Firebase local excluída do versionamento;
 - bloqueio de inicialização Firebase production sem configuração própria;
 - bloqueio de release production enquanto documentos jurídicos oficiais estiverem pendentes.
+- investimentos isolados por UID verificado e perfil jurídico atual, sem exceção para owner;
+- compra/venda exige atualização atômica da projeção mínima do ativo; edição, restauração e exclusão de operações são negadas;
+- Emulator Suite usa somente projeto `demo-*`; em autorização posterior, as regras INV-1A foram publicadas exclusivamente em development e o APK debug foi aprovado manualmente.
 - validação do token `email_verified` antes do primeiro acesso ao Firestore;
 - confirmação de gravações do perfil por leitura do servidor;
 - subcoleções financeiras, listagem e exclusão do perfil negadas nesta etapa.

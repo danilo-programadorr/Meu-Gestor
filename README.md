@@ -40,6 +40,9 @@ Concluído e validado localmente:
 - categorias e lançamentos manuais de receitas/despesas implementados localmente;
 - saldo atual e resumo mensal derivados em centavos inteiros, sem saldo materializado;
 - filtros por tipo, conta e categoria, além de edição descritiva e cancelamento irreversível de lançamentos;
+- contas a pagar e receber com atraso derivado, liquidação/anulação atômicas e vínculo bidirecional ao lançamento;
+- dashboard analítico responsivo com filtros locais, indicadores reais, gráficos acessíveis e menu agrupado;
+- acompanhamento manual local de ações e fundos imobiliários por carteiras, compras e vendas, sem alterar o saldo;
 - acesso owner seguro, confirmado pelo servidor, com Área do proprietário e revalidação;
 - capabilities preparadas para futuros recursos de assinatura, funcionalidades pagas e IA;
 - regras Firestore publicadas em development com isolamento por UID, campos fechados e negação por padrão;
@@ -48,7 +51,8 @@ Concluído e validado localmente:
 Limites atuais:
 
 - não existem ambiente de produção, assinatura real, cobrança, Google Play Billing, Stripe ou Mercado Pago;
-- não existem consumo real de IA, transferências, cartões, faturas, contas a pagar e receber, recorrências ou parcelamentos;
+- não existem consumo real de IA, transferências, cartões, faturas, recorrências ou parcelamentos;
+- investimentos não possuem cotação, integração com corretora, Open Finance, dividendos, impostos ou recomendação automática;
 - notificações, relatórios completos, projeções e integração Open Finance ainda não foram implementados;
 - os documentos jurídicos presentes são provisórios e exclusivos de desenvolvimento;
 - não existe versão de produção publicada.
@@ -92,6 +96,7 @@ lib/
     accounts/
     categories/
     home/
+    investments/
     owner_access/
     privacy/
     profile/
@@ -152,6 +157,8 @@ A suíte atual cobre:
 - login Google e diagnóstico sanitizado;
 - perfil, consentimentos e portões jurídicos;
 - contas, categorias, lançamentos, saldo derivado e resumo mensal;
+- compromissos financeiros e vínculos atômicos;
+- investimentos manuais, aritmética escalada, custo médio, concorrência e anulação encadeada;
 - acesso owner, capabilities, revogação e falha fechada;
 - telas pequenas, teclado e aumento de fonte;
 - temas, contraste, semântica e acessibilidade;
@@ -186,8 +193,10 @@ O papel `owner` recebe capabilities centralizadas para módulos implementados, r
 - [x] Contas e carteiras
 - [x] Categorias, receitas e despesas ocorridas
 - [x] Acesso proprietário seguro em development
-- [ ] Contas a pagar e receber
-- [ ] Dashboard
+- [x] Contas a pagar e receber
+- [x] Dashboard
+- [x] Acompanhamento manual de ações e FIIs
+- [ ] Cotações e eventos de investimentos
 - [ ] Projeções
 - [ ] Cartões e faturas
 - [ ] Dívidas

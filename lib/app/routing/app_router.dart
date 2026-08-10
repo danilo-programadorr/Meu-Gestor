@@ -22,6 +22,12 @@ import 'package:meu_gestor_financeiro/features/commitments/presentation/pages/co
 import 'package:meu_gestor_financeiro/features/commitments/presentation/pages/commitment_form_page.dart';
 import 'package:meu_gestor_financeiro/features/commitments/presentation/pages/commitments_page.dart';
 import 'package:meu_gestor_financeiro/features/home/presentation/home_page.dart';
+import 'package:meu_gestor_financeiro/features/investments/domain/investment_operation.dart';
+import 'package:meu_gestor_financeiro/features/investments/presentation/pages/investment_asset_details_page.dart';
+import 'package:meu_gestor_financeiro/features/investments/presentation/pages/investment_asset_form_page.dart';
+import 'package:meu_gestor_financeiro/features/investments/presentation/pages/investment_operation_form_page.dart';
+import 'package:meu_gestor_financeiro/features/investments/presentation/pages/investment_portfolio_form_page.dart';
+import 'package:meu_gestor_financeiro/features/investments/presentation/pages/investments_page.dart';
 import 'package:meu_gestor_financeiro/features/owner_access/presentation/controllers/master_access_controller.dart';
 import 'package:meu_gestor_financeiro/features/owner_access/presentation/controllers/master_access_state.dart';
 import 'package:meu_gestor_financeiro/features/owner_access/presentation/pages/owner_area_page.dart';
@@ -301,6 +307,41 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((Ref ref) {
         ),
       ),
       GoRoute(
+        path: AppRoutes.investments,
+        builder: (context, state) => const InvestmentsPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.newInvestmentPortfolio,
+        builder: (context, state) => const InvestmentPortfolioFormPage(),
+      ),
+      GoRoute(
+        path: '/investimentos/carteira/:portfolioId/editar',
+        builder: (context, state) => InvestmentPortfolioFormPage(
+          portfolioId: state.pathParameters['portfolioId'],
+        ),
+      ),
+      GoRoute(
+        path: '/investimentos/ativo/novo',
+        builder: (context, state) => InvestmentAssetFormPage(
+          portfolioId: state.uri.queryParameters['portfolioId'] ?? '',
+        ),
+      ),
+      GoRoute(
+        path: '/investimentos/ativo/:assetId/operacao/nova',
+        builder: (context, state) => InvestmentOperationFormPage(
+          assetId: state.pathParameters['assetId'] ?? '',
+          initialKind: state.uri.queryParameters['kind'] == 'sell'
+              ? InvestmentOperationKind.sell
+              : InvestmentOperationKind.buy,
+        ),
+      ),
+      GoRoute(
+        path: '/investimentos/ativo/:assetId',
+        builder: (context, state) => InvestmentAssetDetailsPage(
+          assetId: state.pathParameters['assetId'] ?? '',
+        ),
+      ),
+      GoRoute(
         path: AppRoutes.profileSetup,
         builder: (context, state) => const ProfileSetupPage(),
       ),
@@ -354,5 +395,7 @@ bool _isValidProfileRoute(String location) {
       location == AppRoutes.payables ||
       location.startsWith('${AppRoutes.payables}/') ||
       location == AppRoutes.receivables ||
-      location.startsWith('${AppRoutes.receivables}/');
+      location.startsWith('${AppRoutes.receivables}/') ||
+      location == AppRoutes.investments ||
+      location.startsWith('${AppRoutes.investments}/');
 }

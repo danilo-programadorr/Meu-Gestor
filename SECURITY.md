@@ -26,9 +26,9 @@ Nunca envie senhas, tokens, chaves privadas, contas de serviço, arquivos `googl
 
 ## Dados financeiros implementados
 
-Perfil, contas, categorias e lançamentos usam caminhos subordinados ao UID. Acesso financeiro exige email verificado e perfil jurídico atual. Categorias e lançamentos usam campos fechados, timestamps do servidor e exclusão negada. Logs locais de diagnóstico registram somente operação, etapa, duração, categoria técnica, tipo/código sanitizado e estado final; nunca registram valores, descrições, notas, IDs de documentos, email ou tokens.
+Perfil, contas, categorias, lançamentos, compromissos e investimentos manuais usam caminhos subordinados ao UID. Acesso financeiro exige email verificado e perfil jurídico atual. Documentos financeiros usam campos fechados, timestamps do servidor e exclusão negada. Operações de investimento não afetam o saldo, são encadeadas, imutáveis e alteram a projeção do ativo somente em mutação atômica. Logs locais de diagnóstico registram somente operação, etapa, duração, categoria técnica, tipo/código sanitizado e estado final; nunca registram valores, descrições, notas, IDs de documentos, email ou tokens.
 
-As regras de perfil, contas, categorias, lançamentos e owner foram publicadas manualmente no projeto development. A validação real no Emulator Suite permanece futura; não flexibilize regras para contornar erros de configuração ou publicação.
+As regras são validadas localmente no Emulator Suite com projeto `demo-*`. Perfil, núcleo financeiro, compromissos, investimentos e owner foram publicados somente no projeto development mediante autorizações específicas. Não flexibilize regras para contornar erros de configuração ou publicação.
 
 ## Acesso proprietário
 

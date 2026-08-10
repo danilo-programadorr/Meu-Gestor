@@ -161,3 +161,19 @@ O tema claro usa fundo `#F4F7FA`, superfícies brancas, cartões secundários `#
 - A tela de contas usa total azul-marinho/petróleo no escuro e superfície clara no tema claro. Cartões informam saldo positivo, zerado ou negativo por ícone e texto.
 - Filtros são chips horizontais; seletores usam bottom sheets e mês/ano usa diálogo nativo. “Limpar” só aparece quando o contexto difere de todas as contas no mês atual.
 - Azul-gelo permanece restrito a seleção, ícones, bordas, gráficos e ações; grandes superfícies ciano não fazem parte da composição.
+
+## 17. INV-1A — acompanhamento manual de investimentos
+
+- Investimentos é acessado por `Menu > Patrimônio > Investimentos`; a Home não recebe cotação, patrimônio estimado nem indicadores fictícios.
+- A hierarquia móvel é: cabeçalho enxuto, seletor de carteira, abas Resumo/Ativos/Lançamentos e conteúdo específico rolável. O aviso manual permanece no Resumo sem ocupar o topo de todas as jornadas.
+- Quantidade, custo acumulado, preço médio e resultado realizado são derivados exclusivamente das operações registradas. Sem cotação externa, valor atual e rentabilidade não são exibidos.
+- O cartão principal usa a mesma linguagem de gradiente, borda e sombra discreta do dashboard, mas se chama “Custo atual acompanhado” e nunca “patrimônio atual”.
+- Evolução usa colunas nativas de compras e vendas por período real. Alocação usa rosca compacta pelo custo das posições abertas, alterna classes/ativos e sempre mantém legenda textual acionável.
+- A privacidade global oculta conjuntamente valores monetários, quantidades e percentuais, inclusive em cartões, gráficos, posições e histórico.
+- Ativos usam busca local, chips Ações/FIIs e ordenação determinística. Lançamentos usam cartões verticais; nenhuma tabela exige rolagem horizontal.
+- Compra e venda compartilham formulário por intenção, validação pt-BR, prévia canônica e confirmação explícita. A prévia mostra valor bruto, taxas, valor final, quantidade resultante e possível preço médio de compra.
+- Anulação é oferecida somente para a operação mais recente, exige confirmação e explica que o histórico será preservado e a projeção restaurada.
+- Estados de carregamento, vazio, erro e retry possuem próximos passos claros. O gerenciador de carteiras reúne criação, edição, arquivamento e restauração sem apagar ativos ou operações.
+- Em largura de 320 px e fonte a 180%, ações quebram linha, cartões não dependem de largura fixa e o estado da posição fica abaixo do título quando necessário.
+- Temas claro, escuro e sistema reutilizam o sistema visual aprovado; azul-gelo permanece em destaques discretos e não ocupa grandes superfícies.
+- Logos, marcas, fotos, ilustrações proprietárias, barra inferior global, paywall, B3, rankings, notícias, proventos e rentabilidade de mercado não compõem o redesign.

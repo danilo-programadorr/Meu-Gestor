@@ -34,6 +34,7 @@ final class HomeDashboardCallbacks {
     required this.onNewReceivable,
     required this.onPayables,
     required this.onReceivables,
+    required this.onInvestments,
     required this.onTransaction,
     required this.onRetryWorkspace,
     required this.onRetryCommitments,
@@ -52,6 +53,7 @@ final class HomeDashboardCallbacks {
   final VoidCallback onNewReceivable;
   final VoidCallback onPayables;
   final VoidCallback onReceivables;
+  final VoidCallback onInvestments;
   final ValueChanged<String> onTransaction;
   final VoidCallback onRetryWorkspace;
   final VoidCallback onRetryCommitments;
@@ -2438,6 +2440,8 @@ Future<void> _openDashboardMenu(
       callbacks.onPayables();
     case _DashboardMenuDestination.receivables:
       callbacks.onReceivables();
+    case _DashboardMenuDestination.investments:
+      callbacks.onInvestments();
     case _DashboardMenuDestination.profile:
       callbacks.onProfile();
     case _DashboardMenuDestination.appearance:
@@ -2451,6 +2455,7 @@ enum _DashboardMenuDestination {
   transactions,
   payables,
   receivables,
+  investments,
   profile,
   appearance,
 }
@@ -2523,6 +2528,17 @@ class _DashboardMenuSheet extends StatelessWidget {
                     destination: _DashboardMenuDestination.receivables,
                     icon: Icons.event_available_outlined,
                     label: 'Contas a receber',
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              const _DashboardMenuGroup(
+                title: 'Patrimônio',
+                items: <_DashboardMenuItemData>[
+                  _DashboardMenuItemData(
+                    destination: _DashboardMenuDestination.investments,
+                    icon: Icons.show_chart_rounded,
+                    label: 'Investimentos',
                   ),
                 ],
               ),

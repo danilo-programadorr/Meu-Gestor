@@ -5,6 +5,7 @@ import 'package:meu_gestor_financeiro/app/routing/app_routes.dart';
 import 'package:meu_gestor_financeiro/app/theme/app_theme_preference.dart';
 import 'package:meu_gestor_financeiro/core/dates/sao_paulo_civil_date.dart';
 import 'package:meu_gestor_financeiro/core/environment/app_environment.dart';
+import 'package:meu_gestor_financeiro/core/privacy/financial_privacy_controller.dart';
 import 'package:meu_gestor_financeiro/features/accounts/presentation/controllers/financial_accounts_controller.dart';
 import 'package:meu_gestor_financeiro/features/categories/presentation/controllers/financial_categories_controller.dart';
 import 'package:meu_gestor_financeiro/features/commitments/domain/financial_commitment.dart';
@@ -23,12 +24,12 @@ class HomePage extends ConsumerStatefulWidget {
 }
 
 class _HomePageState extends ConsumerState<HomePage> {
-  bool _valuesVisible = true;
   HomeDashboardFilter? _filter;
 
   @override
   Widget build(BuildContext context) {
     final AppEnvironment environment = ref.watch(appEnvironmentProvider);
+    final bool valuesVisible = ref.watch(financialPrivacyControllerProvider);
     final AsyncValue<FinancialWorkspace> workspace = ref.watch(
       financialWorkspaceProvider,
     );
@@ -51,7 +52,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         child: HomeDashboardBody(
           firstName: _firstName(profileGate),
           environment: environment,
-          valuesVisible: _valuesVisible,
+          valuesVisible: valuesVisible,
           workspace: workspace,
           payables: payables,
           receivables: receivables,
@@ -63,7 +64,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           onRefresh: _refreshAll,
           callbacks: HomeDashboardCallbacks(
             onToggleValues: () {
-              setState(() => _valuesVisible = !_valuesVisible);
+              ref.read(financialPrivacyControllerProvider.notifier).toggle();
             },
             onToggleTheme: _toggleTheme,
             onProfile: () => _push(AppRoutes.profile),
@@ -77,6 +78,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             onNewReceivable: () => _push(AppRoutes.newReceivable),
             onPayables: () => _push(AppRoutes.payables),
             onReceivables: () => _push(AppRoutes.receivables),
+            onInvestments: () => _push(AppRoutes.investments),
             onTransaction: (String transactionId) =>
                 _push(AppRoutes.transactionDetails(transactionId)),
             onRetryWorkspace: _refreshWorkspace,

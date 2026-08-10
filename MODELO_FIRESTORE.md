@@ -200,6 +200,71 @@ Campos obrigatórios: ownerId, sourceAccountId, destinationAccountId, amountCent
 
 Origem e destino devem ser diferentes e pertencer ao usuário. Transferência nunca é renda ou despesa e deve ser gravada atomicamente.
 
+### users/{userId}/investmentPortfolios/{portfolioId} — InvestmentPortfolio
+
+| Campo | Tipo | Obrigatório | Validação e uso |
+|---|---|---:|---|
+| ownerId | string | sim | UID do caminho e imutável |
+| name | string | sim | Normalizado, 1 a 60 caracteres |
+| description | string | sim | Vazia ou até 160 caracteres |
+| isArchived | bool | sim | Pareado com archivedAt |
+| archivedAt | timestamp ou null | sim | `request.time` ao arquivar; null ativa |
+| createdAt | timestamp | sim | Servidor e imutável |
+| updatedAt | timestamp | sim | Servidor em toda alteração |
+| schemaVersion | int | sim | 1 e imutável |
+| revision | int | sim | Começa em 1 e cresce uma unidade |
+
+Carteiras são arquivadas e restauradas, nunca excluídas. Carteira arquivada preserva ativos e histórico, mas não aceita novo ativo ou operação.
+
+### users/{userId}/investmentAssets/{assetId} — TrackedInvestmentAsset
+
+O ID é determinístico: `portfolioId__TICKER`, impedindo ticker duplicado na mesma carteira.
+
+| Campo | Tipo | Obrigatório | Validação e uso |
+|---|---|---:|---|
+| ownerId | string | sim | UID do caminho e imutável |
+| portfolioId | string | sim | Carteira própria ativa |
+| ticker | string | sim | Maiúsculo, padrão de ação/FII brasileiro |
+| name | string | sim | Normalizado, 1 a 80 caracteres |
+| assetType | string | sim | `stock` ou `fii` |
+| currencyCode | string | sim | BRL e imutável |
+| currentQuantityScaled | int | sim | Quantidade atual em escala 8, não negativa |
+| lastOperationId | string ou null | sim | Topo ativo da cadeia de operações |
+| lastOperationAt | timestamp ou null | sim | Data civil do topo, pareada com o ID |
+| createdAt | timestamp | sim | Servidor e imutável |
+| updatedAt | timestamp | sim | Servidor em toda alteração |
+| schemaVersion | int | sim | 1 e imutável |
+| revision | int | sim | Controle otimista e atômico |
+
+Quantidade e topo só mudam junto de uma criação ou anulação válida em `investmentOperations`. Custo, preço médio, resultado realizado, cotação e valor atual não são persistidos no ativo.
+
+### users/{userId}/investmentOperations/{operationId} — InvestmentOperation
+
+| Campo | Tipo | Obrigatório | Validação e uso |
+|---|---|---:|---|
+| ownerId | string | sim | UID do caminho e imutável |
+| portfolioId | string | sim | Carteira própria ativa na criação |
+| assetId | string | sim | Ativo próprio da carteira |
+| previousOperationId | string ou null | sim | Topo ativo anterior |
+| previousOperationAt | timestamp ou null | sim | Data do topo anterior, pareada com o ID |
+| kind | string | sim | `buy` ou `sell` |
+| occurredAt | timestamp | sim | Data civil São Paulo, não futura e não anterior ao topo |
+| quantityScaled | int | sim | Positiva, escala 8 |
+| unitPriceScaled | int | sim | Positivo, escala 6 |
+| feesCents | int | sim | Taxas não negativas em centavos |
+| notes | string | sim | Vazia ou até 240 caracteres |
+| isVoided | bool | sim | false na criação; terminal quando true |
+| voidedAt | timestamp ou null | sim | `request.time` na anulação |
+| mutationId | string | sim | ID de criação ou tentativa idempotente de anulação |
+| createdAt | timestamp | sim | Servidor e imutável |
+| updatedAt | timestamp | sim | Servidor na criação/anulação |
+| schemaVersion | int | sim | 1 e imutável |
+| revision | int | sim | 1 na criação; incrementa na anulação |
+
+Operações confirmadas não são editadas nem excluídas. A criação atualiza o ativo na mesma transação; venda acima da quantidade é negada. Somente o topo ativo pode ser anulado, restaurando atomicamente o elo e a quantidade anteriores. Operação anulada não volta ao estado ativo.
+
+Essas coleções são exclusivamente patrimoniais e não referenciam `accounts`, `transactions`, `payables` ou `receivables`. Elas não alteram saldo, receitas, despesas ou resumo mensal.
+
 ## 4. Cartões, faturas, parcelas e dívidas
 
 ### users/{userId}/creditCards/{cardId} — CreditCardModel

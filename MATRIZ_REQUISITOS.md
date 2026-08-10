@@ -275,11 +275,11 @@
 | CMT-006-5A | Confirmar exatamente uma vez | P0 | FIN-5A-2 | pagamento/recebimento cria um lançamento e vínculo bidirecional na mesma transação atômica; retry retorna o vínculo existente | implementado e testado para repetição, timeout semântico e concorrência | transação Firestore e revisão | crítico | leituras e escrita atômica adicionais |
 | CMT-007-5A | Cancelar pendência preservando histórico | P0 | FIN-5A-1/2 | `pending -> cancelled`, sem lançamento, exclusão ou restauração | implementado com timestamp de servidor e exclusão negada | timestamp servidor | alto | baixo |
 | CMT-008-5A | Anular compromisso liquidado atomicamente | P0 | FIN-5A-1/2 | `paid/received -> voided` preserva vínculo e invalida o lançamento na mesma operação | implementado e validado atomicamente nas regras | transactions esquema 2 | crítico | escrita atômica adicional |
-| CMT-009-5A | Isolar compromissos por UID | P0 | FIN-5A-2 | cliente acessa apenas subcoleções do próprio UID verificado e perfil atual | regras locais implementadas e testadas; não publicadas | Auth, perfil e Security Rules | crítico | neutro |
+| CMT-009-5A | Isolar compromissos por UID | P0 | FIN-5A-2 | cliente acessa apenas subcoleções do próprio UID verificado e perfil atual | regras implementadas, testadas e publicadas anteriormente somente em development | Auth, perfil e Security Rules | crítico | neutro |
 | TRX-007-5A | Suportar lançamento esquema 2 vinculado | P0 | FIN-5A-1/2 | esquema 2 aceita origem manual/payable/receivable; esquema 1 continua manual sem migração | mapper, repositórios e regras compatíveis com esquemas 1/2 | transactions atual | crítico | neutro |
 | DAT-001-5A | Centralizar data civil de São Paulo | P0 | FIN-5A-1 | objeto válido converte calendário/instante, compara datas e preserva convenção 03:00 UTC | implementado e coberto unitariamente | nenhuma dependência nova | alto | neutro |
 | ACC-013-5A | Proteger correção do saldo inicial além da interface | P0 | FIN-5A-0 | proposta cobre domínio, mapas de atualização e regras; correção futura usa movimento auditável | estratégia documentada; implementação não autorizada | accounts, transactions e decisão futura | crítico | neutro |
-| TST-005-5A | Testar regras de compromissos no Emulator Suite | P0 | FIN-5A-2/2B | casos positivos, negativos, atômicos e regressão passam em projeto demo isolado; log não contém limite de expressões, excesso de leituras, avaliação interrompida, valor nulo ou falha interna | infraestrutura e auditoria local implementadas; 21 testes de regras | Node, Java existente e Firebase CLI local | crítico | somente custo local de execução |
+| TST-005-5A | Testar regras de compromissos no Emulator Suite | P0 | FIN-5A-2/2B | casos positivos, negativos, atômicos e regressão passam em projeto demo isolado; log não contém limite de expressões, excesso de leituras, avaliação interrompida, valor nulo ou falha interna | infraestrutura e auditoria local implementadas; suíte consolidada anterior com 27 testes | Node, Java existente e Firebase CLI local | crítico | somente custo local de execução |
 
 ## Incremento UI-2 — Design system, temas e dashboard analítico
 
@@ -320,6 +320,34 @@
 | UI-3B-01 | Reduzir densidade da Home | P0 | UI-3B | remover seção Contas e carteiras, carrossel, Ver todas e Adicionar conta sem remover o filtro compacto de conta | implementado localmente e coberto por widget | dashboard UI-3 | baixo | reduz widgets; neutro em leituras |
 | UI-3B-02 | Mover Menu para o cabeçalho | P0 | UI-3B | canto superior direito abre os mesmos grupos e rotas; privacidade e tema permanecem; Perfil existe somente no painel | implementado localmente e coberto por navegação, semântica e temas | UI-3A | baixo | neutro |
 | UI-3B-03 | Comparar receitas e despesas por colunas | P0 | UI-3B | duas colunas agrupadas usam escala e base comuns, profundidade discreta, valores, legenda, período, resultado, privacidade e semântica | implementado nativamente e coberto por widgets responsivos | dados reais e filtros atuais | médio: não pode distorcer proporções | CPU local neutra |
+
+## Incremento INV-1A — Carteira de acompanhamento manual
+
+| ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |
+|---|---|---:|---:|---|---|---|---|---|
+| INV-001-1A | Manter carteiras manuais | P0 | INV-1A | criar, editar, arquivar e restaurar preserva ativos e histórico; exclusão é negada | implementado localmente | perfil válido e Firestore | alto | baixo por documento |
+| INV-002-1A | Cadastrar ação e FII em BRL | P0 | INV-1A | ticker maiúsculo e ID determinístico impedem duplicata na carteira; nome e tipo são fechados | implementado localmente | carteira ativa | alto | baixo |
+| INV-003-1A | Representar valores sem ponto flutuante | P0 | INV-1A | dinheiro usa centavos, quantidade escala 8, preço escala 6 e intermediários `BigInt` com half-up | implementado e coberto unitariamente | nenhuma dependência nova | crítico | neutro |
+| INV-004-1A | Reconstruir custo médio e resultado | P0 | INV-1A | taxa de compra entra no custo; venda baixa custo proporcional e taxa reduz resultado; posição zerada permanece | implementado e coberto unitariamente | operações imutáveis | crítico | CPU local proporcional ao histórico |
+| INV-005-1A | Impedir impacto no saldo | P0 | INV-1A | operação de acompanhamento não cria lançamento nem referencia conta, receita, despesa ou compromisso | implementado por separação de contratos/coleções | núcleo financeiro existente | crítico | neutro |
+| INV-006-1A | Preservar e corrigir histórico | P0 | INV-1A | operação confirmada não edita/exclui/restaura; correção anula o topo e exige nova operação | implementado com cadeia anterior | Firestore transacional | crítico | escrita atômica adicional |
+| INV-007-1A | Bloquear venda excedente e concorrência | P0 | INV-1A | ativo e operação mudam atomicamente; quantidade nunca negativa; revisão concorrente tem um vencedor | implementado em repositório e regras | transações e getAfter | crítico | leituras transacionais |
+| INV-008-1A | Confirmar e reconciliar com servidor | P0 | INV-1A | leitura server-only confirma estado; timeout/indisponibilidade reutilizam ID sem duplicar | implementado em repositório/controller | conectividade Firestore | alto | releituras adicionais |
+| INV-009-1A | Isolar por UID e perfil jurídico | P0 | INV-1A | anônimo, e-mail não confirmado, outro UID e owner cruzado são negados; campos são exatos | regras testadas e publicadas exclusivamente em development | Auth, perfil e Security Rules | crítico | neutro |
+| INV-010-1A | Apresentar somente dados reais disponíveis | P0 | INV-1A | tela mostra quantidade, custo, média e realizado; não mostra cotação, valor atual ou rentabilidade fictícia | implementado com aviso explícito | operações próprias | alto: evita indução financeira | neutro |
+| INV-011-1A | Preservar experiência acessível | P1 | INV-1A | Menu > Patrimônio, privacidade global, temas, vazio/erro/retry, 320 px e fonte 180% funcionam sem overflow | implementado e coberto por widgets | sistema visual | médio | neutro |
+| INV-012-1A | Validar Security Rules localmente | P0 | INV-1A | casos válidos/negados e regressões passam em projeto `demo-*`; log não possui diagnósticos proibidos | implementado localmente; 40 testes totais de regras após INV-1A | Java existente e CLI local | crítico | somente execução local |
+
+## Incremento UI-INV-1B — Redesign visual de investimentos
+
+| ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |
+|---|---|---:|---:|---|---|---|---|---|
+| UI-INV-001-1B | Navegar por Resumo, Ativos e Lançamentos | P0 | UI-INV-1B | seletor de carteira e três abas funcionam com retorno seguro e sem abas vazias | implementado localmente | apresentação INV-1A | baixo | neutro |
+| UI-INV-002-1B | Resumir somente dados reais | P0 | UI-INV-1B | custo, contagens e resultado realizado não são confundidos com patrimônio, cotação ou rentabilidade | implementado localmente | projeção INV-1A | alto: evita indução financeira | CPU local |
+| UI-INV-003-1B | Visualizar evolução e alocação | P0 | UI-INV-1B | gráficos nativos usam operações e custo das posições, possuem legenda, vazio, semântica e privacidade | implementado localmente | `CustomPainter` e operações locais | médio | CPU local proporcional ao histórico |
+| UI-INV-004-1B | Localizar ativos e operações | P1 | UI-INV-1B | busca, tipo, operação, ativo e período filtram localmente com ordenação determinística | implementado localmente | workspace confirmado | baixo | neutro |
+| UI-INV-005-1B | Revisar operação antes de confirmar | P0 | UI-INV-1B | prévia usa aritmética canônica e diálogo confirma valor final e impacto estimado | implementado localmente | domínio escalado existente | alto | neutro |
+| UI-INV-006-1B | Preservar acessibilidade móvel | P0 | UI-INV-1B | 320 px, fonte 180%, temas, teclado, rolagem, privacidade, semântica e alvos de toque não geram overflow | implementado e coberto por widgets | sistema visual | médio | neutro |
 
 ## Incrementos futuros de dados, privacidade e armazenamento
 

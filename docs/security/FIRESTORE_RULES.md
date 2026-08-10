@@ -2,7 +2,7 @@
 
 ## Escopo
 
-O arquivo público `firestore.rules` protege o perfil `users/{uid}`, as subcoleções `accounts`, `categories` e `transactions` e a leitura administrativa pontual em `system_admins/{uid}`. Caminhos financeiros e administrativos não autorizados continuam negados.
+O arquivo público `firestore.rules` protege o perfil `users/{uid}`, as subcoleções `accounts`, `categories`, `transactions`, `payables`, `receivables`, `investmentPortfolios`, `investmentAssets` e `investmentOperations`, além da leitura administrativa pontual em `system_admins/{uid}`. Caminhos financeiros e administrativos não autorizados continuam negados.
 
 ## Garantias pretendidas
 
@@ -24,15 +24,20 @@ O arquivo público `firestore.rules` protege o perfil `users/{uid}`, as subcole�
 - lançamentos com campos exatos, centavos inteiros positivos, data não futura e referências próprias ativas;
 - edição de lançamento limitada a descrição, categoria compatível, data e notas;
 - cancelamento irreversível sem exclusão e sem participação no saldo.
+- compromissos pendentes não alteram saldo; confirmação e anulação exigem vínculo bidirecional e atualização atômica do lançamento esquema 2;
+- carteiras e ativos de acompanhamento pertencem ao próprio UID, usam campos exatos e não admitem exclusão;
+- operações de investimento são imutáveis, encadeadas cronologicamente e só podem ser criadas ou anuladas junto da projeção do ativo;
+- vendas não excedem a posição nem aceitam taxa superior ao valor bruto; concorrência e repetição preservam uma única ponta válida da cadeia;
+- investimentos não criam lançamentos, não referenciam contas e não alteram o saldo real;
 - `system_admins` permite somente `get` do documento cujo ID coincide com o UID autenticado e verificado;
 - `system_admins` nega `list`, `create`, `update` e `delete` ao cliente;
 - `isActiveOwner()` valida papel, estado ativo, development, versão 1 e timestamp sem usar e-mail;
 - owner não amplia acesso aos dados financeiros de outros UIDs.
 
-## Limitação de validação
+## Validação local e publicação
 
-As regras presentes neste arquivo foram publicadas manualmente no ambiente development e os fluxos do aplicativo foram validados no Android. Elas ainda não foram executadas no Emulator Suite. Busca textual, revisão estrutural e teste do aplicativo não substituem testes diretos das regras; as matrizes permanecem pendentes de execução futura no emulador.
+As regras são exercitadas no Emulator Suite com projeto isolado `demo-*`, incluindo acessos negados, transições atômicas, concorrência, regressões do núcleo financeiro e auditoria do log. A suíte consolidada após INV-1A possui 40 testes. Perfil, núcleo financeiro, compromissos, investimentos e owner foram publicados somente em development mediante autorizações específicas; produção permanece bloqueada.
 
 ## Publicação
 
-A publicação é exclusivamente manual pelo proprietário. Para o acesso owner, siga `CONFIGURACAO_MANUAL_OWNER_DEV.md`, publique primeiro as regras e somente depois crie manualmente o documento. Não abrir acesso temporário.
+A publicação é exclusivamente manual pelo proprietário e exige autorização específica. Para o acesso owner, siga `CONFIGURACAO_MANUAL_OWNER_DEV.md`, publique primeiro as regras e somente depois crie manualmente o documento. Não abrir acesso temporário.

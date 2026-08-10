@@ -184,6 +184,155 @@ function transactionRef(db, id) {
   return doc(db, `users/${ownerId}/transactions/${id}`);
 }
 
+function investmentPortfolio(uid, overrides = {}) {
+  return {
+    ownerId: uid,
+    name: 'Longo prazo',
+    description: 'Acompanhamento manual',
+    isArchived: false,
+    archivedAt: null,
+    createdAt: past,
+    updatedAt: past,
+    schemaVersion: 1,
+    revision: 1,
+    ...overrides,
+  };
+}
+
+function investmentAsset(uid, overrides = {}) {
+  return {
+    ownerId: uid,
+    portfolioId: 'portfolio-1',
+    ticker: 'PETR4',
+    name: 'Petrobras PN',
+    assetType: 'stock',
+    currencyCode: 'BRL',
+    currentQuantityScaled: 0,
+    lastOperationId: null,
+    lastOperationAt: null,
+    createdAt: past,
+    updatedAt: past,
+    schemaVersion: 1,
+    revision: 1,
+    ...overrides,
+  };
+}
+
+function investmentOperation(uid, overrides = {}) {
+  return {
+    ownerId: uid,
+    portfolioId: 'portfolio-1',
+    assetId: 'portfolio-1__PETR4',
+    previousOperationId: null,
+    previousOperationAt: null,
+    kind: 'buy',
+    occurredAt: movementAt,
+    quantityScaled: 100000000,
+    unitPriceScaled: 32000000,
+    feesCents: 25,
+    notes: '',
+    isVoided: false,
+    voidedAt: null,
+    mutationId: 'operation-1',
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    schemaVersion: 1,
+    revision: 1,
+    ...overrides,
+  };
+}
+
+function investmentPortfolioRef(db, id = 'portfolio-1', uid = ownerId) {
+  return doc(db, `users/${uid}/investmentPortfolios/${id}`);
+}
+
+function investmentAssetRef(db, id = 'portfolio-1__PETR4', uid = ownerId) {
+  return doc(db, `users/${uid}/investmentAssets/${id}`);
+}
+
+function investmentOperationRef(db, id = 'operation-1', uid = ownerId) {
+  return doc(db, `users/${uid}/investmentOperations/${id}`);
+}
+
+async function seedInvestments({ assetOverrides = {}, operation = null } = {}) {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore();
+    await setDoc(investmentPortfolioRef(db), investmentPortfolio(ownerId));
+    await setDoc(investmentAssetRef(db), investmentAsset(ownerId, assetOverrides));
+    if (operation != null) {
+      await setDoc(
+        investmentOperationRef(db, operation.id),
+        investmentOperation(ownerId, operation.data),
+      );
+    }
+  });
+}
+
+function appendInvestmentOperation(db, {
+  id = 'operation-1',
+  kind = 'buy',
+  quantityScaled = 100000000,
+  occurredAt = movementAt,
+  previousOperationId = null,
+  previousOperationAt = null,
+  currentQuantityScaled = 100000000,
+  assetRevision = 2,
+  operationOverrides = {},
+  assetOverrides = {},
+} = {}) {
+  const batch = writeBatch(db);
+  batch.set(
+    investmentOperationRef(db, id),
+    investmentOperation(ownerId, {
+      mutationId: id,
+      kind,
+      quantityScaled,
+      occurredAt,
+      previousOperationId,
+      previousOperationAt,
+      ...operationOverrides,
+    }),
+  );
+  batch.update(investmentAssetRef(db), {
+    currentQuantityScaled,
+    lastOperationId: id,
+    lastOperationAt: occurredAt,
+    updatedAt: serverTimestamp(),
+    revision: assetRevision,
+    ...assetOverrides,
+  });
+  return batch.commit();
+}
+
+function voidInvestmentOperation(db, {
+  id = 'operation-1',
+  mutationId = 'void-1',
+  currentQuantityScaled = 0,
+  previousOperationId = null,
+  previousOperationAt = null,
+  operationOverrides = {},
+  assetOverrides = {},
+} = {}) {
+  const batch = writeBatch(db);
+  batch.update(investmentOperationRef(db, id), {
+    isVoided: true,
+    voidedAt: serverTimestamp(),
+    mutationId,
+    updatedAt: serverTimestamp(),
+    revision: 2,
+    ...operationOverrides,
+  });
+  batch.update(investmentAssetRef(db), {
+    currentQuantityScaled,
+    lastOperationId: previousOperationId,
+    lastOperationAt: previousOperationAt,
+    updatedAt: serverTimestamp(),
+    revision: 3,
+    ...assetOverrides,
+  });
+  return batch.commit();
+}
+
 function ruleFunctionSource(name) {
   const marker = `function ${name}(`;
   const start = rulesSource.indexOf(marker);
@@ -682,6 +831,298 @@ describe('regressão de estabilidade temporal', () => {
       id: 'payable-immutable-transition',
       transactionId: 'tx-immutable-transition',
       commitmentOverrides: { description: 'Alteração não permitida' },
+    }));
+  });
+});
+
+describe('INV-1A carteiras e ativos de acompanhamento', () => {
+  test('cria, edita, arquiva e restaura carteira sem permitir exclusão', async () => {
+    const db = verifiedDb();
+    await assertSucceeds(setDoc(investmentPortfolioRef(db), investmentPortfolio(ownerId, {
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    })));
+    await assertSucceeds(updateDoc(investmentPortfolioRef(db), {
+      name: 'Longo prazo BR',
+      updatedAt: serverTimestamp(),
+      revision: 2,
+    }));
+    await assertSucceeds(updateDoc(investmentPortfolioRef(db), {
+      isArchived: true,
+      archivedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      revision: 3,
+    }));
+    await assertSucceeds(updateDoc(investmentPortfolioRef(db), {
+      isArchived: false,
+      archivedAt: null,
+      updatedAt: serverTimestamp(),
+      revision: 4,
+    }));
+    await assertFails(deleteDoc(investmentPortfolioRef(db)));
+  });
+
+  test('isola UID e nega acesso anônimo ou com e-mail não confirmado', async () => {
+    await seedInvestments();
+    await assertSucceeds(getDoc(investmentPortfolioRef(verifiedDb())));
+    await assertFails(getDoc(investmentPortfolioRef(verifiedDb(otherId))));
+    await assertFails(getDoc(investmentPortfolioRef(unverifiedDb())));
+    await assertFails(getDoc(investmentPortfolioRef(testEnv.unauthenticatedContext().firestore())));
+  });
+
+  test('nega perfil jurídico inválido e owner em acesso cruzado', async () => {
+    await seedInvestments();
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await updateDoc(doc(db, `users/${ownerId}`), {
+        termsVersionAccepted: 'terms-obsoleto',
+      });
+      await setDoc(doc(db, `users/${otherId}`), profile(otherId));
+      await setDoc(doc(db, `system_admins/${otherId}`), {
+        role: 'owner',
+        status: 'active',
+        environment: 'development',
+        capabilitiesVersion: 1,
+        grantedAt: past,
+      });
+    });
+    await assertFails(getDoc(investmentPortfolioRef(verifiedDb())));
+    await assertFails(getDoc(investmentPortfolioRef(verifiedDb(otherId))));
+  });
+
+  test('nega revisão incorreta, campo imutável e caminho desconhecido', async () => {
+    await seedInvestments();
+    const db = verifiedDb();
+    await assertFails(updateDoc(investmentPortfolioRef(db), {
+      name: 'Revisão forjada',
+      updatedAt: serverTimestamp(),
+      revision: 99,
+    }));
+    await assertFails(updateDoc(investmentAssetRef(db), {
+      ticker: 'VALE3',
+      updatedAt: serverTimestamp(),
+      revision: 2,
+    }));
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(
+        doc(context.firestore(), `users/${ownerId}/investmentUnknown/item-1`),
+        { ownerId },
+      );
+    });
+    await assertFails(getDoc(doc(db, `users/${ownerId}/investmentUnknown/item-1`)));
+  });
+
+  test('nega campos extras, ticker/id divergente e carteira inexistente', async () => {
+    const db = verifiedDb();
+    await assertFails(setDoc(investmentPortfolioRef(db), investmentPortfolio(ownerId, {
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      extra: true,
+    })));
+    await assertFails(setDoc(investmentAssetRef(db), investmentAsset(ownerId, {
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    })));
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(investmentPortfolioRef(context.firestore()), investmentPortfolio(ownerId));
+    });
+    await assertFails(setDoc(
+      investmentAssetRef(db, 'portfolio-1__VALE3'),
+      investmentAsset(ownerId, {
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      }),
+    ));
+    await assertSucceeds(setDoc(investmentAssetRef(db), investmentAsset(ownerId, {
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    })));
+  });
+});
+
+describe('INV-1A operações atômicas e projeção protegida', () => {
+  test('aceita compra válida somente com atualização atômica do ativo', async () => {
+    await seedInvestments();
+    const db = verifiedDb();
+    await assertSucceeds(appendInvestmentOperation(db));
+    const asset = (await getDoc(investmentAssetRef(db))).data();
+    assert.equal(asset.currentQuantityScaled, 100000000);
+    assert.equal(asset.lastOperationId, 'operation-1');
+  });
+
+  test('nega operação isolada e atualização isolada da projeção', async () => {
+    await seedInvestments();
+    const db = verifiedDb();
+    await assertFails(setDoc(
+      investmentOperationRef(db),
+      investmentOperation(ownerId),
+    ));
+    await assertFails(updateDoc(investmentAssetRef(db), {
+      currentQuantityScaled: 100000000,
+      lastOperationId: 'operation-1',
+      lastOperationAt: movementAt,
+      updatedAt: serverTimestamp(),
+      revision: 2,
+    }));
+  });
+
+  test('nega venda acima da posição, quantidade zero e data futura', async () => {
+    await seedInvestments();
+    const db = verifiedDb();
+    await assertFails(appendInvestmentOperation(db, {
+      kind: 'sell',
+      quantityScaled: 1,
+      currentQuantityScaled: -1,
+    }));
+    await assertFails(appendInvestmentOperation(db, {
+      quantityScaled: 0,
+      currentQuantityScaled: 0,
+    }));
+    await assertFails(appendInvestmentOperation(db, {
+      occurredAt: Timestamp.fromDate(new Date('2099-01-01T03:00:00Z')),
+    }));
+  });
+
+  test('nega taxa de venda superior ao valor bruto da operação', async () => {
+    await seedInvestments({
+      assetOverrides: {
+        currentQuantityScaled: 100000000,
+        lastOperationId: 'operation-0',
+        lastOperationAt: movementAt,
+        revision: 2,
+      },
+      operation: {
+        id: 'operation-0',
+        data: {
+          mutationId: 'operation-0',
+          quantityScaled: 100000000,
+          createdAt: past,
+          updatedAt: past,
+        },
+      },
+    });
+    await assertFails(appendInvestmentOperation(verifiedDb(), {
+      id: 'operation-fee-over-gross',
+      kind: 'sell',
+      quantityScaled: 100000000,
+      previousOperationId: 'operation-0',
+      previousOperationAt: movementAt,
+      currentQuantityScaled: 0,
+      assetRevision: 3,
+      operationOverrides: {
+        unitPriceScaled: 1000000,
+        feesCents: 101,
+      },
+    }));
+  });
+
+  test('aceita venda parcial e nega cadeia ou cronologia divergente', async () => {
+    await seedInvestments({
+      assetOverrides: {
+        currentQuantityScaled: 200000000,
+        lastOperationId: 'operation-0',
+        lastOperationAt: movementAt,
+        revision: 2,
+      },
+      operation: {
+        id: 'operation-0',
+        data: {
+          mutationId: 'operation-0',
+          quantityScaled: 200000000,
+          createdAt: past,
+          updatedAt: past,
+        },
+      },
+    });
+    const db = verifiedDb();
+    const later = Timestamp.fromDate(new Date('2026-08-03T03:00:00Z'));
+    await assertSucceeds(appendInvestmentOperation(db, {
+      id: 'operation-2',
+      kind: 'sell',
+      quantityScaled: 50000000,
+      occurredAt: later,
+      previousOperationId: 'operation-0',
+      previousOperationAt: movementAt,
+      currentQuantityScaled: 150000000,
+      assetRevision: 3,
+    }));
+    await assertFails(appendInvestmentOperation(db, {
+      id: 'operation-bad-chain',
+      previousOperationId: 'forged',
+      previousOperationAt: later,
+      occurredAt: later,
+      currentQuantityScaled: 250000000,
+      assetRevision: 4,
+    }));
+    await assertFails(appendInvestmentOperation(db, {
+      id: 'operation-old',
+      previousOperationId: 'operation-2',
+      previousOperationAt: later,
+      occurredAt: movementAt,
+      currentQuantityScaled: 250000000,
+      assetRevision: 4,
+    }));
+  });
+
+  test('concorrência e repetição têm somente um vencedor', async () => {
+    await seedInvestments();
+    const db = verifiedDb();
+    const outcomes = await Promise.allSettled([
+      appendInvestmentOperation(db, { id: 'operation-a' }),
+      appendInvestmentOperation(db, { id: 'operation-b' }),
+    ]);
+    assert.equal(outcomes.filter((value) => value.status === 'fulfilled').length, 1);
+    await assertFails(appendInvestmentOperation(db, { id: 'operation-repeat' }));
+  });
+
+  test('anula a última operação e restaura atomicamente o topo anterior', async () => {
+    await seedInvestments();
+    const db = verifiedDb();
+    await assertSucceeds(appendInvestmentOperation(db));
+    await assertSucceeds(voidInvestmentOperation(db));
+    const operation = (await getDoc(investmentOperationRef(db))).data();
+    const asset = (await getDoc(investmentAssetRef(db))).data();
+    assert.equal(operation.isVoided, true);
+    assert.equal(asset.currentQuantityScaled, 0);
+    assert.equal(asset.lastOperationId, null);
+  });
+
+  test('nega anulação isolada, restauração, edição, exclusão e operação não mais recente', async () => {
+    await seedInvestments();
+    const db = verifiedDb();
+    await assertSucceeds(appendInvestmentOperation(db));
+    await assertFails(updateDoc(investmentOperationRef(db), {
+      isVoided: true,
+      voidedAt: serverTimestamp(),
+      mutationId: 'void-isolated',
+      updatedAt: serverTimestamp(),
+      revision: 2,
+    }));
+    await assertFails(updateDoc(investmentOperationRef(db), { notes: 'editado' }));
+    await assertFails(deleteDoc(investmentOperationRef(db)));
+    await assertFails(deleteDoc(investmentAssetRef(db)));
+    await assertSucceeds(appendInvestmentOperation(db, {
+      id: 'operation-2',
+      previousOperationId: 'operation-1',
+      previousOperationAt: movementAt,
+      currentQuantityScaled: 200000000,
+      assetRevision: 3,
+    }));
+    await assertFails(voidInvestmentOperation(db, { id: 'operation-1' }));
+    await assertSucceeds(voidInvestmentOperation(db, {
+      id: 'operation-2',
+      mutationId: 'void-2',
+      currentQuantityScaled: 100000000,
+      previousOperationId: 'operation-1',
+      previousOperationAt: movementAt,
+      assetOverrides: { revision: 4 },
+    }));
+    await assertFails(updateDoc(investmentOperationRef(db, 'operation-2'), {
+      isVoided: false,
+      voidedAt: null,
+      mutationId: 'restore',
+      updatedAt: serverTimestamp(),
+      revision: 3,
     }));
   });
 });

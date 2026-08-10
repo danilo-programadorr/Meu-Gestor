@@ -619,7 +619,7 @@ Situação em 01/08/2026: concluída e aprovada manualmente. As regras foram pub
 
 ## 23. FIN-5A — Compromissos financeiros
 
-Situação em 02/08/2026: FIN-5A-0, FIN-5A-1 e FIN-5A-2 implementados localmente. Interface permanece fora do incremento atual; regras não foram publicadas.
+Situação em 04/08/2026: FIN-5A concluído, validado e consolidado. Regras do incremento foram publicadas anteriormente somente em development por autorização específica.
 
 - FIN-5A-0 registra coleções `payables` e `receivables`, estados terminais `cancelled` e `voided`, atraso derivado, vínculo bidirecional e compatibilidade de lançamentos esquema 1/2.
 - A estratégia recomendada para saldo inicial torna o campo imutável no domínio, repositório e regras e posterga correções para movimento auditável; nenhuma parte dessa estratégia foi implementada sem nova aprovação.
@@ -627,7 +627,7 @@ Situação em 02/08/2026: FIN-5A-0, FIN-5A-1 e FIN-5A-2 implementados localmente
 - FIN-5A-2 implementa mappers estritos, repositório Firestore, liquidação/anulação atômicas, transações esquema 2, regras locais e harness do Emulator Suite em projeto `demo-*`.
 - FIN-5A-2B simplifica a avaliação das regras sem mudar o modelo: autenticação/perfil são centralizados, estados e origens usam despacho determinístico, referências usam uma única leitura pós-gravação e os logs locais passam por auditoria contra limite de expressões, excesso de leituras, avaliação interrompida, valores nulos e falhas internas.
 - Compromissos pendentes, cancelados ou anulados nunca são somados ao saldo; somente o lançamento ativo vinculado é canônico.
-- Controllers, providers, páginas e rotas pertencem ao FIN-5A-3 e dependem de nova autorização.
+- FIN-5A-3 implementou controllers, providers, páginas, rotas, estados completos e integração ao dashboard, preservando privacidade, retorno seguro e telas pequenas.
 - A imutabilidade de `openingBalanceCents` e a operação auditável de ajuste pertencem a incremento futuro separado; nenhuma alteração desse saldo foi feita no FIN-5A-2.
 
 ## 24. UI-2 — Design system, temas e dashboard analítico
@@ -644,7 +644,7 @@ Situação em 04/08/2026: implementação concluída, validações automatizadas
 
 ## 25. UI-3 — Dashboard 3.0 e contas visuais
 
-Situação em 04/08/2026: implementação local concluída e aprovada visualmente; checkpoint Git continua dependendo de autorização específica.
+Situação em 04/08/2026: implementação concluída, aprovada visualmente e publicada na `main` no checkpoint da UI acumulada.
 
 - A direção aprovada é sofisticada e minimalista, com detalhes tecnológicos discretos e sem reprodução literal das referências externas.
 - O resumo principal concentra saldo oficial e resultado do período; receitas e despesas ficam em dois indicadores compactos, sem grade 2+1 ou KPI duplicado.
@@ -657,7 +657,7 @@ Situação em 04/08/2026: implementação local concluída e aprovada visualment
 
 ## 26. UI-3A — Menu agrupado e ações contextuais
 
-Situação em 04/08/2026: refinamento local autorizado antes do checkpoint final, sem commit ou push.
+Situação em 04/08/2026: refinamento concluído e publicado na `main` no checkpoint da UI acumulada.
 
 - O cartão Organizar foi substituído por um único botão Menu, que abre bottom sheet rolável com os grupos Organização, Planejamento e Conta e aplicativo.
 - Contas e carteiras, Categorias, Lançamentos, Contas a pagar, Contas a receber, Perfil e Aparência preservam as rotas e o retorno seguro existentes; Aparência continua dentro de Perfil.
@@ -688,3 +688,30 @@ Situação em 04/08/2026: decisões registradas; somente a auditoria local de ST
 - `clearPersistence()` não deve ser chamado no logout comum: exige instância Firestore sem uso, pode eliminar escritas pendentes, não faz sobrescrita segura do disco e requer ciclo de reinicialização controlado.
 - Não existem arquivos temporários de runtime nem cache persistente de imagens implementados. A única preferência própria local é `appearance.theme_mode`; a imagem de autenticação é um asset empacotado no APK.
 - O tamanho real do banco local não foi medido porque não havia dispositivo Android conectado; essa medição deverá usar apenas diagnóstico autorizado em build debug, sem copiar conteúdo financeiro.
+
+## 29. INV-1A — Carteira de acompanhamento manual
+
+Situação em 09/08/2026: implementação e validações concluídas; Security Rules publicadas exclusivamente em development e APK debug development aprovado manualmente. O checkpoint Git foi autorizado em conjunto com a UI-INV-1B.
+
+- Carteiras podem ser criadas, editadas, arquivadas e restauradas; ativos aceitam ação ou FII, ticker brasileiro maiúsculo, nome, BRL e carteira própria.
+- Compras e vendas usam data civil de São Paulo, quantidade em escala 8, preço em escala 6, taxas em centavos e observação opcional. Operações confirmadas são imutáveis e nunca excluídas.
+- Custo, preço médio e resultado realizado são reconstruídos deterministicamente com `BigInt`; taxas de compra integram custo e taxas de venda reduzem resultado. Posições zeradas permanecem visíveis.
+- Operações são registradas da mais antiga para a mais recente. Cada uma referencia o topo anterior; somente o topo pode ser anulado, restaurando atomicamente o elo e a quantidade anteriores.
+- A projeção mínima do ativo (`currentQuantityScaled`, topo e revisão) existe para permitir que Security Rules bloqueiem venda excedente, escrita isolada, repetição e concorrência sem backend agregador.
+- O módulo não referencia contas ou lançamentos e não altera saldo, receitas, despesas, compromissos, saldo inicial ou resumo mensal.
+- A interface fica em Menu > Patrimônio > Investimentos, compartilha privacidade com a Home e não mostra cotação, valor atual ou rentabilidade não realizada.
+- Security Rules foram validadas no Emulator Suite com Project ID `demo-*` e depois publicadas exclusivamente no Firebase development mediante autorização controlada. Nenhuma produção ou dependência nova foi adicionada.
+- Cotações, corretoras, Open Finance, dividendos, impostos, eventos corporativos, recomendações, backend e dados fictícios permanecem fora da INV-1A.
+
+## 30. UI-INV-1B — Redesign visual de investimentos
+
+Situação em 09/08/2026: implementação visual concluída sobre a INV-1A; 532 testes Flutter e 40 testes de regras aprovados, logs auditados e APK debug development aprovado manualmente. O checkpoint Git conjunto foi autorizado.
+
+- O cabeçalho preserva retorno seguro, privacidade e ação compacta de criação. O seletor de carteira permanece antes das abas e o gerenciamento reúne criação, edição, arquivamento e restauração.
+- Resumo, Ativos e Lançamentos são as únicas abas. Proventos, rentabilidade, rankings, notícias, B3, corretoras, integrações, paywall e cotação não aparecem como recursos disponíveis.
+- O cartão principal apresenta somente custo acompanhado, ativos cadastrados, posições abertas, resultado realizado e carteira selecionada.
+- O gráfico nativo de evolução agrega compras e vendas efetivamente registradas. A rosca usa custo atual das posições abertas e alterna entre classes e ativos, com legenda textual e privacidade conjunta.
+- A lista de ativos possui busca por ticker/nome, filtro Ações/FIIs e ordenação determinística. Lançamentos usam cartões responsivos com filtros por operação, ativo e período, sem tabela horizontal obrigatória.
+- A prévia de operação reutiliza tipos escalados e `InvestmentArithmetic` do domínio para valor bruto, taxas, valor final, impacto na quantidade e possível novo preço médio de compra.
+- Domínio, dados, controllers de persistência, Firestore, Security Rules, rotas funcionais e separação do saldo permanecem fora do redesign e devem conservar os hashes registrados antes da implementação.
+- Referências visuais privadas permanecem em `.codex-tmp/`, ignoradas pelo Git, e não fornecem marca, logo, textos, imagens ou ativos ao aplicativo.

@@ -2,7 +2,7 @@
 
 ## Estado
 
-FIN-5A-0, FIN-5A-1 e FIN-5A-2 foram autorizados em 02/08/2026. Domínio, persistência Firestore, regras locais e testes no Emulator Suite estão implementados; interface permanece fora do escopo.
+FIN-5A foi concluído. Domínio, persistência Firestore, regras, testes no Emulator Suite e interface estão implementados. As regras correspondentes foram publicadas anteriormente somente no ambiente development, mediante autorização específica.
 
 ## Fonte canônica
 
@@ -79,7 +79,6 @@ Essa opção bloqueia também a correção direta em contas que ainda não possu
 
 ## Limites atuais
 
-- as regras e a persistência existem somente no código local e não foram publicadas;
-- não existem controllers, providers, rotas ou telas de compromissos;
+- a publicação existente das regras está restrita ao ambiente development; produção continua bloqueada;
 - recorrências, parcelamentos, liquidações parciais, juros, multas, descontos e notificações permanecem fora do escopo;
 - a imutabilidade de `openingBalanceCents` não foi implementada e pertence a incremento futuro separado, junto da operação auditável de ajuste.

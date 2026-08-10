@@ -1061,6 +1061,320 @@ service cloud.firestore {
             : false;
     }
 
+    function investmentPortfolioFields() {
+      return [
+        'ownerId', 'name', 'description', 'isArchived', 'archivedAt',
+        'createdAt', 'updatedAt', 'schemaVersion', 'revision'
+      ];
+    }
+
+    function isValidInvestmentPortfolio(data, userId) {
+      return data.keys().hasAll(investmentPortfolioFields())
+        && data.keys().hasOnly(investmentPortfolioFields())
+        && data.ownerId == userId
+        && data.name is string
+        && data.name.size() >= 1
+        && data.name.size() <= 60
+        && data.name.matches('^[^\\x00-\\x20\\x7F](?:.*[^\\x00-\\x20\\x7F])?$')
+        && !data.name.matches('.*[\\x00-\\x1F\\x7F].*')
+        && !data.name.matches('.*  .*')
+        && data.description is string
+        && data.description.size() <= 160
+        && !data.description.matches('.*[\\x00-\\x1F\\x7F].*')
+        && !data.description.matches('.*  .*')
+        && data.isArchived is bool
+        && (data.archivedAt == null || data.archivedAt is timestamp)
+        && data.isArchived == (data.archivedAt != null)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && data.schemaVersion == 1
+        && data.revision is int
+        && data.revision >= 1;
+    }
+
+    function isValidInvestmentPortfolioCreate(userId) {
+      let data = request.resource.data;
+      return isValidInvestmentPortfolio(data, userId)
+        && data.isArchived == false
+        && data.archivedAt == null
+        && data.createdAt == request.time
+        && data.updatedAt == request.time
+        && data.revision == 1;
+    }
+
+    function isValidInvestmentPortfolioUpdate(userId) {
+      let data = request.resource.data;
+      let changed = data.diff(resource.data).affectedKeys();
+      return isValidInvestmentPortfolio(data, userId)
+        && data.ownerId == resource.data.ownerId
+        && data.createdAt == resource.data.createdAt
+        && data.schemaVersion == resource.data.schemaVersion
+        && data.updatedAt == request.time
+        && data.revision == resource.data.revision + 1
+        && changed.hasAny(['name', 'description', 'isArchived'])
+        && changed.hasOnly([
+          'name', 'description', 'isArchived', 'archivedAt', 'updatedAt',
+          'revision'
+        ])
+        && (
+          data.isArchived == resource.data.isArchived
+            ? data.archivedAt == resource.data.archivedAt
+            : resource.data.isArchived == false
+              ? data.isArchived == true && data.archivedAt == request.time
+              : data.isArchived == false && data.archivedAt == null
+        );
+    }
+
+    function investmentAssetFields() {
+      return [
+        'ownerId', 'portfolioId', 'ticker', 'name', 'assetType',
+        'currencyCode', 'currentQuantityScaled', 'lastOperationId',
+        'lastOperationAt', 'createdAt', 'updatedAt', 'schemaVersion',
+        'revision'
+      ];
+    }
+
+    function isValidInvestmentAsset(data, userId, assetId) {
+      return data.keys().hasAll(investmentAssetFields())
+        && data.keys().hasOnly(investmentAssetFields())
+        && data.ownerId == userId
+        && data.portfolioId is string
+        && data.portfolioId.size() >= 1
+        && data.portfolioId.size() <= 128
+        && data.ticker is string
+        && data.ticker.matches('^[A-Z]{4}[0-9]{1,2}$')
+        && assetId == data.portfolioId + '__' + data.ticker
+        && data.name is string
+        && data.name.size() >= 1
+        && data.name.size() <= 80
+        && data.name.matches('^[^\\x00-\\x20\\x7F](?:.*[^\\x00-\\x20\\x7F])?$')
+        && !data.name.matches('.*[\\x00-\\x1F\\x7F].*')
+        && !data.name.matches('.*  .*')
+        && data.assetType in ['stock', 'fii']
+        && data.currencyCode == 'BRL'
+        && data.currentQuantityScaled is int
+        && data.currentQuantityScaled >= 0
+        && data.currentQuantityScaled <= 999999999999999
+        && (data.lastOperationId == null || data.lastOperationId is string)
+        && (data.lastOperationAt == null || data.lastOperationAt is timestamp)
+        && (data.lastOperationId == null) == (data.lastOperationAt == null)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && data.schemaVersion == 1
+        && data.revision is int
+        && data.revision >= 1;
+    }
+
+    function investmentPortfolioPath(userId, portfolioId) {
+      return /databases/$(database)/documents/users/$(userId)/investmentPortfolios/$(portfolioId);
+    }
+
+    function investmentAssetPath(userId, assetId) {
+      return /databases/$(database)/documents/users/$(userId)/investmentAssets/$(assetId);
+    }
+
+    function investmentOperationPath(userId, operationId) {
+      return /databases/$(database)/documents/users/$(userId)/investmentOperations/$(operationId);
+    }
+
+    function isActiveInvestmentPortfolio(userId, portfolioId) {
+      let path = investmentPortfolioPath(userId, portfolioId);
+      return existsAfter(path)
+        && getAfter(path).data.ownerId == userId
+        && getAfter(path).data.isArchived == false;
+    }
+
+    function isValidInvestmentAssetCreate(userId, assetId) {
+      let data = request.resource.data;
+      return isValidInvestmentAsset(data, userId, assetId)
+        && data.currentQuantityScaled == 0
+        && data.lastOperationId == null
+        && data.lastOperationAt == null
+        && data.createdAt == request.time
+        && data.updatedAt == request.time
+        && data.revision == 1
+        && isActiveInvestmentPortfolio(userId, data.portfolioId);
+    }
+
+    function investmentOperationFields() {
+      return [
+        'ownerId', 'portfolioId', 'assetId', 'previousOperationId',
+        'previousOperationAt', 'kind', 'occurredAt', 'quantityScaled',
+        'unitPriceScaled', 'feesCents', 'notes', 'isVoided', 'voidedAt',
+        'mutationId', 'createdAt', 'updatedAt', 'schemaVersion', 'revision'
+      ];
+    }
+
+    function isValidInvestmentOperation(data, userId) {
+      return data.keys().hasAll(investmentOperationFields())
+        && data.keys().hasOnly(investmentOperationFields())
+        && data.ownerId == userId
+        && data.portfolioId is string
+        && data.portfolioId.size() >= 1
+        && data.portfolioId.size() <= 128
+        && data.assetId is string
+        && data.assetId.size() >= 1
+        && data.assetId.size() <= 160
+        && (data.previousOperationId == null || data.previousOperationId is string)
+        && (data.previousOperationAt == null || data.previousOperationAt is timestamp)
+        && (data.previousOperationId == null) == (data.previousOperationAt == null)
+        && data.kind in ['buy', 'sell']
+        && data.occurredAt is timestamp
+        && data.occurredAt <= request.time
+        && (data.previousOperationAt == null || data.occurredAt >= data.previousOperationAt)
+        && data.quantityScaled is int
+        && data.quantityScaled >= 1
+        && data.quantityScaled <= 999999999999999
+        && data.unitPriceScaled is int
+        && data.unitPriceScaled >= 1
+        && data.unitPriceScaled <= 999999999999
+        && data.feesCents is int
+        && data.feesCents >= 0
+        && data.feesCents <= 9999999999
+        && (
+          data.kind == 'buy'
+          || data.feesCents <=
+            (data.quantityScaled / 100000000.0)
+            * (data.unitPriceScaled / 10000.0)
+        )
+        && data.notes is string
+        && data.notes.size() <= 240
+        && !data.notes.matches('.*[\\x00-\\x1F\\x7F].*')
+        && data.isVoided is bool
+        && (data.voidedAt == null || data.voidedAt is timestamp)
+        && data.isVoided == (data.voidedAt != null)
+        && data.mutationId is string
+        && data.mutationId.size() >= 1
+        && data.mutationId.size() <= 128
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && data.schemaVersion == 1
+        && data.revision is int
+        && data.revision >= 1;
+    }
+
+    function isOperationQuantityTransition(beforeAsset, afterAsset, operation) {
+      return operation.kind == 'buy'
+        ? afterAsset.currentQuantityScaled == beforeAsset.currentQuantityScaled + operation.quantityScaled
+        : beforeAsset.currentQuantityScaled >= operation.quantityScaled
+          && afterAsset.currentQuantityScaled == beforeAsset.currentQuantityScaled - operation.quantityScaled;
+    }
+
+    function isValidInvestmentOperationCreate(userId, operationId) {
+      let data = request.resource.data;
+      let assetPath = investmentAssetPath(userId, data.get('assetId', ''));
+      return isValidInvestmentOperation(data, userId)
+        && data.isVoided == false
+        && data.voidedAt == null
+        && data.mutationId == operationId
+        && data.createdAt == request.time
+        && data.updatedAt == request.time
+        && data.revision == 1
+        && isActiveInvestmentPortfolio(userId, data.portfolioId)
+        && exists(assetPath)
+        && existsAfter(assetPath)
+        && get(assetPath).data.portfolioId == data.portfolioId
+        && get(assetPath).data.lastOperationId == data.previousOperationId
+        && get(assetPath).data.lastOperationAt == data.previousOperationAt
+        && getAfter(assetPath).data.lastOperationId == operationId
+        && getAfter(assetPath).data.lastOperationAt == data.occurredAt
+        && isOperationQuantityTransition(
+          get(assetPath).data,
+          getAfter(assetPath).data,
+          data
+        );
+    }
+
+    function isValidInvestmentAssetOperationAppend(userId, assetId, data) {
+      let operationPath = investmentOperationPath(userId, data.lastOperationId);
+      return existsAfter(operationPath)
+        && getAfter(operationPath).data.assetId == assetId
+        && getAfter(operationPath).data.portfolioId == data.portfolioId
+        && getAfter(operationPath).data.previousOperationId == resource.data.lastOperationId
+        && getAfter(operationPath).data.previousOperationAt == resource.data.lastOperationAt
+        && getAfter(operationPath).data.occurredAt == data.lastOperationAt
+        && getAfter(operationPath).data.isVoided == false
+        && isOperationQuantityTransition(
+          resource.data,
+          data,
+          getAfter(operationPath).data
+        );
+    }
+
+    function isValidInvestmentAssetOperationVoid(userId, assetId, data) {
+      let operationPath = investmentOperationPath(userId, resource.data.lastOperationId);
+      return exists(operationPath)
+        && existsAfter(operationPath)
+        && get(operationPath).data.assetId == assetId
+        && get(operationPath).data.isVoided == false
+        && getAfter(operationPath).data.isVoided == true
+        && data.lastOperationId == get(operationPath).data.previousOperationId
+        && data.lastOperationAt == get(operationPath).data.previousOperationAt
+        && (
+          get(operationPath).data.kind == 'buy'
+            ? resource.data.currentQuantityScaled >= get(operationPath).data.quantityScaled
+              && data.currentQuantityScaled == resource.data.currentQuantityScaled - get(operationPath).data.quantityScaled
+            : data.currentQuantityScaled == resource.data.currentQuantityScaled + get(operationPath).data.quantityScaled
+        );
+    }
+
+    function isValidInvestmentAssetUpdate(userId, assetId) {
+      let data = request.resource.data;
+      let changed = data.diff(resource.data).affectedKeys();
+      return isValidInvestmentAsset(data, userId, assetId)
+        && data.ownerId == resource.data.ownerId
+        && data.portfolioId == resource.data.portfolioId
+        && data.ticker == resource.data.ticker
+        && data.name == resource.data.name
+        && data.assetType == resource.data.assetType
+        && data.currencyCode == resource.data.currencyCode
+        && data.createdAt == resource.data.createdAt
+        && data.schemaVersion == resource.data.schemaVersion
+        && data.updatedAt == request.time
+        && data.revision == resource.data.revision + 1
+        && changed.hasAll(['currentQuantityScaled', 'lastOperationId', 'revision'])
+        && changed.hasOnly([
+          'currentQuantityScaled', 'lastOperationId', 'lastOperationAt',
+          'updatedAt', 'revision'
+        ])
+        && isActiveInvestmentPortfolio(userId, data.portfolioId)
+        && (
+          data.lastOperationId != resource.data.lastOperationId
+            && data.lastOperationId != null
+            && isValidInvestmentAssetOperationAppend(userId, assetId, data)
+          || resource.data.lastOperationId != null
+            && isValidInvestmentAssetOperationVoid(userId, assetId, data)
+        );
+    }
+
+    function isValidInvestmentOperationVoid(userId, operationId) {
+      let data = request.resource.data;
+      let assetPath = investmentAssetPath(userId, data.get('assetId', ''));
+      let changed = data.diff(resource.data).affectedKeys();
+      return isValidInvestmentOperation(data, userId)
+        && resource.data.isVoided == false
+        && data.isVoided == true
+        && data.voidedAt == request.time
+        && data.updatedAt == request.time
+        && data.revision == resource.data.revision + 1
+        && data.mutationId != resource.data.mutationId
+        && changed.hasAll(['isVoided', 'voidedAt', 'mutationId', 'revision'])
+        && changed.hasOnly([
+          'isVoided', 'voidedAt', 'mutationId', 'updatedAt', 'revision'
+        ])
+        && exists(assetPath)
+        && existsAfter(assetPath)
+        && get(assetPath).data.lastOperationId == operationId
+        && getAfter(assetPath).data.lastOperationId == data.previousOperationId
+        && getAfter(assetPath).data.lastOperationAt == data.previousOperationAt
+        && (
+          data.kind == 'buy'
+            ? get(assetPath).data.currentQuantityScaled >= data.quantityScaled
+              && getAfter(assetPath).data.currentQuantityScaled == get(assetPath).data.currentQuantityScaled - data.quantityScaled
+            : getAfter(assetPath).data.currentQuantityScaled == get(assetPath).data.currentQuantityScaled + data.quantityScaled
+        );
+    }
+
     function isCurrentLegalProfileData(data, userId) {
       return hasExactProfileFields(data)
         && data.ownerId == userId
@@ -1207,6 +1521,45 @@ service cloud.firestore {
             'received',
             'receivedAt'
           );
+        allow delete: if false;
+
+        match /{document=**} {
+          allow read, write: if false;
+        }
+      }
+
+      match /investmentPortfolios/{portfolioId} {
+        allow get, list: if hasFinancialAccess(userId);
+        allow create: if hasFinancialAccess(userId)
+          && isValidInvestmentPortfolioCreate(userId);
+        allow update: if hasFinancialAccess(userId)
+          && isValidInvestmentPortfolioUpdate(userId);
+        allow delete: if false;
+
+        match /{document=**} {
+          allow read, write: if false;
+        }
+      }
+
+      match /investmentAssets/{assetId} {
+        allow get, list: if hasFinancialAccess(userId);
+        allow create: if hasFinancialAccess(userId)
+          && isValidInvestmentAssetCreate(userId, assetId);
+        allow update: if hasFinancialAccess(userId)
+          && isValidInvestmentAssetUpdate(userId, assetId);
+        allow delete: if false;
+
+        match /{document=**} {
+          allow read, write: if false;
+        }
+      }
+
+      match /investmentOperations/{operationId} {
+        allow get, list: if hasFinancialAccess(userId);
+        allow create: if hasFinancialAccess(userId)
+          && isValidInvestmentOperationCreate(userId, operationId);
+        allow update: if hasFinancialAccess(userId)
+          && isValidInvestmentOperationVoid(userId, operationId);
         allow delete: if false;
 
         match /{document=**} {
