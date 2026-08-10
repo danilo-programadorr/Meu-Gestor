@@ -1784,9 +1784,39 @@ service cloud.firestore {
         }
       }
 
+      match /entitlements/{entitlementId} {
+        allow get: if entitlementId == 'premium'
+          && hasFinancialAccess(userId);
+        allow list, create, update, delete: if false;
+
+        match /{document=**} {
+          allow read, write: if false;
+        }
+      }
+
       match /{document=**} {
         allow read, write: if false;
       }
+    }
+
+    match /_premiumBillingEvents/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /_premiumPurchaseBindings/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /_premiumRtdnInbox/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /_premiumAcknowledgementOutbox/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /_premiumAdministrativeGrants/{document=**} {
+      allow read, write: if false;
     }
 
     match /{document=**} {

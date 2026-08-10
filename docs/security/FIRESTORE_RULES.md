@@ -2,7 +2,7 @@
 
 ## Escopo
 
-O arquivo público `firestore.rules` protege o perfil `users/{uid}`, as subcoleções `accounts`, `categories`, `transactions`, `payables`, `receivables`, `investmentPortfolios`, `investmentAssets`, `investmentOperations` e `investmentIncomeEvents`, além da leitura administrativa pontual em `system_admins/{uid}`. Caminhos financeiros e administrativos não autorizados continuam negados.
+O arquivo público `firestore.rules` protege o perfil `users/{uid}`, as subcoleções `accounts`, `categories`, `transactions`, `payables`, `receivables`, `investmentPortfolios`, `investmentAssets`, `investmentOperations`, `investmentIncomeEvents` e a leitura pontual de `entitlements/premium`, além da leitura administrativa em `system_admins/{uid}`. Caminhos financeiros, Premium e administrativos não autorizados continuam negados.
 
 ## Garantias pretendidas
 
@@ -35,10 +35,14 @@ O arquivo público `firestore.rules` protege o perfil `users/{uid}`, as subcole�
 - `system_admins` nega `list`, `create`, `update` e `delete` ao cliente;
 - `isActiveOwner()` valida papel, estado ativo, development, versão 1 e timestamp sem usar e-mail;
 - owner não amplia acesso aos dados financeiros de outros UIDs.
+- entitlement Premium permite somente `get` do documento fixo próprio, com autenticação, e-mail confirmado e perfil jurídico atual;
+- listagem, escrita, entitlement desconhecido, subcoleções e acesso owner cruzado são negados;
+- eventos, vínculos, inbox RTDN, outbox de acknowledgement e grants internos Premium são totalmente inacessíveis ao cliente;
+- as regras Premium não bloqueiam investimentos no SUB-1B.
 
 ## Validação local e publicação
 
-As regras são exercitadas no Emulator Suite com projeto isolado `demo-*`, incluindo acessos negados, transições, concorrência, regressões do núcleo financeiro e auditoria do log. A suíte consolidada após INV-PROV-1 possui 50 testes. Perfil, núcleo financeiro, compromissos, investimentos, proventos e owner foram publicados somente em development mediante autorizações específicas. A proteção de `investmentIncomeEvents` foi compilada e publicada com sucesso exclusivamente em development, sem acesso a production, com SHA-256 `8B689BA72FE05B1C04409E00083644D83B2EEACFDDA67A7C8D003B843E102FBE`; o APK debug development foi gerado e aprovado manualmente, enquanto commit e push permaneciam pendentes nesta atualização documental.
+As regras são exercitadas no Emulator Suite com projeto isolado `demo-*`, incluindo acessos negados, transições, concorrência, regressões do núcleo financeiro e auditoria do log. O conjunto SUB-1B foi compilado e publicado exclusivamente em development, sem acesso a production, com SHA-256 `F01E52545F2CE88896A48B28B957BF45F8AE79B0173DF2E20449929FF21532B4`. Somente `firestore.rules` foi publicado; nenhum documento, índice ou outro recurso Firebase foi modificado. Backend real, Google Play e enforcement Premium permanecem não implementados, investimentos continuam acessíveis e commit/push estão pendentes.
 
 ## Publicação
 

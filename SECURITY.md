@@ -38,12 +38,14 @@ E-mail, senha, UID hardcoded, parâmetro de rota, preferência ou armazenamento 
 
 Capabilities owner liberam funcionalidades do produto e futuros recursos comerciais, mas não ignoram Security Rules, isolamento por UID, autenticação, validações financeiras, concorrência, integridade ou limites técnicos contra abuso. Diagnósticos omitem identidade, conteúdo administrativo, tokens, project ID e dados financeiros.
 
-## Entitlement Premium — SUB-1A
+## Entitlement Premium — SUB-1A/SUB-1B
 
-O SUB-1A é somente domínio e contrato. Não existe entitlement persistido, backend verificador, Security Rule Premium, produto de loja, compra, paywall ou bloqueio ativo. Investimentos continuam acessíveis no ambiente development atual.
+O backend de referência SUB-1B permanece exclusivamente local, sem rede, com armazenamento em memória para testes e mapper/repositório Flutter somente leitura. As Security Rules foram compiladas e publicadas exclusivamente em development, sem acesso a production, com SHA-256 `F01E52545F2CE88896A48B28B957BF45F8AE79B0173DF2E20449929FF21532B4`. Não existe entitlement persistido, backend implantado, produto de loja, compra, paywall ou bloqueio ativo. Investimentos continuam acessíveis no ambiente development atual; commit e push permanecem pendentes.
 
-O modelo não contém purchase token, recibo completo, payload Google, dados de cartão, preço, credencial ou identificador externo usado como autorização. O contrato cliente possui somente leitura, observação confirmada, releitura do servidor e diagnóstico sanitizado; criar, ativar, renovar, revogar, reembolsar e conceder pertencem ao futuro backend.
+O modelo legível não contém purchase token, recibo completo, payload Google, dados de cartão, preço, credencial ou identificador externo usado como autorização. O backend local usa token apenas transitoriamente, impressão digital HMAC versionada e referência abstrata de cofre; chaves sintéticas e cofre em memória são restritos aos testes. Runtime real exigirá KMS/Secret Manager e credenciais mínimas.
 
-Concessões administrativas e de development deverão ter validade e auditoria, ser emitidas somente pelo backend e respeitar o ambiente. Owner poderá receber acesso para o próprio UID, sem ignorar isolamento ou obter acesso cruzado. A decisão local é projeção de experiência e nunca substitui a futura autorização de backend e Security Rules.
+Concessões administrativas e de development têm contrato local de validade, motivo, auditoria, capabilities, ambiente e revogação. São backend-only, limitadas ao próprio UID e development nunca atua em production. Owner não obtém acesso cruzado. A decisão local é projeção de experiência e nunca substitui autorização de backend e Security Rules.
+
+As regras publicadas em development permitem apenas `get` de `users/{uid}/entitlements/premium` pelo próprio UID autenticado, com e-mail confirmado e perfil jurídico atual. Listagem, criação, atualização, exclusão, subcoleções e acesso a todas as coleções internas de billing são negados. Elas não aplicam entitlement aos investimentos nem concedem Premium.
 
 Após perda de Premium, dados patrimoniais não são apagados nem alterados: leitura histórica é preservada, mutações são bloqueadas e cotações deixam de ser fornecidas. Esse comportamento ainda não foi conectado aos repositórios ou à interface. A integração B3/corretoras permanece cancelada; cotações por provedor independente permanecem bloqueadas por licenciamento e SUB-1.

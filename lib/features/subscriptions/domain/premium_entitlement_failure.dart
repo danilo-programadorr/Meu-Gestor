@@ -9,6 +9,10 @@ enum PremiumEntitlementFailureKind {
   refunded,
   serverConfirmationUnavailable,
   inconsistentData,
+  unauthenticated,
+  permissionDenied,
+  unavailable,
+  unknown,
 }
 
 final class PremiumEntitlementFailure implements Exception {

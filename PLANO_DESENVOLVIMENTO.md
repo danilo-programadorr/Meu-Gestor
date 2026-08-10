@@ -743,3 +743,17 @@ Situação em 10/08/2026: domínio puro, contrato, testes e documentação imple
 - Não existe produto configurado, compra, Google Play Billing, backend verificador, entitlement Firestore, regra Premium ou paywall. Investimentos continuam acessíveis em development e nenhuma funcionalidade atual passou a exigir Premium.
 - A futura proposta `users/{uid}/entitlements/premium` é apenas documental e depende de incremento próprio para backend, persistência, regras, Emulator Suite, custos e autorização.
 - A integração B3 e integrações automáticas com corretoras permanecem canceladas e não autorizam pesquisa ou preparação. Cotações atrasadas por provedor independente continuam bloqueadas por licenciamento e pela conclusão segura de SUB-1.
+
+## 33. SUB-1B — Backend development do entitlement Premium
+
+Situação em 10/08/2026: implementação e 717 validações concluídas; Security Rules compiladas e publicadas exclusivamente no Firebase development, sem acesso a production, com SHA-256 `F01E52545F2CE88896A48B28B957BF45F8AE79B0173DF2E20449929FF21532B4`. Backend real, Google Play, produto, cobrança, APK, enforcement, commit e push permanecem ausentes ou pendentes.
+
+- Backend ESM compatível com Node 20+, isolado em `backend/subscriptions/`, sem dependências externas, endpoint ou runtime de nuvem.
+- Gateway Google Play abstrato, DTO estrito, fake determinístico e fixtures exclusivamente sintéticas. Pacote, produto, ambiente, conta ofuscada, estados e períodos falham fechados.
+- Purchase token permanece transitório; persistência usa impressão digital HMAC versionada e referência de cofre. O cofre recuperável em memória existe somente nos testes; produção exigirá KMS/Secret Manager.
+- Processamento transacional protege repetição, concorrência, evento antigo, token vinculado, conflito de UID/ambiente/pacote/produto e timeout antes/depois do commit.
+- RTDN local é somente sinal e sempre reconsulta o gateway. Acknowledgement usa outbox idempotente. Não há Pub/Sub, chamada HTTP ou autenticação Google.
+- Grants administrativos/development são contratos backend-only, auditados, limitados ao próprio UID, validade, ambiente e capabilities; development nunca atua em production.
+- `users/{uid}/entitlements/premium` tem mapper estrito e repositório Flutter somente leitura confirmada pelo servidor. Ausência é explícita e diagnósticos são sanitizados.
+- Security Rules locais permitem apenas `get` do próprio `premium` com autenticação, e-mail confirmado e perfil jurídico; negam listagem, escrita, acesso cruzado, subcoleções e coleções internas.
+- Investimentos continuam acessíveis no development atual. Paywall, compra, Google Play Billing e aplicação das policies aos módulos permanecem fora do SUB-1B.

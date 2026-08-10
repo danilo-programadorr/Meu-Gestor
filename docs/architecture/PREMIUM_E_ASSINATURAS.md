@@ -1,10 +1,10 @@
-# SUB-1A — Domínio Premium e assinaturas
+# SUB-1A/SUB-1B — Entitlement Premium
 
 ## Fronteira atual
 
-O SUB-1A cria somente tipos de domínio e contratos. Não cobra, não consulta loja, não persiste entitlement, não aplica paywall e não muda o acesso atual aos investimentos em development. Não há produto mensal/anual configurado, período de teste real, backend de verificação ou Security Rule Premium.
+O SUB-1A criou tipos de domínio e contratos. O SUB-1B acrescenta uma referência de backend exclusivamente local, persistência transacional em memória para testes e mapper/repositório Flutter somente leitura. As Security Rules foram publicadas exclusivamente em development, sem acesso a production, com SHA-256 `F01E52545F2CE88896A48B28B957BF45F8AE79B0173DF2E20449929FF21532B4`. O incremento não cobra, não consulta loja real, não persiste entitlement, não aplica paywall e não muda o acesso atual aos investimentos. Não há produto mensal/anual configurado, período de teste real, endpoint ou runtime de nuvem; commit e push permanecem pendentes.
 
-O domínio vive em `lib/features/subscriptions/domain/` e não importa Flutter, Firebase, Riverpod, Google Play Billing nem biblioteca de pagamento. Preços e moeda não fazem parte do modelo porque serão fornecidos futuramente pela loja.
+O domínio vive em `lib/features/subscriptions/domain/` e não importa Flutter, Firebase, Riverpod, Google Play Billing nem biblioteca de pagamento. A referência local vive em `backend/subscriptions/`, usa ESM e APIs nativas do Node, sem dependências externas. Preços e moeda não fazem parte do modelo.
 
 ## Planos, fontes e ambiente
 
@@ -60,7 +60,7 @@ As capabilities iniciais são:
 
 A solicitação também informa a intenção `read`, `mutate` ou `consumeService`. Isso evita transformar leitura histórica em permissão de edição. Carteiras, ativos, operações e proventos são dados preserváveis: após perda de acesso, leitura recebe `readOnly`, enquanto criação, edição, operações e proventos são negados. Cotações, calculadoras e análises não são dados históricos preservados; cotações deixam de ser fornecidas para evitar custo recorrente.
 
-Nenhum desses bloqueios está conectado à interface ou aos repositórios de investimentos no SUB-1A. As duas primeiras capabilities correspondem a módulos existentes; as demais apenas reservam significado estável e não habilitam funcionalidade.
+Nenhum desses bloqueios está conectado à interface ou aos repositórios de investimentos no SUB-1B. As duas primeiras capabilities correspondem a módulos existentes; as demais apenas reservam significado estável e não habilitam funcionalidade.
 
 ## Decisão de acesso
 
@@ -75,11 +75,15 @@ O resultado informa modo, motivo estável, capability, intenção, validade, car
 
 A decisão cliente serve à experiência e falha de maneira explicável. Ela não substitui backend, validação da compra nem Security Rules.
 
-## Contrato e persistência futura
+## Backend local e contrato de leitura
 
-`PremiumEntitlementRepository` oferece somente leitura atual, observação de snapshots confirmados, releitura do servidor e diagnóstico sanitizado. Entitlement ausente é resultado explícito. Não existem métodos cliente para criar, ativar, renovar, revogar, reembolsar ou conceder.
+`PremiumEntitlementRepository` oferece somente leitura atual, observação de snapshots confirmados, releitura do servidor e diagnóstico sanitizado. A implementação Firebase lê com `Source.server`, ignora snapshots de cache ou com escrita pendente e usa mapper de campos exatos. Entitlement ausente é resultado explícito. Não existem métodos cliente para criar, ativar, renovar, revogar, reembolsar ou conceder.
 
-A proposta futura, ainda não criada, é um documento fixo `users/{uid}/entitlements/premium`, escrito exclusivamente por backend. Ele poderá armazenar o estado canônico e campos equivalentes aos do domínio. Token, recibo bruto, identidade de pagamento e auditoria confidencial ficarão em armazenamento exclusivo do backend, nunca em documento legível pelo cliente. A adoção desse caminho exigirá ADR de persistência, mapper, backend, regras, testes de Emulator, custo e autorização própria.
+O contrato local usa o documento fixo `users/{uid}/entitlements/premium`, escrito exclusivamente pelo backend futuro. As regras permitem apenas `get` próprio com autenticação, e-mail confirmado e perfil jurídico válido; negam listagem e toda escrita cliente. Token, recibo bruto, identidade de pagamento e auditoria confidencial ficam fora do documento legível.
+
+O processador local recebe ator autenticado, App Check validado, ambiente, produto e token; calcula uma impressão digital HMAC, consulta um gateway fake, valida o DTO, reconcilia em armazenamento transacional e devolve somente confirmação sanitizada que exige releitura do servidor. Eventos repetidos, concorrentes, antigos e timeouts pós-commit são idempotentes. RTDN é apenas sinal e nunca autoridade. A outbox de acknowledgement é repetível sem confirmação duplicada.
+
+As coleções conceituais `_premiumBillingEvents`, `_premiumPurchaseBindings`, `_premiumRtdnInbox`, `_premiumAcknowledgementOutbox` e `_premiumAdministrativeGrants` são integralmente negadas ao cliente. Não existem em Firebase real nesta etapa. A referência de cofre em memória e a chave sintética servem somente aos testes; produção exigirá KMS/Secret Manager, retenção e runtime aprovados.
 
 ## Preservação e experiência
 

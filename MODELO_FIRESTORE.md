@@ -399,15 +399,15 @@ Campos obrigatórios protegidos: ownerId, action, entityType, entityId, actorTyp
 
 Somente Cloud Functions escrevem. Não armazena valores financeiros completos, tokens, anexos, prompts ou descrições pessoais.
 
-### Proposta futura — users/{userId}/entitlements/premium
+### Contrato local SUB-1B — users/{userId}/entitlements/premium
 
-Este caminho é somente proposta do SUB-1A. Nenhuma coleção, documento, índice, regra ou implementação Firebase foi criada.
-
-O documento fixo futuro poderá conter ownerId, planId, status, source, environment, capabilities, entitlementStartedAt, currentPeriodStartedAt, currentPeriodEndsAt, graceUntil, cancelAtPeriodEnd, cancelledAt, expiredAt, revokedAt, refundedAt, lastVerifiedAt, revision e schemaVersion. O contrato será fechado, versionado e escrito exclusivamente por backend após validação autoritativa.
+O documento fixo contém exatamente `ownerId`, `planId`, `status`, `source`, `environment`, `capabilities`, `startedAt`, `currentPeriodStart`, `currentPeriodEnd`, `graceUntil`, `cancelAtPeriodEnd`, `cancelledAt`, `expiredAt`, `revokedAt`, `refundedAt`, `lastVerifiedAt`, `revision`, `schemaVersion`, `createdAt` e `updatedAt`. Instantes são timestamps UTC, revisão começa em 1 e esquema atual é 1.
 
 O aplicativo poderá ler somente o entitlement do próprio UID e nunca poderá criar, ativar, renovar, revogar, reembolsar ou conceder. Purchase token, recibo bruto, payload do provedor, credenciais, dados de cartão, preço e auditoria confidencial não pertencerão ao documento legível pelo cliente. Grants administrativos e de development terão validade, ambiente e trilha de auditoria server-side; owner não recebe acesso cruzado.
 
-Ausência do documento representará plano gratuito. Expiração não apagará investimentos: leitura histórica será preservada, mutações serão negadas e serviços recorrentes como cotação serão interrompidos. Persistência, backend, mappers, regras, testes e custos exigem incremento e autorização separados.
+Ausência do documento representa plano gratuito. Expiração não apaga investimentos. O SUB-1B implementa mapper, repositório somente leitura e backend local em memória; suas regras foram publicadas exclusivamente em development com SHA-256 `F01E52545F2CE88896A48B28B957BF45F8AE79B0173DF2E20449929FF21532B4`, sem criar documento ou coleção e sem acessar production.
+
+As coleções internas conceituais `_premiumBillingEvents`, `_premiumPurchaseBindings`, `_premiumRtdnInbox`, `_premiumAcknowledgementOutbox` e `_premiumAdministrativeGrants` são inacessíveis ao cliente e não foram criadas externamente. Purchase token nunca integra a projeção; somente impressão digital versionada e referência abstrata de cofre pertencem ao backend futuro.
 
 ## 7. Conversores Dart
 

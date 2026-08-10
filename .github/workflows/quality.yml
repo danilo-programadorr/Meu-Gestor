@@ -35,6 +35,15 @@ jobs:
       - name: Resolver dependências
         run: flutter pub get
 
+      - name: Verificar versão do Node
+        run: node -e "if (Number(process.versions.node.split('.')[0]) < 20) process.exit(1)"
+
+      - name: Verificar backend local de assinaturas
+        run: npm --prefix backend/subscriptions run check
+
+      - name: Testar backend local de assinaturas
+        run: npm --prefix backend/subscriptions test
+
       - name: Verificar formatação
         run: dart format --output=none --set-exit-if-changed .
 

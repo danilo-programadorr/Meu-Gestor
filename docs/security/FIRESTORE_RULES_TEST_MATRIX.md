@@ -1,6 +1,6 @@
 # Matriz de testes das regras Firestore
 
-Situação: **pendente de Emulator Suite ou validação manual autorizada**. Nenhum caso abaixo foi apresentado como executado em emulador.
+Situação: esta tabela preserva a matriz histórica inicial do perfil. As suítes atuais são automatizadas no Emulator Suite; as extensões por módulo ficam nas matrizes específicas em `docs/security/`.
 
 | ID | Caso | Resultado esperado | Controle principal | Estado |
 |---|---|---|---|---|
@@ -39,3 +39,7 @@ Situação: **pendente de Emulator Suite ou validação manual autorizada**. Nen
 | FR-033 | Leitura ou escrita em caminho desconhecido | negar | negação global | pendente |
 
 Antes de qualquer publicação futura de produção, todos os casos permitidos e negados precisam ser automatizados no Emulator Suite.
+
+## SUB-1B
+
+O entitlement Premium possui matriz própria em `FIRESTORE_PREMIUM_RULES_TEST_MATRIX.md`. Ela cobre leitura própria confirmada, acesso cruzado, owner, autenticação, perfil jurídico, listagem, escritas, caminhos desconhecidos, subcoleções, cinco coleções internas e regressão de investimentos sem paywall. Os 57 testes permanecem locais no Emulator `demo-*`; as regras foram publicadas somente em development, sem acesso a production, com SHA-256 `F01E52545F2CE88896A48B28B957BF45F8AE79B0173DF2E20449929FF21532B4`.

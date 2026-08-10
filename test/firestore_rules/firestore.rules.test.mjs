@@ -8,9 +8,11 @@ import {
 } from '@firebase/rules-unit-testing';
 import {
   Timestamp,
+  collection,
   deleteDoc,
   doc,
   getDoc,
+  getDocs,
   serverTimestamp,
   setDoc,
   updateDoc,
@@ -476,6 +478,41 @@ async function seedBase(extra = async () => {}) {
 async function seedPending(type, id) {
   await testEnv.withSecurityRulesDisabled(async (context) => {
     await setDoc(commitmentRef(context.firestore(), type, id), commitment(ownerId, type));
+  });
+}
+
+function premiumEntitlement(uid, overrides = {}) {
+  return {
+    ownerId: uid,
+    planId: 'monthly',
+    status: 'active',
+    source: 'googlePlay',
+    environment: 'development',
+    capabilities: ['investmentsManual', 'investmentIncome'],
+    startedAt: past,
+    currentPeriodStart: past,
+    currentPeriodEnd: Timestamp.fromDate(new Date('2026-09-01T00:00:00Z')),
+    graceUntil: null,
+    cancelAtPeriodEnd: false,
+    cancelledAt: null,
+    expiredAt: null,
+    revokedAt: null,
+    refundedAt: null,
+    lastVerifiedAt: past,
+    revision: 1,
+    schemaVersion: 1,
+    createdAt: past,
+    updatedAt: past,
+    ...overrides,
+  };
+}
+
+async function seedPremium(uid = ownerId) {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(
+      doc(context.firestore(), `users/${uid}/entitlements/premium`),
+      premiumEntitlement(uid),
+    );
   });
 }
 
@@ -1429,5 +1466,81 @@ describe('INV-PROV-1 proventos manuais protegidos', () => {
     assert.deepEqual(accountAfter, accountBefore);
     assert.deepEqual(assetAfter, assetBefore);
     assert.equal((await getDoc(transactionRef(db, 'income-1'))).exists(), false);
+  });
+});
+
+describe('SUB-1B entitlement Premium somente leitura', () => {
+  test('usuário verificado com perfil jurídico lê apenas o próprio premium', async () => {
+    await seedPremium();
+    await assertSucceeds(
+      getDoc(doc(verifiedDb(), `users/${ownerId}/entitlements/premium`)),
+    );
+    await assertFails(
+      getDoc(doc(verifiedDb(otherId), `users/${ownerId}/entitlements/premium`)),
+    );
+  });
+
+  test('nega leitura anônima, e-mail não confirmado e perfil jurídico inválido', async () => {
+    await seedPremium();
+    const path = `users/${ownerId}/entitlements/premium`;
+    await assertFails(getDoc(doc(testEnv.unauthenticatedContext().firestore(), path)));
+    await assertFails(getDoc(doc(unverifiedDb(), path)));
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await updateDoc(doc(context.firestore(), `users/${ownerId}`), {
+        termsVersionAccepted: 'obsolete-synthetic-version',
+      });
+    });
+    await assertFails(getDoc(doc(verifiedDb(), path)));
+  });
+
+  test('owner não recebe acesso cruzado', async () => {
+    await seedPremium(otherId);
+    await assertFails(
+      getDoc(doc(verifiedDb(ownerId), `users/${otherId}/entitlements/premium`)),
+    );
+  });
+
+  test('nega listagem, criação, atualização e exclusão pelo cliente', async () => {
+    await seedPremium();
+    const db = verifiedDb();
+    const reference = doc(db, `users/${ownerId}/entitlements/premium`);
+    await assertFails(getDocs(collection(db, `users/${ownerId}/entitlements`)));
+    await assertFails(setDoc(doc(db, `users/${ownerId}/entitlements/other`), premiumEntitlement(ownerId)));
+    await assertFails(updateDoc(reference, { status: 'expired' }));
+    await assertFails(deleteDoc(reference));
+  });
+
+  test('nega entitlement desconhecido e qualquer subcoleção', async () => {
+    const db = verifiedDb();
+    await assertFails(getDoc(doc(db, `users/${ownerId}/entitlements/other`)));
+    await assertFails(getDoc(doc(db, `users/${ownerId}/entitlements/premium/history/event-1`)));
+    await assertFails(setDoc(doc(db, `users/${ownerId}/entitlements/premium/history/event-1`), { synthetic: true }));
+  });
+
+  test('nega integralmente coleções internas de billing', async () => {
+    const collections = [
+      '_premiumBillingEvents',
+      '_premiumPurchaseBindings',
+      '_premiumRtdnInbox',
+      '_premiumAcknowledgementOutbox',
+      '_premiumAdministrativeGrants',
+    ];
+    for (const name of collections) {
+      const reference = doc(verifiedDb(), `${name}/synthetic-document`);
+      await assertFails(getDoc(reference));
+      await assertFails(setDoc(reference, { synthetic: true }));
+      await assertFails(deleteDoc(reference));
+    }
+  });
+
+  test('não usa entitlement para bloquear investimentos nesta etapa', async () => {
+    const db = verifiedDb();
+    await assertSucceeds(
+      setDoc(doc(db, `users/${ownerId}/investmentPortfolios/portfolio-sub1b`),
+        investmentPortfolio(ownerId, {
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        })),
+    );
   });
 });

@@ -376,6 +376,19 @@
 | SUB-006-1A | Restringir contrato cliente | P0 | SUB-1A | repositório prevê somente leitura, observação confirmada, releitura e diagnóstico sanitizado; nenhuma mutação | interface pura criada, sem implementação | backend/persistência futuros | crítico | neutro |
 | SUB-007-1A | Manter fronteiras operacionais | P0 | SUB-1A | sem Billing, produto, backend, persistência, regras, paywall, grant owner ou bloqueio atual | confirmado por auditoria e hash das regras | autorização futura | crítico | nenhum serviço externo |
 
+## Incremento SUB-1B — Backend development do entitlement Premium
+
+| ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |
+|---|---|---:|---:|---|---|---|---|---|
+| SUB-001-1B | Validar compra autoritativamente | P0 | SUB-1B | gateway/DTO/mapper validam identidade, ambiente, allowlist, estado e período; desconhecido nega | implementado com fake local | SUB-1A | crítico | zero externo |
+| SUB-002-1B | Proteger token e identidade | P0 | SUB-1B | token não aparece em projeção/log/retorno; fingerprint é HMAC versionado; vínculo não cruza UID | implementado e coberto sinteticamente | cofre real futuro | crítico | zero externo |
+| SUB-003-1B | Reconciliar atomicamente | P0 | SUB-1B | repetição, concorrência, evento antigo e timeout pré/pós-commit não duplicam nem regridem | implementado em armazenamento local transacional | persistência real futura | crítico | zero externo |
+| SUB-004-1B | Modelar RTDN e acknowledgement | P0 | SUB-1B | RTDN reconsulta gateway; inbox/outbox são idempotentes e sanitizadas | contrato/processador local | infraestrutura futura | alto | zero externo |
+| SUB-005-1B | Restringir grants | P0 | SUB-1B | próprio UID, motivo, validade, ambiente, revisão, capabilities e revogação; dev nega production | implementado localmente | autorização backend futura | crítico | zero externo |
+| SUB-006-1B | Ler projeção confirmada | P0 | SUB-1B | mapper exato, `Source.server`, ausência explícita, watch sem cache/pending e diagnóstico sanitizado | implementado sem conexão à UI | Firestore SDK existente | alto | uma leitura futura |
+| SUB-007-1B | Proteger Firestore | P0 | SUB-1B | próprio `get`; list/write/cross UID/owner/subcoleção/internos negados | 57/57 no Emulator; regras publicadas somente em development, sem production; SHA-256 `F01E52545F2CE88896A48B28B957BF45F8AE79B0173DF2E20449929FF21532B4` | backend real e enforcement futuros | crítico | leituras de perfil |
+| SUB-008-1B | Preservar escopo e UX | P0 | SUB-1B | sem paywall/bloqueio/compra; investimentos atuais seguem acessíveis e nenhum dado é apagado | confirmado | SUB-1C futuro | alto | neutro |
+
 ## Incrementos futuros de dados, privacidade e armazenamento
 
 | ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |

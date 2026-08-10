@@ -83,11 +83,15 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - máquina canônica de dez estados, capabilities tipadas, decisão explícita integral/somente leitura/negada e validade baseada em instante confiável injetado;
 - política de transições por revisão para eventos duplicados ou fora de ordem e contrato cliente exclusivamente de leitura, observação, releitura e diagnóstico sanitizado;
 - preservação de carteiras, ativos, operações e proventos após perda do Premium, sem alterar preço médio, contas, saldo ou resumo mensal.
+- SUB-1B com backend ESM exclusivamente local e sem dependências externas, gateway fake, DTO estrito, token protegido, reconciliação idempotente, RTDN, acknowledgement e grants sintéticos;
+- mapper e repositório do entitlement somente leitura confirmada, além de Security Rules locais que negam toda escrita cliente e coleções internas Premium.
+- Security Rules SUB-1B compiladas e publicadas exclusivamente em development, sem acesso a production, com SHA-256 `F01E52545F2CE88896A48B28B957BF45F8AE79B0173DF2E20449929FF21532B4`; backend real, Google Play e enforcement Premium permanecem ausentes.
 
 ### Segurança
 
 - separação entre ambientes development e production;
 - SUB-1A mantém tokens de compra, recibos, payloads e credenciais fora do domínio; grants de development falham fora do ambiente correto e nenhum método cliente concede ou altera entitlement;
+- SUB-1B mantém tokens fora de projeções e diagnósticos, vincula compras a um UID/ambiente e nega acesso cliente às coleções operacionais;
 - configuração Firebase local excluída do versionamento;
 - bloqueio de inicialização Firebase production sem configuração própria;
 - bloqueio de release production enquanto documentos jurídicos oficiais estiverem pendentes.

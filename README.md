@@ -46,13 +46,13 @@ Concluído e validado localmente:
 - proventos manuais previstos, recebidos, cancelados ou anulados, com dividendos, JCP e rendimentos de FII separados do núcleo financeiro;
 - acesso owner seguro, confirmado pelo servidor, com Área do proprietário e revalidação;
 - capabilities preparadas para futuros recursos de assinatura, funcionalidades pagas e IA;
-- domínio puro SUB-1A para entitlement Premium, estados, capabilities, decisão explicável e preservação somente leitura, ainda sem cobrança ou bloqueio;
+- entitlement Premium com domínio puro, backend SUB-1B exclusivamente local e leitura confirmada; regras publicadas somente em development, ainda sem cobrança, compra, paywall ou bloqueio;
 - regras Firestore publicadas em development com isolamento por UID, campos fechados e negação por padrão;
 - testes unitários, de widgets, integração de fluxos e segurança estrutural.
 
 Limites atuais:
 
-- não existem ambiente de produção, assinatura real, cobrança, paywall, produto configurado, entitlement persistido, backend de verificação, Google Play Billing, Stripe ou Mercado Pago;
+- não existem ambiente de produção, assinatura real, cobrança, paywall, produto configurado, entitlement no Firebase real, backend implantado, Google Play Billing, Stripe ou Mercado Pago;
 - não existem consumo real de IA, transferências, cartões, faturas, recorrências ou parcelamentos;
 - investimentos não possuem cotação, integração com corretora, Open Finance, agenda automática de proventos, cálculo tributário ou recomendação;
 - notificações, relatórios completos, projeções e integração Open Finance ainda não foram implementados;
@@ -202,6 +202,7 @@ O papel `owner` recebe capabilities centralizadas para módulos implementados, r
 - [x] Acompanhamento manual de ações e FIIs
 - [x] Proventos manuais
 - [x] Domínio e contrato de entitlement Premium (sem cobrança ou paywall)
+- [x] Backend development local e leitura do entitlement; regras publicadas somente em development
 - [ ] Google Play Billing, backend e aplicação segura do Premium
 - [ ] Cotações atrasadas por provedor independente, condicionadas a licenciamento e SUB-1
 - [ ] Projeções
