@@ -263,7 +263,38 @@ Quantidade e topo só mudam junto de uma criação ou anulação válida em `inv
 
 Operações confirmadas não são editadas nem excluídas. A criação atualiza o ativo na mesma transação; venda acima da quantidade é negada. Somente o topo ativo pode ser anulado, restaurando atomicamente o elo e a quantidade anteriores. Operação anulada não volta ao estado ativo.
 
-Essas coleções são exclusivamente patrimoniais e não referenciam `accounts`, `transactions`, `payables` ou `receivables`. Elas não alteram saldo, receitas, despesas ou resumo mensal.
+### users/{userId}/investmentIncomeEvents/{eventId} — InvestmentIncomeEvent
+
+| Campo | Tipo | Obrigatório | Validação e uso |
+|---|---|---:|---|
+| ownerId | string | sim | UID do caminho e imutável |
+| portfolioId | string | sim | Carteira própria ativa na criação/edição/recebimento |
+| assetId | string | sim | Ativo próprio e compatível com a carteira |
+| incomeType | string | sim | `dividend`, `jcp` ou `fiiIncome`; ação aceita os dois primeiros, FII aceita o último |
+| status | string | sim | `expected`, `received`, `cancelled` ou `voided` |
+| inputMode | string | sim | `total` ou `perUnit` |
+| exDate | timestamp ou null | sim | Data-com civil opcional |
+| expectedPaymentDate | timestamp | sim | Data civil prevista, pode ser futura |
+| receivedDate | timestamp ou null | sim | Obrigatória em recebido/anulado e nunca futura |
+| eligibleQuantityScaled | int ou null | sim | Escala 8 somente no modo por unidade |
+| unitAmountScaled | int ou null | sim | Escala 6 somente no modo por unidade |
+| grossAmountCents | int | sim | Positivo; informado no total ou calculado half-up por unidade |
+| withholdingTaxCents | int | sim | Imposto retido conhecido, de zero até o bruto |
+| netAmountCents | int | sim | Exatamente bruto menos imposto retido |
+| notes | string | sim | Vazia ou até 240 caracteres normalizados |
+| originType | string | sim | `manual` nesta versão |
+| externalId | null | sim | Reservado; integração externa não implementada |
+| cancelledAt | timestamp ou null | sim | Servidor somente em cancelamento terminal |
+| voidedAt | timestamp ou null | sim | Servidor somente em anulação terminal |
+| mutationId | string | sim | ID/mutação idempotente; muda a cada transição |
+| createdAt | timestamp | sim | Servidor e imutável |
+| updatedAt | timestamp | sim | Servidor em toda mutação |
+| schemaVersion | int | sim | 1 e imutável |
+| revision | int | sim | 1 na criação e incremento unitário |
+
+Transições permitidas: `expected -> received`, `expected -> cancelled` e `received -> voided`. Somente uma previsão pode ser editada; recebidos preservam dados financeiros e estados terminais não restauram nem excluem. Nenhum índice composto foi criado porque as consultas implementadas leem somente a coleção do próprio UID e filtram localmente.
+
+Essas coleções são exclusivamente patrimoniais e não referenciam `accounts`, `transactions`, `payables` ou `receivables`. Elas não alteram saldo, receitas, despesas, posição do ativo ou resumo mensal.
 
 ## 4. Cartões, faturas, parcelas e dívidas
 

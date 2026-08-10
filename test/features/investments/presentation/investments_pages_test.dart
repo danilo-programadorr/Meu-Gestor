@@ -12,6 +12,7 @@ import 'package:meu_gestor_financeiro/features/authentication/data/auth_provider
 import 'package:meu_gestor_financeiro/features/authentication/domain/auth_user.dart';
 import 'package:meu_gestor_financeiro/features/investments/data/investment_providers.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_failure.dart';
+import 'package:meu_gestor_financeiro/features/investments/domain/investment_income_event.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_operation.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_portfolio.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/scaled_investment_value.dart';
@@ -20,6 +21,7 @@ import 'package:meu_gestor_financeiro/features/investments/presentation/controll
 import 'package:meu_gestor_financeiro/features/investments/presentation/controllers/investments_controller.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/pages/investment_asset_details_page.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/pages/investment_asset_form_page.dart';
+import 'package:meu_gestor_financeiro/features/investments/presentation/pages/investment_income_form_page.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/pages/investment_operation_form_page.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/pages/investment_portfolio_form_page.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/pages/investments_page.dart';
@@ -149,7 +151,7 @@ void main() {
     }
   });
 
-  testWidgets('exibe seletor e somente as três abas autorizadas', (
+  testWidgets('exibe seletor e as quatro abas autorizadas', (
     WidgetTester tester,
   ) async {
     final _WidgetContext context = await _context(withAsset: true);
@@ -163,7 +165,7 @@ void main() {
     expect(find.text('Resumo'), findsOneWidget);
     expect(find.text('Ativos'), findsOneWidget);
     expect(find.text('Lançamentos'), findsOneWidget);
-    expect(find.text('Proventos'), findsNothing);
+    expect(find.text('Proventos'), findsOneWidget);
     expect(find.text('Rentabilidade'), findsNothing);
     expect(find.textContaining('patrimônio atual'), findsNothing);
     expect(find.textContaining('valorização'), findsNothing);
@@ -268,8 +270,7 @@ void main() {
     addTearDown(context.dispose);
     await _pump(tester, context, const InvestmentsPage());
 
-    await tester.tap(find.text('Lançamentos'));
-    await tester.pumpAndSettle();
+    await _tapInvestmentTab(tester, 'Lançamentos');
     await tester.scrollUntilVisible(
       find.text('Compra · HGLG11'),
       200,
@@ -451,6 +452,177 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets(
+    'proventos apresenta dados reais, gráficos, filtros e transições seguras',
+    (WidgetTester tester) async {
+      final _WidgetContext context = await _context(withIncome: true);
+      addTearDown(context.dispose);
+      await _pump(tester, context, const InvestmentsPage());
+
+      await _tapInvestmentTab(tester, 'Proventos');
+      expect(find.text('Resumo do período'), findsOneWidget);
+      expect(find.text('Filtros'), findsOneWidget);
+      final Finder incomeScroll = find.descendant(
+        of: find.byKey(const ValueKey<String>('investment-income-scroll')),
+        matching: find.byType(Scrollable),
+      );
+      await tester.scrollUntilVisible(
+        find.text('Recebido versus previsto'),
+        220,
+        scrollable: incomeScroll,
+      );
+      expect(find.text('Recebido versus previsto'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('Distribuição por ativo'),
+        220,
+        scrollable: incomeScroll,
+      );
+      expect(find.text('Distribuição por ativo'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('Meus proventos'),
+        220,
+        scrollable: incomeScroll,
+      );
+      expect(find.text('Meus proventos'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('PETR4 · Juros sobre capital próprio'),
+        220,
+        scrollable: incomeScroll,
+      );
+      expect(find.text('PETR4 · Dividendo'), findsOneWidget);
+      expect(find.text('PETR4 · Juros sobre capital próprio'), findsOneWidget);
+      expect(find.byType(DataTable), findsNothing);
+
+      await tester.scrollUntilVisible(
+        find.widgetWithText(FilledButton, 'Receber'),
+        220,
+        scrollable: incomeScroll,
+      );
+      await tester.tap(find.widgetWithText(FilledButton, 'Receber'));
+      await tester.pumpAndSettle();
+      expect(find.text('Confirmar recebimento?'), findsOneWidget);
+      expect(
+        find.textContaining('Nenhuma conta ou saldo será alterado'),
+        findsOneWidget,
+      );
+      await tester.tap(find.widgetWithText(FilledButton, 'Confirmar'));
+      await tester.pumpAndSettle();
+      expect(
+        context.repository.incomeEvents
+            .where(
+              (InvestmentIncomeEvent event) =>
+                  event.status == InvestmentIncomeStatus.received,
+            )
+            .length,
+        2,
+      );
+      await tester.scrollUntilVisible(
+        find.text('Histórico'),
+        220,
+        scrollable: incomeScroll,
+      );
+      expect(find.text('Histórico'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'aba de proventos cabe em 320 px com fonte ampliada e privacidade',
+    (WidgetTester tester) async {
+      await tester.binding.setSurfaceSize(const Size(320, 700));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final _WidgetContext context = await _context(withIncome: true);
+      addTearDown(context.dispose);
+      await _pump(
+        tester,
+        context,
+        const InvestmentsPage(),
+        textScaler: const TextScaler.linear(1.8),
+      );
+
+      await _tapInvestmentTab(tester, 'Proventos');
+      await tester.tap(find.byTooltip('Ocultar valores e quantidades'));
+      await tester.pump();
+      expect(find.text('••••'), findsWidgets);
+      expect(
+        find.bySemanticsLabel('Resumo de proventos com valores ocultos.'),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('proventos preserva estado vazio e temas claro e escuro', (
+    WidgetTester tester,
+  ) async {
+    for (final ThemeData theme in <ThemeData>[AppTheme.light, AppTheme.dark]) {
+      final _WidgetContext context = await _context(withAsset: true);
+      await _pump(tester, context, const InvestmentsPage(), theme: theme);
+      await _tapInvestmentTab(tester, 'Proventos');
+      final Finder incomeScroll = find.descendant(
+        of: find.byKey(const ValueKey<String>('investment-income-scroll')),
+        matching: find.byType(Scrollable),
+      );
+      await tester.scrollUntilVisible(
+        find.text('Nenhum provento manual nesta carteira.'),
+        220,
+        scrollable: incomeScroll,
+      );
+      expect(
+        find.text('Nenhum provento manual nesta carteira.'),
+        findsOneWidget,
+      );
+      expect(find.text('Adicionar provento'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      context.dispose();
+    }
+  });
+
+  testWidgets(
+    'formulário calcula prévia real e permanece utilizável com teclado',
+    (WidgetTester tester) async {
+      await tester.binding.setSurfaceSize(const Size(320, 700));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      tester.view.viewInsets = const FakeViewPadding(bottom: 260);
+      addTearDown(() => tester.view.resetViewInsets());
+      final _WidgetContext context = await _context(withAsset: true);
+      addTearDown(context.dispose);
+      await _pump(
+        tester,
+        context,
+        const InvestmentIncomeFormPage(portfolioId: 'portfolio-1'),
+        textScaler: const TextScaler.linear(1.8),
+      );
+
+      final Finder formScroll = find
+          .descendant(
+            of: find.byKey(
+              const ValueKey<String>('investment-income-form-scroll'),
+            ),
+            matching: find.byType(Scrollable),
+          )
+          .first;
+      final Finder grossField = find.widgetWithText(
+        TextFormField,
+        'Valor bruto total',
+      );
+      await tester.scrollUntilVisible(grossField, 180, scrollable: formScroll);
+      await tester.enterText(grossField, '100,00');
+      await tester.scrollUntilVisible(
+        find.text('Valor líquido'),
+        220,
+        scrollable: formScroll,
+      );
+      expect(find.text('R\$ 100,00'), findsWidgets);
+      await tester.scrollUntilVisible(
+        find.widgetWithText(FilledButton, 'Criar previsão'),
+        220,
+        scrollable: formScroll,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
 
 final class _WidgetContext {
@@ -482,6 +654,7 @@ final class _WidgetContext {
 Future<_WidgetContext> _context({
   bool withAsset = false,
   bool withOperations = false,
+  bool withIncome = false,
   Completer<void>? readBarrier,
   bool waitForInvestments = true,
 }) async {
@@ -494,7 +667,7 @@ Future<_WidgetContext> _context({
   );
   final FakeInvestmentRepository repository = FakeInvestmentRepository();
   repository.readBarrier = readBarrier;
-  if (withAsset || withOperations) {
+  if (withAsset || withOperations || withIncome) {
     final DateTime now = DateTime.utc(2026, 8, 4, 12);
     repository.portfolios.add(
       InvestmentPortfolio(
@@ -572,6 +745,27 @@ Future<_WidgetContext> _context({
         ),
       ]);
     }
+    if (withIncome) {
+      repository.incomeEvents.addAll(<InvestmentIncomeEvent>[
+        _incomeEvent(
+          id: 'income-expected',
+          type: InvestmentIncomeType.dividend,
+          status: InvestmentIncomeStatus.expected,
+          expectedPaymentDate: DateTime.utc(2026, 8, 8, 3),
+          grossAmountCents: 10000,
+          withholdingTaxCents: 0,
+        ),
+        _incomeEvent(
+          id: 'income-received',
+          type: InvestmentIncomeType.jcp,
+          status: InvestmentIncomeStatus.received,
+          expectedPaymentDate: DateTime.utc(2026, 7, 20, 3),
+          receivedDate: DateTime.utc(2026, 7, 21, 3),
+          grossAmountCents: 20000,
+          withholdingTaxCents: 3000,
+        ),
+      ]);
+    }
   }
   final ProviderContainer container = ProviderContainer(
     overrides: [
@@ -615,6 +809,53 @@ Future<_WidgetContext> _context({
     investments: investments,
     action: action,
   );
+}
+
+InvestmentIncomeEvent _incomeEvent({
+  required String id,
+  required InvestmentIncomeType type,
+  required InvestmentIncomeStatus status,
+  required DateTime expectedPaymentDate,
+  DateTime? receivedDate,
+  required int grossAmountCents,
+  required int withholdingTaxCents,
+}) {
+  final DateTime createdAt = DateTime.utc(2026, 7, 1, 12);
+  return InvestmentIncomeEvent(
+    id: id,
+    ownerId: 'owner',
+    portfolioId: 'portfolio-1',
+    assetId: 'portfolio-1__PETR4',
+    type: type,
+    status: status,
+    inputMode: InvestmentIncomeInputMode.total,
+    exDate: null,
+    expectedPaymentDate: expectedPaymentDate,
+    receivedDate: receivedDate,
+    eligibleQuantityScaled: null,
+    unitAmountScaled: null,
+    grossAmountCents: grossAmountCents,
+    withholdingTaxCents: withholdingTaxCents,
+    netAmountCents: grossAmountCents - withholdingTaxCents,
+    notes: '',
+    originType: InvestmentIncomeOriginType.manual,
+    externalId: null,
+    cancelledAt: null,
+    voidedAt: null,
+    mutationId: 'mutation-$id',
+    createdAt: createdAt,
+    updatedAt: createdAt,
+    schemaVersion: 1,
+    revision: 1,
+  );
+}
+
+Future<void> _tapInvestmentTab(WidgetTester tester, String label) async {
+  final Finder tab = find.text(label);
+  await tester.ensureVisible(tab);
+  await tester.pumpAndSettle();
+  await tester.tap(tab);
+  await tester.pumpAndSettle();
 }
 
 InvestmentOperation _operation({

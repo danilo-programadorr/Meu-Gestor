@@ -10,6 +10,7 @@ abstract final class InvestmentScale {
   static const int maximumQuantityScaled = 999999999999999;
   static const int maximumUnitPriceScaled = 999999999999;
   static const int maximumFeesCents = 9999999999;
+  static const int maximumMoneyCents = maximumFeesCents;
   static const int minimumInt64 = -9223372036854775808;
   static const int maximumInt64 = 9223372036854775807;
 }

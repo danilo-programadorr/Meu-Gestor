@@ -7,6 +7,7 @@ import 'package:meu_gestor_financeiro/features/authentication/data/auth_provider
 import 'package:meu_gestor_financeiro/features/authentication/domain/auth_user.dart';
 import 'package:meu_gestor_financeiro/features/investments/data/investment_providers.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_failure.dart';
+import 'package:meu_gestor_financeiro/features/investments/domain/investment_income_event.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_operation.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_portfolio.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/tracked_investment_asset.dart';
@@ -323,7 +324,261 @@ void main() {
       );
     },
   );
+
+  test(
+    'cria, edita, recebe e anula provento com releitura do servidor',
+    () async {
+      final _Context context = await _context(withAsset: true);
+      addTearDown(context.dispose);
+      final InvestmentActionController controller = context.container.read(
+        investmentActionControllerProvider.notifier,
+      );
+      expect(await controller.createIncomeEvent(_incomeDraft()), isTrue);
+      InvestmentIncomeEvent event = context.container
+          .read(investmentsControllerProvider)
+          .requireValue
+          .incomeEvents
+          .single;
+      expect(event.status, InvestmentIncomeStatus.expected);
+      expect(
+        await controller.updateExpectedIncomeEvent(
+          event: event,
+          draft: _incomeDraft(grossCents: 2000),
+        ),
+        isTrue,
+      );
+      event = context.container
+          .read(investmentsControllerProvider)
+          .requireValue
+          .incomeEvents
+          .single;
+      expect(event.netAmountCents, 1850);
+      expect(
+        await controller.receiveIncomeEvent(
+          event: event,
+          receivedDate: DateTime.utc(2026, 8, 4, 3),
+        ),
+        isTrue,
+      );
+      event = context.container
+          .read(investmentsControllerProvider)
+          .requireValue
+          .incomeEvents
+          .single;
+      expect(event.status, InvestmentIncomeStatus.received);
+      expect(
+        await controller.updateExpectedIncomeEvent(
+          event: event,
+          draft: _incomeDraft(grossCents: 3000),
+        ),
+        isFalse,
+      );
+      expect(await controller.voidIncomeEvent(event), isTrue);
+      event = context.container
+          .read(investmentsControllerProvider)
+          .requireValue
+          .incomeEvents
+          .single;
+      expect(event.status, InvestmentIncomeStatus.voided);
+      expect(event.grossAmountCents, 2000);
+    },
+  );
+
+  test('cancela previsão sem apagar histórico', () async {
+    final _Context context = await _context(withAsset: true);
+    addTearDown(context.dispose);
+    final InvestmentActionController controller = context.container.read(
+      investmentActionControllerProvider.notifier,
+    );
+    expect(await controller.createIncomeEvent(_incomeDraft()), isTrue);
+    final InvestmentIncomeEvent event = context.container
+        .read(investmentsControllerProvider)
+        .requireValue
+        .incomeEvents
+        .single;
+    expect(await controller.cancelIncomeEvent(event), isTrue);
+    expect(
+      context.repository.incomeEvents.single.status,
+      InvestmentIncomeStatus.cancelled,
+    );
+    expect(context.repository.incomeEvents, hasLength(1));
+  });
+
+  test('retry de criação reutiliza ID sem duplicar provento', () async {
+    final _Context context = await _context(withAsset: true);
+    addTearDown(context.dispose);
+    final InvestmentActionController controller = context.container.read(
+      investmentActionControllerProvider.notifier,
+    );
+    context.repository.nextFailure = TimeoutException('teste');
+    expect(await controller.createIncomeEvent(_incomeDraft()), isFalse);
+    expect(await controller.createIncomeEvent(_incomeDraft()), isTrue);
+    expect(context.repository.createIncomeIds, hasLength(2));
+    expect(
+      context.repository.createIncomeIds.first,
+      context.repository.createIncomeIds.last,
+    );
+    expect(context.repository.incomeEvents, hasLength(1));
+  });
+
+  test('retry de confirmação reutiliza mutation ID', () async {
+    final _Context context = await _context(withAsset: true);
+    addTearDown(context.dispose);
+    final InvestmentActionController controller = context.container.read(
+      investmentActionControllerProvider.notifier,
+    );
+    expect(await controller.createIncomeEvent(_incomeDraft()), isTrue);
+    final InvestmentIncomeEvent event = context.repository.incomeEvents.single;
+    context.repository.nextFailure = TimeoutException('teste');
+    expect(
+      await controller.receiveIncomeEvent(
+        event: event,
+        receivedDate: DateTime.utc(2026, 8, 4, 3),
+      ),
+      isFalse,
+    );
+    expect(
+      await controller.receiveIncomeEvent(
+        event: event,
+        receivedDate: DateTime.utc(2026, 8, 4, 3),
+      ),
+      isTrue,
+    );
+    expect(context.repository.incomeMutationIds, hasLength(2));
+    expect(
+      context.repository.incomeMutationIds.first,
+      context.repository.incomeMutationIds.last,
+    );
+  });
+
+  test('timeout após criar reconcilia sem duplicar o provento', () async {
+    final _Context context = await _context(withAsset: true);
+    addTearDown(context.dispose);
+    final InvestmentActionController controller = context.container.read(
+      investmentActionControllerProvider.notifier,
+    );
+    context.repository.nextIncomeFailureAfterWrite = TimeoutException('teste');
+    expect(await controller.createIncomeEvent(_incomeDraft()), isFalse);
+    expect(context.repository.incomeEvents, hasLength(1));
+    expect(await controller.createIncomeEvent(_incomeDraft()), isTrue);
+    expect(context.repository.incomeEvents, hasLength(1));
+    expect(
+      context.repository.createIncomeIds.first,
+      context.repository.createIncomeIds.last,
+    );
+  });
+
+  test('timeout após receber reconcilia a mesma transição', () async {
+    final _Context context = await _context(withAsset: true);
+    addTearDown(context.dispose);
+    final InvestmentActionController controller = context.container.read(
+      investmentActionControllerProvider.notifier,
+    );
+    expect(await controller.createIncomeEvent(_incomeDraft()), isTrue);
+    final InvestmentIncomeEvent event = context.repository.incomeEvents.single;
+    context.repository.nextIncomeFailureAfterWrite = TimeoutException('teste');
+    expect(
+      await controller.receiveIncomeEvent(
+        event: event,
+        receivedDate: DateTime.utc(2026, 8, 4, 3),
+      ),
+      isFalse,
+    );
+    expect(
+      context.repository.incomeEvents.single.status,
+      InvestmentIncomeStatus.received,
+    );
+    expect(
+      await controller.receiveIncomeEvent(
+        event: event,
+        receivedDate: DateTime.utc(2026, 8, 4, 3),
+      ),
+      isTrue,
+    );
+    expect(
+      context.repository.incomeMutationIds.first,
+      context.repository.incomeMutationIds.last,
+    );
+  });
+
+  test('bloqueia múltiplos toques em ação de provento', () async {
+    final _Context context = await _context(withAsset: true);
+    addTearDown(context.dispose);
+    context.repository.incomeActionBarrier = Completer<void>();
+    final InvestmentActionController controller = context.container.read(
+      investmentActionControllerProvider.notifier,
+    );
+    final Future<bool> first = controller.createIncomeEvent(_incomeDraft());
+    await Future<void>.delayed(Duration.zero);
+    expect(await controller.createIncomeEvent(_incomeDraft()), isFalse);
+    context.repository.incomeActionBarrier!.complete();
+    expect(await first, isTrue);
+    expect(context.repository.createIncomeIds, hasLength(1));
+  });
+
+  test('conflito de revisão impede segunda transição', () async {
+    final _Context context = await _context(withAsset: true);
+    addTearDown(context.dispose);
+    final InvestmentActionController controller = context.container.read(
+      investmentActionControllerProvider.notifier,
+    );
+    expect(await controller.createIncomeEvent(_incomeDraft()), isTrue);
+    final InvestmentIncomeEvent stale = context.repository.incomeEvents.single;
+    expect(await controller.cancelIncomeEvent(stale), isTrue);
+    expect(await controller.cancelIncomeEvent(stale), isFalse);
+  });
+
+  test('descarta resposta tardia de provento após troca de sessão', () async {
+    final _Context context = await _context(withAsset: true);
+    addTearDown(context.dispose);
+    context.repository.incomeActionBarrier = Completer<void>();
+    final Future<bool> pending = context.container
+        .read(investmentActionControllerProvider.notifier)
+        .createIncomeEvent(_incomeDraft());
+    await Future<void>.delayed(Duration.zero);
+    context.auth.emit(null);
+    await Future<void>.delayed(Duration.zero);
+    context.repository.incomeActionBarrier!.complete();
+    expect(await pending, isFalse);
+  });
+
+  test(
+    'nega provento quando carteira está arquivada ou ativo é inválido',
+    () async {
+      final _Context context = await _context(withAsset: true);
+      addTearDown(context.dispose);
+      final InvestmentActionController controller = context.container.read(
+        investmentActionControllerProvider.notifier,
+      );
+      final InvestmentPortfolio portfolio =
+          context.repository.portfolios.single;
+      expect(
+        await controller.setPortfolioArchived(
+          portfolio: portfolio,
+          archived: true,
+        ),
+        isTrue,
+      );
+      expect(await controller.createIncomeEvent(_incomeDraft()), isFalse);
+      expect(context.repository.incomeEvents, isEmpty);
+    },
+  );
 }
+
+InvestmentIncomeDraft _incomeDraft({int grossCents = 1000}) =>
+    InvestmentIncomeDraft(
+      portfolioId: 'portfolio-1',
+      assetId: 'portfolio-1__PETR4',
+      type: InvestmentIncomeType.dividend,
+      inputMode: InvestmentIncomeInputMode.total,
+      exDate: null,
+      expectedPaymentDate: DateTime.utc(2026, 9, 1, 3),
+      eligibleQuantityScaled: null,
+      unitAmountScaled: null,
+      grossAmountCents: grossCents,
+      withholdingTaxCents: 150,
+      notes: '',
+    );
 
 final class _Context {
   const _Context({

@@ -15,6 +15,7 @@ import 'package:meu_gestor_financeiro/features/investments/domain/tracked_invest
 import 'package:meu_gestor_financeiro/features/investments/presentation/controllers/investment_action_controller.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/controllers/investments_controller.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/widgets/investment_analytics.dart';
+import 'package:meu_gestor_financeiro/features/investments/presentation/widgets/investment_income_tab.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/widgets/investment_view_support.dart';
 
 class InvestmentsPage extends ConsumerStatefulWidget {
@@ -41,7 +42,7 @@ class _InvestmentsPageState extends ConsumerState<InvestmentsPage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
   }
 
   @override
@@ -164,10 +165,13 @@ class _InvestmentsPageState extends ConsumerState<InvestmentsPage>
         ),
         TabBar(
           controller: _tabController,
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
           tabs: const <Widget>[
             Tab(text: 'Resumo', icon: Icon(Icons.space_dashboard_outlined)),
             Tab(text: 'Ativos', icon: Icon(Icons.candlestick_chart_outlined)),
             Tab(text: 'Lançamentos', icon: Icon(Icons.receipt_long_outlined)),
+            Tab(text: 'Proventos', icon: Icon(Icons.payments_outlined)),
           ],
         ),
         Expanded(
@@ -240,6 +244,15 @@ class _InvestmentsPageState extends ConsumerState<InvestmentsPage>
                     context.push(AppRoutes.investmentAssetDetails(assetId)),
                 onVoid: (InvestmentOperation operation) =>
                     _confirmVoid(operation),
+                onRefresh: () =>
+                    ref.read(investmentsControllerProvider.notifier).refresh(),
+              ),
+              InvestmentIncomeTab(
+                portfolio: selected,
+                assets: data.assetsForPortfolio(selected.id),
+                events: data.incomeEventsForPortfolio(selected.id),
+                valuesVisible: valuesVisible,
+                now: now,
                 onRefresh: () =>
                     ref.read(investmentsControllerProvider.notifier).refresh(),
               ),

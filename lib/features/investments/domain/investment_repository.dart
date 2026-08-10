@@ -1,3 +1,4 @@
+import 'package:meu_gestor_financeiro/features/investments/domain/investment_income_event.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_operation.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_portfolio.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/tracked_investment_asset.dart';
@@ -7,6 +8,7 @@ final class InvestmentWorkspaceReadResult {
     required this.portfolios,
     required this.assets,
     required this.operations,
+    this.incomeEvents = const <InvestmentIncomeEvent>[],
     required this.isFromServer,
     required this.hasPendingWrites,
   });
@@ -14,6 +16,7 @@ final class InvestmentWorkspaceReadResult {
   final List<InvestmentPortfolio> portfolios;
   final List<TrackedInvestmentAsset> assets;
   final List<InvestmentOperation> operations;
+  final List<InvestmentIncomeEvent> incomeEvents;
   final bool isFromServer;
   final bool hasPendingWrites;
 }
@@ -21,6 +24,7 @@ final class InvestmentWorkspaceReadResult {
 abstract interface class InvestmentRepository {
   String newPortfolioId({required String ownerId});
   String newOperationId({required String ownerId});
+  String newIncomeEventId({required String ownerId});
   String newMutationId({required String ownerId});
 
   Future<InvestmentWorkspaceReadResult> readWorkspace({
@@ -62,6 +66,42 @@ abstract interface class InvestmentRepository {
   Future<InvestmentOperation> voidOperation({
     required String ownerId,
     required String operationId,
+    required int expectedRevision,
+    required String mutationId,
+  });
+
+  Future<InvestmentIncomeEvent> createIncomeEvent({
+    required String ownerId,
+    required String eventId,
+    required InvestmentIncomeDraft draft,
+  });
+
+  Future<InvestmentIncomeEvent> updateExpectedIncomeEvent({
+    required String ownerId,
+    required String eventId,
+    required int expectedRevision,
+    required String mutationId,
+    required InvestmentIncomeDraft draft,
+  });
+
+  Future<InvestmentIncomeEvent> receiveIncomeEvent({
+    required String ownerId,
+    required String eventId,
+    required int expectedRevision,
+    required String mutationId,
+    required DateTime receivedDate,
+  });
+
+  Future<InvestmentIncomeEvent> cancelIncomeEvent({
+    required String ownerId,
+    required String eventId,
+    required int expectedRevision,
+    required String mutationId,
+  });
+
+  Future<InvestmentIncomeEvent> voidIncomeEvent({
+    required String ownerId,
+    required String eventId,
     required int expectedRevision,
     required String mutationId,
   });

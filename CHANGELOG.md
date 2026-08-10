@@ -75,6 +75,10 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - busca, filtros e ordenação locais de ativos, histórico móvel responsivo e gerenciamento de carteiras sem exclusão;
 - formulário de operação com prévia canônica de valor bruto, taxas, valor final, quantidade e possível novo preço médio antes da confirmação;
 - detalhes de posição reorganizados e aviso explícito de indisponibilidade de cotação, sem dados de mercado simulados ou dependência gráfica externa.
+- INV-PROV-1 com dividendos, JCP e rendimentos de FII informados manualmente, em estados previsto, recebido, cancelado e anulado;
+- valores total ou por unidade calculados em inteiros com `BigInt` e half-up, imposto retido informado e líquido derivado sem afetar contas ou saldo;
+- quarta aba Proventos com resumo, filtros, colunas dos últimos 12 meses, distribuição, cartões e histórico mensal/anual usando somente registros reais;
+- coleção `investmentIncomeEvents`, mapper estrito, repositório confirmado pelo servidor, idempotência, revisão e regras locais testadas no Emulator `demo-*`.
 
 ### Segurança
 
@@ -84,6 +88,7 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - bloqueio de release production enquanto documentos jurídicos oficiais estiverem pendentes.
 - investimentos isolados por UID verificado e perfil jurídico atual, sem exceção para owner;
 - compra/venda exige atualização atômica da projeção mínima do ativo; edição, restauração e exclusão de operações são negadas;
+- proventos confirmados preservam valores e datas; cancelamento/anulação são terminais, restauração/exclusão são negadas e owner não amplia acesso;
 - Emulator Suite usa somente projeto `demo-*`; em autorização posterior, as regras INV-1A foram publicadas exclusivamente em development e o APK debug foi aprovado manualmente.
 - validação do token `email_verified` antes do primeiro acesso ao Firestore;
 - confirmação de gravações do perfil por leitura do servidor;

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:meu_gestor_financeiro/features/investments/data/investment_providers.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_failure.dart';
+import 'package:meu_gestor_financeiro/features/investments/domain/investment_income_event.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_operation.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_portfolio.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_repository.dart';
@@ -52,6 +53,9 @@ final class InvestmentActionController extends Notifier<InvestmentActionState> {
   String? _pendingPortfolioId;
   String? _pendingOperationId;
   String? _pendingVoidMutationId;
+  String? _pendingIncomeEventId;
+  String? _pendingIncomeMutationId;
+  String? _pendingIncomeActionKey;
   bool _disposed = false;
 
   InvestmentRepository get _repository =>
@@ -65,6 +69,9 @@ final class InvestmentActionController extends Notifier<InvestmentActionState> {
       _pendingPortfolioId = null;
       _pendingOperationId = null;
       _pendingVoidMutationId = null;
+      _pendingIncomeEventId = null;
+      _pendingIncomeMutationId = null;
+      _pendingIncomeActionKey = null;
     });
     return const InvestmentActionState.idle();
   }
@@ -163,6 +170,140 @@ final class InvestmentActionController extends Notifier<InvestmentActionState> {
       onSuccess: () => _pendingVoidMutationId = null,
       onDefiniteFailure: () => _pendingVoidMutationId = null,
     );
+  }
+
+  Future<bool> createIncomeEvent(InvestmentIncomeDraft draft) async {
+    if (state.isLoading) {
+      return false;
+    }
+    final String ownerId = requireInvestmentOwner(ref);
+    _pendingIncomeEventId ??= _repository.newIncomeEventId(ownerId: ownerId);
+    return _run(
+      ownerId: ownerId,
+      successMessage: 'Provento previsto e confirmado pelo servidor.',
+      operation: () => _repository.createIncomeEvent(
+        ownerId: ownerId,
+        eventId: _pendingIncomeEventId!,
+        draft: draft,
+      ),
+      onSuccess: () => _pendingIncomeEventId = null,
+      onDefiniteFailure: () => _pendingIncomeEventId = null,
+    );
+  }
+
+  Future<bool> updateExpectedIncomeEvent({
+    required InvestmentIncomeEvent event,
+    required InvestmentIncomeDraft draft,
+  }) async {
+    final String ownerId = requireInvestmentOwner(ref);
+    final String mutationId = _incomeMutationId(
+      ownerId: ownerId,
+      actionKey: 'edit:${event.id}:${event.revision}',
+    );
+    return _run(
+      ownerId: ownerId,
+      successMessage: 'Previsão atualizada e confirmada pelo servidor.',
+      operation: () => _repository.updateExpectedIncomeEvent(
+        ownerId: ownerId,
+        eventId: event.id,
+        expectedRevision: event.revision,
+        mutationId: mutationId,
+        draft: draft,
+      ),
+      onSuccess: _clearIncomeMutation,
+      onDefiniteFailure: _clearIncomeMutation,
+    );
+  }
+
+  Future<bool> receiveIncomeEvent({
+    required InvestmentIncomeEvent event,
+    required DateTime receivedDate,
+  }) async {
+    final String ownerId = requireInvestmentOwner(ref);
+    final String mutationId = _incomeMutationId(
+      ownerId: ownerId,
+      actionKey: 'receive:${event.id}:${event.revision}',
+    );
+    return _run(
+      ownerId: ownerId,
+      successMessage: 'Recebimento confirmado. Nenhum saldo foi alterado.',
+      operation: () => _repository.receiveIncomeEvent(
+        ownerId: ownerId,
+        eventId: event.id,
+        expectedRevision: event.revision,
+        mutationId: mutationId,
+        receivedDate: receivedDate,
+      ),
+      onSuccess: _clearIncomeMutation,
+      onDefiniteFailure: _clearIncomeMutation,
+    );
+  }
+
+  Future<bool> cancelIncomeEvent(InvestmentIncomeEvent event) =>
+      _runIncomeTerminal(
+        event: event,
+        action: 'cancel',
+        successMessage: 'Previsão cancelada. O histórico foi preservado.',
+        operation: (String ownerId, String mutationId) =>
+            _repository.cancelIncomeEvent(
+              ownerId: ownerId,
+              eventId: event.id,
+              expectedRevision: event.revision,
+              mutationId: mutationId,
+            ),
+      );
+
+  Future<bool> voidIncomeEvent(
+    InvestmentIncomeEvent event,
+  ) => _runIncomeTerminal(
+    event: event,
+    action: 'void',
+    successMessage:
+        'Recebimento anulado. O histórico foi preservado e nenhum saldo foi alterado.',
+    operation: (String ownerId, String mutationId) =>
+        _repository.voidIncomeEvent(
+          ownerId: ownerId,
+          eventId: event.id,
+          expectedRevision: event.revision,
+          mutationId: mutationId,
+        ),
+  );
+
+  Future<bool> _runIncomeTerminal({
+    required InvestmentIncomeEvent event,
+    required String action,
+    required String successMessage,
+    required Future<Object> Function(String ownerId, String mutationId)
+    operation,
+  }) {
+    final String ownerId = requireInvestmentOwner(ref);
+    final String mutationId = _incomeMutationId(
+      ownerId: ownerId,
+      actionKey: '$action:${event.id}:${event.revision}',
+    );
+    return _run(
+      ownerId: ownerId,
+      successMessage: successMessage,
+      operation: () => operation(ownerId, mutationId),
+      onSuccess: _clearIncomeMutation,
+      onDefiniteFailure: _clearIncomeMutation,
+    );
+  }
+
+  String _incomeMutationId({
+    required String ownerId,
+    required String actionKey,
+  }) {
+    if (_pendingIncomeActionKey != actionKey) {
+      _pendingIncomeActionKey = actionKey;
+      _pendingIncomeMutationId = _repository.newMutationId(ownerId: ownerId);
+    }
+    return _pendingIncomeMutationId!;
+  }
+
+  void _clearIncomeMutation() {
+    _pendingIncomeActionKey = null;
+    _pendingIncomeMutationId = null;
   }
 
   Future<bool> _runForCurrentOwner({

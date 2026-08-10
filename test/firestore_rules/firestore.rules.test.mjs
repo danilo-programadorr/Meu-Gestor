@@ -242,6 +242,36 @@ function investmentOperation(uid, overrides = {}) {
   };
 }
 
+function investmentIncome(uid, overrides = {}) {
+  return {
+    ownerId: uid,
+    portfolioId: 'portfolio-1',
+    assetId: 'portfolio-1__PETR4',
+    incomeType: 'dividend',
+    status: 'expected',
+    inputMode: 'total',
+    exDate: null,
+    expectedPaymentDate: dueAt,
+    receivedDate: null,
+    eligibleQuantityScaled: null,
+    unitAmountScaled: null,
+    grossAmountCents: 10000,
+    withholdingTaxCents: 1500,
+    netAmountCents: 8500,
+    notes: '',
+    originType: 'manual',
+    externalId: null,
+    cancelledAt: null,
+    voidedAt: null,
+    mutationId: 'income-1',
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    schemaVersion: 1,
+    revision: 1,
+    ...overrides,
+  };
+}
+
 function investmentPortfolioRef(db, id = 'portfolio-1', uid = ownerId) {
   return doc(db, `users/${uid}/investmentPortfolios/${id}`);
 }
@@ -252,6 +282,10 @@ function investmentAssetRef(db, id = 'portfolio-1__PETR4', uid = ownerId) {
 
 function investmentOperationRef(db, id = 'operation-1', uid = ownerId) {
   return doc(db, `users/${uid}/investmentOperations/${id}`);
+}
+
+function investmentIncomeRef(db, id = 'income-1', uid = ownerId) {
+  return doc(db, `users/${uid}/investmentIncomeEvents/${id}`);
 }
 
 async function seedInvestments({ assetOverrides = {}, operation = null } = {}) {
@@ -265,6 +299,70 @@ async function seedInvestments({ assetOverrides = {}, operation = null } = {}) {
         investmentOperation(ownerId, operation.data),
       );
     }
+  });
+}
+
+async function seedInvestmentIncome({
+  id = 'income-1',
+  incomeOverrides = {},
+  assetOverrides = {},
+} = {}) {
+  await seedInvestments({ assetOverrides });
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(
+      investmentIncomeRef(context.firestore(), id),
+      investmentIncome(ownerId, {
+        mutationId: id,
+        createdAt: past,
+        updatedAt: past,
+        ...incomeOverrides,
+      }),
+    );
+  });
+}
+
+function receiveInvestmentIncome(db, {
+  id = 'income-1',
+  mutationId = 'receive-income-1',
+  overrides = {},
+} = {}) {
+  return updateDoc(investmentIncomeRef(db, id), {
+    status: 'received',
+    receivedDate: movementAt,
+    mutationId,
+    updatedAt: serverTimestamp(),
+    revision: 2,
+    ...overrides,
+  });
+}
+
+function cancelInvestmentIncome(db, {
+  id = 'income-1',
+  mutationId = 'cancel-income-1',
+  overrides = {},
+} = {}) {
+  return updateDoc(investmentIncomeRef(db, id), {
+    status: 'cancelled',
+    cancelledAt: serverTimestamp(),
+    mutationId,
+    updatedAt: serverTimestamp(),
+    revision: 2,
+    ...overrides,
+  });
+}
+
+function voidInvestmentIncome(db, {
+  id = 'income-1',
+  mutationId = 'void-income-1',
+  overrides = {},
+} = {}) {
+  return updateDoc(investmentIncomeRef(db, id), {
+    status: 'voided',
+    voidedAt: serverTimestamp(),
+    mutationId,
+    updatedAt: serverTimestamp(),
+    revision: 3,
+    ...overrides,
   });
 }
 
@@ -1124,5 +1222,212 @@ describe('INV-1A operações atômicas e projeção protegida', () => {
       updatedAt: serverTimestamp(),
       revision: 3,
     }));
+  });
+});
+
+describe('INV-PROV-1 proventos manuais protegidos', () => {
+  test('cria provento total e por unidade com referências ativas', async () => {
+    await seedInvestments();
+    const db = verifiedDb();
+    await assertSucceeds(setDoc(
+      investmentIncomeRef(db),
+      investmentIncome(ownerId),
+    ));
+    await assertSucceeds(setDoc(
+      investmentIncomeRef(db, 'income-unit'),
+      investmentIncome(ownerId, {
+        inputMode: 'perUnit',
+        eligibleQuantityScaled: 1000000000,
+        unitAmountScaled: 1250000,
+        grossAmountCents: 1250,
+        withholdingTaxCents: 0,
+        netAmountCents: 1250,
+        mutationId: 'income-unit',
+      }),
+    ));
+  });
+
+  test('isola UID e nega anônimo, e-mail não confirmado e owner cruzado', async () => {
+    await seedInvestmentIncome();
+    await assertSucceeds(getDoc(investmentIncomeRef(verifiedDb())));
+    await assertFails(getDoc(investmentIncomeRef(verifiedDb(otherId))));
+    await assertFails(getDoc(investmentIncomeRef(unverifiedDb())));
+    await assertFails(getDoc(investmentIncomeRef(
+      testEnv.unauthenticatedContext().firestore(),
+    )));
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), `system_admins/${otherId}`), {
+        role: 'owner',
+        active: true,
+        environment: 'development',
+        schemaVersion: 1,
+        grantedAt: past,
+      });
+    });
+    await assertFails(getDoc(investmentIncomeRef(verifiedDb(otherId))));
+  });
+
+  test('nega perfil jurídico inválido, campos extras, ausentes e owner divergente', async () => {
+    await seedInvestments();
+    const db = verifiedDb();
+    await assertFails(setDoc(
+      investmentIncomeRef(db),
+      investmentIncome(ownerId, { unexpected: true }),
+    ));
+    const missing = investmentIncome(ownerId);
+    delete missing.netAmountCents;
+    await assertFails(setDoc(investmentIncomeRef(db, 'income-missing'), missing));
+    await assertFails(setDoc(
+      investmentIncomeRef(db, 'income-owner'),
+      investmentIncome(otherId, { mutationId: 'income-owner' }),
+    ));
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await updateDoc(doc(context.firestore(), `users/${ownerId}`), {
+        termsVersionAccepted: 'terms-obsoleto',
+      });
+    });
+    await assertFails(setDoc(
+      investmentIncomeRef(db, 'income-legal'),
+      investmentIncome(ownerId, { mutationId: 'income-legal' }),
+    ));
+  });
+
+  test('nega referências inexistentes, carteira arquivada e tipo incompatível', async () => {
+    const db = verifiedDb();
+    await assertFails(setDoc(
+      investmentIncomeRef(db),
+      investmentIncome(ownerId),
+    ));
+    await seedInvestments({ assetOverrides: { assetType: 'stock' } });
+    await assertFails(setDoc(
+      investmentIncomeRef(db),
+      investmentIncome(ownerId, { incomeType: 'fiiIncome' }),
+    ));
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await updateDoc(investmentPortfolioRef(context.firestore()), {
+        isArchived: true,
+        archivedAt: past,
+      });
+    });
+    await assertFails(setDoc(
+      investmentIncomeRef(db, 'income-archived'),
+      investmentIncome(ownerId, { mutationId: 'income-archived' }),
+    ));
+  });
+
+  test('edita somente previsão, com revisão e campos financeiros coerentes', async () => {
+    await seedInvestmentIncome();
+    const db = verifiedDb();
+    await assertSucceeds(updateDoc(investmentIncomeRef(db), {
+      grossAmountCents: 20000,
+      withholdingTaxCents: 3000,
+      netAmountCents: 17000,
+      notes: 'Revisado manualmente',
+      mutationId: 'edit-income-1',
+      updatedAt: serverTimestamp(),
+      revision: 2,
+    }));
+    await assertFails(updateDoc(investmentIncomeRef(db), {
+      grossAmountCents: 21000,
+      netAmountCents: 18000,
+      mutationId: 'edit-bad-revision',
+      updatedAt: serverTimestamp(),
+      revision: 9,
+    }));
+    await assertFails(updateDoc(investmentIncomeRef(db), {
+      portfolioId: 'forged',
+      mutationId: 'edit-immutable',
+      updatedAt: serverTimestamp(),
+      revision: 3,
+    }));
+  });
+
+  test('confirma recebimento válido e nega data futura ou mutação incompleta', async () => {
+    await seedInvestmentIncome();
+    const db = verifiedDb();
+    await assertFails(receiveInvestmentIncome(db, {
+      overrides: {
+        receivedDate: Timestamp.fromDate(new Date('2099-01-01T03:00:00Z')),
+      },
+    }));
+    await assertFails(updateDoc(investmentIncomeRef(db), {
+      status: 'received',
+      receivedDate: movementAt,
+      updatedAt: serverTimestamp(),
+      revision: 2,
+    }));
+    await assertSucceeds(receiveInvestmentIncome(db));
+    const data = (await getDoc(investmentIncomeRef(db))).data();
+    assert.equal(data.status, 'received');
+    assert.equal(data.netAmountCents, 8500);
+  });
+
+  test('cancelamento preserva histórico e impede restauração', async () => {
+    await seedInvestmentIncome();
+    const db = verifiedDb();
+    await assertSucceeds(cancelInvestmentIncome(db));
+    await assertFails(updateDoc(investmentIncomeRef(db), {
+      status: 'expected',
+      cancelledAt: null,
+      mutationId: 'restore-cancelled',
+      updatedAt: serverTimestamp(),
+      revision: 3,
+    }));
+    await assertFails(deleteDoc(investmentIncomeRef(db)));
+  });
+
+  test('anulação preserva recebimento e impede edição, restauração e exclusão', async () => {
+    await seedInvestmentIncome();
+    const db = verifiedDb();
+    await assertSucceeds(receiveInvestmentIncome(db));
+    await assertFails(updateDoc(investmentIncomeRef(db), {
+      grossAmountCents: 9999,
+      netAmountCents: 8499,
+      mutationId: 'edit-received',
+      updatedAt: serverTimestamp(),
+      revision: 3,
+    }));
+    await assertSucceeds(voidInvestmentIncome(db));
+    const data = (await getDoc(investmentIncomeRef(db))).data();
+    assert.equal(data.status, 'voided');
+    assert.ok(data.receivedDate.isEqual(movementAt));
+    assert.equal(data.grossAmountCents, 10000);
+    await assertFails(updateDoc(investmentIncomeRef(db), {
+      status: 'received',
+      voidedAt: null,
+      mutationId: 'restore-voided',
+      updatedAt: serverTimestamp(),
+      revision: 4,
+    }));
+    await assertFails(deleteDoc(investmentIncomeRef(db)));
+  });
+
+  test('concorrência e repetição permitem somente uma transição', async () => {
+    await seedInvestmentIncome();
+    const db = verifiedDb();
+    const outcomes = await Promise.allSettled([
+      receiveInvestmentIncome(db, { mutationId: 'receive-a' }),
+      cancelInvestmentIncome(db, { mutationId: 'cancel-b' }),
+    ]);
+    assert.equal(outcomes.filter((value) => value.status === 'fulfilled').length, 1);
+    const current = (await getDoc(investmentIncomeRef(db))).data();
+    if (current.status === 'received') {
+      await assertFails(receiveInvestmentIncome(db, { mutationId: 'repeat' }));
+    } else {
+      await assertFails(cancelInvestmentIncome(db, { mutationId: 'repeat' }));
+    }
+  });
+
+  test('não altera contas, lançamentos nem projeção de posição', async () => {
+    await seedInvestmentIncome();
+    const db = verifiedDb();
+    const accountBefore = (await getDoc(doc(db, `users/${ownerId}/accounts/account-1`))).data();
+    const assetBefore = (await getDoc(investmentAssetRef(db))).data();
+    await assertSucceeds(receiveInvestmentIncome(db));
+    const accountAfter = (await getDoc(doc(db, `users/${ownerId}/accounts/account-1`))).data();
+    const assetAfter = (await getDoc(investmentAssetRef(db))).data();
+    assert.deepEqual(accountAfter, accountBefore);
+    assert.deepEqual(assetAfter, assetBefore);
+    assert.equal((await getDoc(transactionRef(db, 'income-1'))).exists(), false);
   });
 });

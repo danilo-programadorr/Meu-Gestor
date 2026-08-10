@@ -25,6 +25,7 @@ import 'package:meu_gestor_financeiro/features/home/presentation/home_page.dart'
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_operation.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/pages/investment_asset_details_page.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/pages/investment_asset_form_page.dart';
+import 'package:meu_gestor_financeiro/features/investments/presentation/pages/investment_income_form_page.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/pages/investment_operation_form_page.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/pages/investment_portfolio_form_page.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/pages/investments_page.dart';
@@ -340,6 +341,17 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((Ref ref) {
         builder: (context, state) => InvestmentAssetDetailsPage(
           assetId: state.pathParameters['assetId'] ?? '',
         ),
+      ),
+      GoRoute(
+        path: '/investimentos/provento/novo',
+        builder: (context, state) => InvestmentIncomeFormPage(
+          portfolioId: state.uri.queryParameters['portfolioId'] ?? '',
+        ),
+      ),
+      GoRoute(
+        path: '/investimentos/provento/:eventId/editar',
+        builder: (context, state) =>
+            InvestmentIncomeFormPage(eventId: state.pathParameters['eventId']),
       ),
       GoRoute(
         path: AppRoutes.profileSetup,

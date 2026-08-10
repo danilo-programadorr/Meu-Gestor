@@ -4,7 +4,7 @@
 
 O módulo acompanha ações e fundos imobiliários em BRL a partir de operações inseridas manualmente. Ele não movimenta dinheiro no núcleo financeiro: contas, saldo, receitas, despesas, compromissos, saldo inicial e resumo mensal permanecem inalterados.
 
-Não há cotações, APIs externas, corretoras, Open Finance, dividendos, impostos, desdobramentos, bonificações, subscrições, transferências de custódia ou dados simulados.
+Não há cotações, APIs externas, corretoras, Open Finance, agenda automática, cálculo tributário, desdobramentos, bonificações, subscrições, transferências de custódia ou dados simulados. O INV-PROV-1 aceita somente proventos informados manualmente e imposto retido conhecido pelo usuário.
 
 ## Camadas
 
@@ -50,9 +50,21 @@ Investimentos são acessados pelo grupo Patrimônio no Menu da Home e não ocupa
 
 Valores e quantidades seguem a privacidade global compartilhada com a Home. Layouts cobrem temas claro/escuro, 320 px, fonte ampliada, rolagem, alvos de toque, tooltips e texto equivalente a indicadores visuais.
 
-O redesign UI-INV-1B permanece integralmente na apresentação. A área usa seletor de carteira e abas Resumo, Ativos e Lançamentos. Evolução de compras/vendas é agregada das operações ativas; alocação usa o custo canônico das posições abertas. Busca, filtros e ordenação não gravam estado remoto.
+O redesign UI-INV-1B permanece integralmente na apresentação. A área usa seletor de carteira e abas Resumo, Ativos, Lançamentos e Proventos. Evolução de compras/vendas é agregada das operações ativas; alocação usa o custo canônico das posições abertas. Busca, filtros e ordenação não gravam estado remoto.
 
 A prévia do formulário não cria uma segunda regra financeira: quantidade e preço continuam escalados, valor bruto e possível média usam `InvestmentArithmetic`, e a confirmação persiste o mesmo `InvestmentOperationDraft` validado pelo fluxo original. Métricas sem fonte real — cotação, patrimônio de mercado, valorização e rentabilidade não realizada — não possuem campos substitutos.
+
+## INV-PROV-1 — proventos manuais
+
+Cada registro vive em `users/{uid}/investmentIncomeEvents/{eventId}` e referencia carteira e ativo próprios. Ações aceitam dividendo ou JCP; FIIs aceitam rendimento de FII. O evento começa `expected` e pode ir para `received` ou `cancelled`; um recebido pode ir somente para `voided`. Estados terminais não são restaurados e nenhum documento é excluído.
+
+O modo `total` recebe bruto e imposto em centavos. O modo `perUnit` recebe quantidade em escala 8 e valor por unidade em escala 6; o bruto é `roundHalfUp(quantidade × valorUnitário / 10^12)`. O líquido é sempre bruto menos imposto. O domínio usa `BigInt` para intermediários e a data civil segue `America/Sao_Paulo`; somente a data efetiva de recebimento não pode ser futura.
+
+Criação, edição de previsão, recebimento, cancelamento e anulação usam revisão, `mutationId`, timestamps do servidor, leitura server-only e reconciliação após resultado incerto. Controllers bloqueiam múltiplos toques e preservam os IDs da tentativa em timeout, indisponibilidade ou aborto. Valores, datas e referências financeiras ficam imutáveis depois do recebimento.
+
+A aba Proventos usa somente os documentos confirmados: resumo líquido, filtros de período/ativo/tipo/status, colunas de recebido versus previsto nos últimos 12 meses, distribuição dos recebidos por ativo, cartões e histórico mensal/anual. Valores obedecem à privacidade global; em 320 px ou fonte ampliada, cabeçalho, filtros e controles se empilham.
+
+Proventos são acompanhamento patrimonial. Não existe referência a conta, categoria financeira ou `transaction`; criar, receber, cancelar ou anular não muda saldo, receitas, despesas, compromissos, posição do ativo ou resumo mensal.
 
 ## Limitação segura
 

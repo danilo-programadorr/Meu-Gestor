@@ -43,6 +43,7 @@ Concluído e validado localmente:
 - contas a pagar e receber com atraso derivado, liquidação/anulação atômicas e vínculo bidirecional ao lançamento;
 - dashboard analítico responsivo com filtros locais, indicadores reais, gráficos acessíveis e menu agrupado;
 - acompanhamento manual local de ações e fundos imobiliários por carteiras, compras e vendas, sem alterar o saldo;
+- proventos manuais previstos, recebidos, cancelados ou anulados, com dividendos, JCP e rendimentos de FII separados do núcleo financeiro;
 - acesso owner seguro, confirmado pelo servidor, com Área do proprietário e revalidação;
 - capabilities preparadas para futuros recursos de assinatura, funcionalidades pagas e IA;
 - regras Firestore publicadas em development com isolamento por UID, campos fechados e negação por padrão;
@@ -52,7 +53,7 @@ Limites atuais:
 
 - não existem ambiente de produção, assinatura real, cobrança, Google Play Billing, Stripe ou Mercado Pago;
 - não existem consumo real de IA, transferências, cartões, faturas, recorrências ou parcelamentos;
-- investimentos não possuem cotação, integração com corretora, Open Finance, dividendos, impostos ou recomendação automática;
+- investimentos não possuem cotação, integração com corretora, Open Finance, agenda automática de proventos, cálculo tributário ou recomendação;
 - notificações, relatórios completos, projeções e integração Open Finance ainda não foram implementados;
 - os documentos jurídicos presentes são provisórios e exclusivos de desenvolvimento;
 - não existe versão de produção publicada.

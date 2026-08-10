@@ -6,6 +6,7 @@ import 'package:meu_gestor_financeiro/core/environment/app_environment.dart';
 import 'package:meu_gestor_financeiro/features/investments/data/firebase_investment_repository.dart';
 import 'package:meu_gestor_financeiro/features/investments/data/investment_diagnostics.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_failure.dart';
+import 'package:meu_gestor_financeiro/features/investments/domain/investment_income_event.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_repository.dart';
 
 void main() {
@@ -96,6 +97,41 @@ void main() {
         throwsA(isA<InvestmentFailure>()),
       );
     });
+
+    test('decodifica proventos em coleção própria sem afetar operações', () {
+      final Timestamp createdAt = Timestamp.fromDate(
+        DateTime.utc(2026, 7, 1, 12),
+      );
+      final Timestamp expectedAt = Timestamp.fromDate(
+        DateTime.utc(2026, 8, 10, 3),
+      );
+      final InvestmentWorkspaceReadResult result =
+          FirebaseInvestmentRepository.decodeWorkspace(
+            ownerId: 'owner',
+            portfolioDocuments: const <InvestmentDocumentData>[],
+            assetDocuments: const <InvestmentDocumentData>[],
+            operationDocuments: const <InvestmentDocumentData>[],
+            incomeDocuments: <InvestmentDocumentData>[
+              InvestmentDocumentData(
+                id: 'income-1',
+                data: _income(createdAt, expectedAt),
+              ),
+            ],
+            isFromCache: false,
+            hasPendingWrites: false,
+            now: DateTime.utc(2026, 8, 10, 12),
+          );
+
+      expect(result.operations, isEmpty);
+      expect(result.incomeEvents, hasLength(1));
+      expect(result.incomeEvents.single.id, 'income-1');
+      expect(
+        result.incomeEvents.single.status,
+        InvestmentIncomeStatus.expected,
+      );
+      expect(result.incomeEvents.single.netAmountCents, 8500);
+      expect(result.isFromServer, isTrue);
+    });
   });
 
   test('diagnóstico não registra mensagem, e-mail ou valor da exceção', () {
@@ -126,6 +162,34 @@ Map<String, dynamic> _portfolio(Timestamp time, {String name = 'Carteira'}) =>
       'archivedAt': null,
       'createdAt': time,
       'updatedAt': time,
+      'schemaVersion': 1,
+      'revision': 1,
+    };
+
+Map<String, dynamic> _income(Timestamp createdAt, Timestamp expectedAt) =>
+    <String, dynamic>{
+      'ownerId': 'owner',
+      'portfolioId': 'portfolio-1',
+      'assetId': 'portfolio-1__PETR4',
+      'incomeType': 'dividend',
+      'status': 'expected',
+      'inputMode': 'total',
+      'exDate': null,
+      'expectedPaymentDate': expectedAt,
+      'receivedDate': null,
+      'eligibleQuantityScaled': null,
+      'unitAmountScaled': null,
+      'grossAmountCents': 10000,
+      'withholdingTaxCents': 1500,
+      'netAmountCents': 8500,
+      'notes': '',
+      'originType': 'manual',
+      'externalId': null,
+      'cancelledAt': null,
+      'voidedAt': null,
+      'mutationId': 'mutation-income-1',
+      'createdAt': createdAt,
+      'updatedAt': createdAt,
       'schemaVersion': 1,
       'revision': 1,
     };

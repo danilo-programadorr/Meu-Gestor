@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:meu_gestor_financeiro/features/investments/domain/investment_failure.dart';
+import 'package:meu_gestor_financeiro/features/investments/domain/investment_income_event.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_operation.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_portfolio.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_repository.dart';
@@ -9,17 +11,22 @@ final class FakeInvestmentRepository implements InvestmentRepository {
   final List<InvestmentPortfolio> portfolios = <InvestmentPortfolio>[];
   final List<TrackedInvestmentAsset> assets = <TrackedInvestmentAsset>[];
   final List<InvestmentOperation> operations = <InvestmentOperation>[];
+  final List<InvestmentIncomeEvent> incomeEvents = <InvestmentIncomeEvent>[];
 
   bool serverConfirmed = true;
   Object? nextFailure;
+  Object? nextIncomeFailureAfterWrite;
   Object? nextReadFailure;
   Completer<void>? readBarrier;
   Completer<void>? createPortfolioBarrier;
+  Completer<void>? incomeActionBarrier;
   int createPortfolioCalls = 0;
   int readCalls = 0;
   final List<String> createPortfolioIds = <String>[];
   final List<String> createOperationIds = <String>[];
   final List<String> voidMutationIds = <String>[];
+  final List<String> createIncomeIds = <String>[];
+  final List<String> incomeMutationIds = <String>[];
   int _id = 0;
 
   @override
@@ -27,6 +34,9 @@ final class FakeInvestmentRepository implements InvestmentRepository {
 
   @override
   String newOperationId({required String ownerId}) => 'operation-${++_id}';
+
+  @override
+  String newIncomeEventId({required String ownerId}) => 'income-${++_id}';
 
   @override
   String newMutationId({required String ownerId}) => 'mutation-${++_id}';
@@ -51,6 +61,7 @@ final class FakeInvestmentRepository implements InvestmentRepository {
       portfolios: List<InvestmentPortfolio>.unmodifiable(portfolios),
       assets: List<TrackedInvestmentAsset>.unmodifiable(assets),
       operations: List<InvestmentOperation>.unmodifiable(operations),
+      incomeEvents: List<InvestmentIncomeEvent>.unmodifiable(incomeEvents),
       isFromServer: serverConfirmed,
       hasPendingWrites: !serverConfirmed,
     );
@@ -272,10 +283,226 @@ final class FakeInvestmentRepository implements InvestmentRepository {
     return value;
   }
 
+  @override
+  Future<InvestmentIncomeEvent> createIncomeEvent({
+    required String ownerId,
+    required String eventId,
+    required InvestmentIncomeDraft draft,
+  }) async {
+    createIncomeIds.add(eventId);
+    await _awaitIncomeBarrier();
+    _throwIfNeeded();
+    final TrackedInvestmentAsset asset = _incomeAsset(
+      draft.portfolioId,
+      draft.assetId,
+    );
+    final InvestmentIncomeDraft normalized = draft.normalized(
+      assetType: asset.type,
+    );
+    final InvestmentIncomeEvent? existing = incomeEvents
+        .where((InvestmentIncomeEvent value) => value.id == eventId)
+        .firstOrNull;
+    if (existing != null) {
+      return existing;
+    }
+    final DateTime now = DateTime.utc(2026, 8, 4, 12);
+    final InvestmentIncomeEvent value = InvestmentIncomeEvent(
+      id: eventId,
+      ownerId: ownerId,
+      portfolioId: normalized.portfolioId,
+      assetId: normalized.assetId,
+      type: normalized.type,
+      status: InvestmentIncomeStatus.expected,
+      inputMode: normalized.inputMode,
+      exDate: normalized.exDate,
+      expectedPaymentDate: normalized.expectedPaymentDate,
+      receivedDate: null,
+      eligibleQuantityScaled: normalized.eligibleQuantityScaled,
+      unitAmountScaled: normalized.unitAmountScaled,
+      grossAmountCents: normalized.grossAmountCents,
+      withholdingTaxCents: normalized.withholdingTaxCents,
+      netAmountCents: normalized.netAmountCents,
+      notes: normalized.notes,
+      originType: InvestmentIncomeOriginType.manual,
+      externalId: null,
+      cancelledAt: null,
+      voidedAt: null,
+      mutationId: eventId,
+      createdAt: now,
+      updatedAt: now,
+      schemaVersion: 1,
+      revision: 1,
+    );
+    incomeEvents.add(value);
+    _throwIncomeFailureAfterWrite();
+    return value;
+  }
+
+  @override
+  Future<InvestmentIncomeEvent> updateExpectedIncomeEvent({
+    required String ownerId,
+    required String eventId,
+    required int expectedRevision,
+    required String mutationId,
+    required InvestmentIncomeDraft draft,
+  }) async {
+    incomeMutationIds.add(mutationId);
+    await _awaitIncomeBarrier();
+    _throwIfNeeded();
+    final int index = incomeEvents.indexWhere((value) => value.id == eventId);
+    final InvestmentIncomeEvent current = incomeEvents[index];
+    if (!current.isExpected || current.revision != expectedRevision) {
+      throw const InvestmentFailure(
+        kind: InvestmentFailureKind.aborted,
+        safeMessage: 'Conflito.',
+      );
+    }
+    final TrackedInvestmentAsset asset = _incomeAsset(
+      current.portfolioId,
+      current.assetId,
+    );
+    final InvestmentIncomeDraft normalized = draft.normalized(
+      assetType: asset.type,
+    );
+    final InvestmentIncomeEvent value = _copyIncome(
+      current,
+      type: normalized.type,
+      inputMode: normalized.inputMode,
+      exDate: normalized.exDate,
+      expectedPaymentDate: normalized.expectedPaymentDate,
+      eligibleQuantityScaled: normalized.eligibleQuantityScaled,
+      unitAmountScaled: normalized.unitAmountScaled,
+      grossAmountCents: normalized.grossAmountCents,
+      withholdingTaxCents: normalized.withholdingTaxCents,
+      netAmountCents: normalized.netAmountCents,
+      notes: normalized.notes,
+      mutationId: mutationId,
+    );
+    incomeEvents[index] = value;
+    _throwIncomeFailureAfterWrite();
+    return value;
+  }
+
+  @override
+  Future<InvestmentIncomeEvent> receiveIncomeEvent({
+    required String ownerId,
+    required String eventId,
+    required int expectedRevision,
+    required String mutationId,
+    required DateTime receivedDate,
+  }) => _transitionIncome(
+    eventId: eventId,
+    expectedRevision: expectedRevision,
+    mutationId: mutationId,
+    target: InvestmentIncomeStatus.received,
+    receivedDate: InvestmentIncomeEvent.normalizeCivilDate(receivedDate),
+  );
+
+  @override
+  Future<InvestmentIncomeEvent> cancelIncomeEvent({
+    required String ownerId,
+    required String eventId,
+    required int expectedRevision,
+    required String mutationId,
+  }) => _transitionIncome(
+    eventId: eventId,
+    expectedRevision: expectedRevision,
+    mutationId: mutationId,
+    target: InvestmentIncomeStatus.cancelled,
+  );
+
+  @override
+  Future<InvestmentIncomeEvent> voidIncomeEvent({
+    required String ownerId,
+    required String eventId,
+    required int expectedRevision,
+    required String mutationId,
+  }) => _transitionIncome(
+    eventId: eventId,
+    expectedRevision: expectedRevision,
+    mutationId: mutationId,
+    target: InvestmentIncomeStatus.voided,
+  );
+
+  Future<InvestmentIncomeEvent> _transitionIncome({
+    required String eventId,
+    required int expectedRevision,
+    required String mutationId,
+    required InvestmentIncomeStatus target,
+    DateTime? receivedDate,
+  }) async {
+    incomeMutationIds.add(mutationId);
+    await _awaitIncomeBarrier();
+    _throwIfNeeded();
+    final int index = incomeEvents.indexWhere((value) => value.id == eventId);
+    final InvestmentIncomeEvent current = incomeEvents[index];
+    if (current.status == target && current.mutationId == mutationId) {
+      return current;
+    }
+    if (!current.canTransitionTo(target) ||
+        current.revision != expectedRevision) {
+      throw const InvestmentFailure(
+        kind: InvestmentFailureKind.aborted,
+        safeMessage: 'Conflito.',
+      );
+    }
+    if (target == InvestmentIncomeStatus.received) {
+      _incomeAsset(current.portfolioId, current.assetId);
+    }
+    final DateTime now = DateTime.utc(2026, 8, 4, 12);
+    final InvestmentIncomeEvent value = _copyIncome(
+      current,
+      status: target,
+      receivedDate: target == InvestmentIncomeStatus.received
+          ? receivedDate
+          : current.receivedDate,
+      cancelledAt: target == InvestmentIncomeStatus.cancelled ? now : null,
+      voidedAt: target == InvestmentIncomeStatus.voided ? now : null,
+      mutationId: mutationId,
+    );
+    incomeEvents[index] = value;
+    _throwIncomeFailureAfterWrite();
+    return value;
+  }
+
+  Future<void> _awaitIncomeBarrier() async {
+    final Completer<void>? barrier = incomeActionBarrier;
+    if (barrier != null) {
+      await barrier.future;
+    }
+  }
+
+  TrackedInvestmentAsset _incomeAsset(String portfolioId, String assetId) {
+    final InvestmentPortfolio? portfolio = portfolios
+        .where((InvestmentPortfolio value) => value.id == portfolioId)
+        .firstOrNull;
+    final TrackedInvestmentAsset? asset = assets
+        .where((TrackedInvestmentAsset value) => value.id == assetId)
+        .firstOrNull;
+    if (portfolio == null ||
+        portfolio.isArchived ||
+        asset == null ||
+        asset.portfolioId != portfolio.id) {
+      throw const InvestmentFailure(
+        kind: InvestmentFailureKind.failedPrecondition,
+        safeMessage: 'A carteira ou o ativo não está disponível.',
+      );
+    }
+    return asset;
+  }
+
   void _throwIfNeeded() {
     final Object? failure = nextFailure;
     if (failure != null) {
       nextFailure = null;
+      throw failure;
+    }
+  }
+
+  void _throwIncomeFailureAfterWrite() {
+    final Object? failure = nextIncomeFailureAfterWrite;
+    if (failure != null) {
+      nextIncomeFailureAfterWrite = null;
       throw failure;
     }
   }
@@ -300,5 +527,51 @@ final class FakeInvestmentRepository implements InvestmentRepository {
     updatedAt: DateTime.utc(2026, 8, 4, 12),
     schemaVersion: 1,
     revision: asset.revision + 1,
+  );
+
+  InvestmentIncomeEvent _copyIncome(
+    InvestmentIncomeEvent value, {
+    InvestmentIncomeType? type,
+    InvestmentIncomeStatus? status,
+    InvestmentIncomeInputMode? inputMode,
+    DateTime? exDate,
+    DateTime? expectedPaymentDate,
+    DateTime? receivedDate,
+    int? eligibleQuantityScaled,
+    int? unitAmountScaled,
+    int? grossAmountCents,
+    int? withholdingTaxCents,
+    int? netAmountCents,
+    String? notes,
+    DateTime? cancelledAt,
+    DateTime? voidedAt,
+    required String mutationId,
+  }) => InvestmentIncomeEvent(
+    id: value.id,
+    ownerId: value.ownerId,
+    portfolioId: value.portfolioId,
+    assetId: value.assetId,
+    type: type ?? value.type,
+    status: status ?? value.status,
+    inputMode: inputMode ?? value.inputMode,
+    exDate: exDate ?? value.exDate,
+    expectedPaymentDate: expectedPaymentDate ?? value.expectedPaymentDate,
+    receivedDate: receivedDate ?? value.receivedDate,
+    eligibleQuantityScaled:
+        eligibleQuantityScaled ?? value.eligibleQuantityScaled,
+    unitAmountScaled: unitAmountScaled ?? value.unitAmountScaled,
+    grossAmountCents: grossAmountCents ?? value.grossAmountCents,
+    withholdingTaxCents: withholdingTaxCents ?? value.withholdingTaxCents,
+    netAmountCents: netAmountCents ?? value.netAmountCents,
+    notes: notes ?? value.notes,
+    originType: value.originType,
+    externalId: value.externalId,
+    cancelledAt: cancelledAt ?? value.cancelledAt,
+    voidedAt: voidedAt ?? value.voidedAt,
+    mutationId: mutationId,
+    createdAt: value.createdAt,
+    updatedAt: DateTime.utc(2026, 8, 4, 12),
+    schemaVersion: value.schemaVersion,
+    revision: value.revision + 1,
   );
 }

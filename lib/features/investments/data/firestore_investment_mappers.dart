@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_failure.dart';
+import 'package:meu_gestor_financeiro/features/investments/domain/investment_income_event.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_operation.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_portfolio.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/tracked_investment_asset.dart';
@@ -262,6 +263,157 @@ abstract final class FirestoreInvestmentOperationMapper {
       operation.notes == draft.notes;
 }
 
+abstract final class FirestoreInvestmentIncomeEventMapper {
+  static const Set<String> fieldNames = <String>{
+    'ownerId',
+    'portfolioId',
+    'assetId',
+    'incomeType',
+    'status',
+    'inputMode',
+    'exDate',
+    'expectedPaymentDate',
+    'receivedDate',
+    'eligibleQuantityScaled',
+    'unitAmountScaled',
+    'grossAmountCents',
+    'withholdingTaxCents',
+    'netAmountCents',
+    'notes',
+    'originType',
+    'externalId',
+    'cancelledAt',
+    'voidedAt',
+    'mutationId',
+    'createdAt',
+    'updatedAt',
+    'schemaVersion',
+    'revision',
+  };
+
+  static InvestmentIncomeEvent fromMap({
+    required Map<String, dynamic> data,
+    required String documentId,
+    required String expectedOwnerId,
+    required DateTime now,
+  }) {
+    try {
+      _requireExactFields(data, fieldNames);
+      final InvestmentIncomeEvent event = InvestmentIncomeEvent(
+        id: documentId,
+        ownerId: _string(data, 'ownerId'),
+        portfolioId: _string(data, 'portfolioId'),
+        assetId: _string(data, 'assetId'),
+        type: InvestmentIncomeType.fromStorage(_string(data, 'incomeType')),
+        status: InvestmentIncomeStatus.fromStorage(_string(data, 'status')),
+        inputMode: InvestmentIncomeInputMode.fromStorage(
+          _string(data, 'inputMode'),
+        ),
+        exDate: _nullableDateTime(data, 'exDate'),
+        expectedPaymentDate: _dateTime(data, 'expectedPaymentDate'),
+        receivedDate: _nullableDateTime(data, 'receivedDate'),
+        eligibleQuantityScaled: _nullableInteger(
+          data,
+          'eligibleQuantityScaled',
+        ),
+        unitAmountScaled: _nullableInteger(data, 'unitAmountScaled'),
+        grossAmountCents: _integer(data, 'grossAmountCents'),
+        withholdingTaxCents: _integer(data, 'withholdingTaxCents'),
+        netAmountCents: _integer(data, 'netAmountCents'),
+        notes: _string(data, 'notes'),
+        originType: InvestmentIncomeOriginType.fromStorage(
+          _string(data, 'originType'),
+        ),
+        externalId: _nullableString(data, 'externalId'),
+        cancelledAt: _nullableDateTime(data, 'cancelledAt'),
+        voidedAt: _nullableDateTime(data, 'voidedAt'),
+        mutationId: _string(data, 'mutationId'),
+        createdAt: _dateTime(data, 'createdAt'),
+        updatedAt: _dateTime(data, 'updatedAt'),
+        schemaVersion: _integer(data, 'schemaVersion'),
+        revision: _integer(data, 'revision'),
+      );
+      if (event.ownerId != expectedOwnerId) {
+        throw StateError('investment_income_owner_mismatch');
+      }
+      InvestmentIncomeEvent.validate(event, now: now);
+      return event;
+    } on InvestmentFailure {
+      rethrow;
+    } on Object {
+      throw _conversionFailure('investment_income_conversion_failed');
+    }
+  }
+
+  static Map<String, Object?> creationMap({
+    required String ownerId,
+    required String eventId,
+    required InvestmentIncomeDraft draft,
+  }) => <String, Object?>{
+    'ownerId': ownerId,
+    'portfolioId': draft.portfolioId,
+    'assetId': draft.assetId,
+    'incomeType': draft.type.name,
+    'status': InvestmentIncomeStatus.expected.name,
+    'inputMode': draft.inputMode.name,
+    'exDate': draft.exDate == null ? null : Timestamp.fromDate(draft.exDate!),
+    'expectedPaymentDate': Timestamp.fromDate(draft.expectedPaymentDate),
+    'receivedDate': null,
+    'eligibleQuantityScaled': draft.eligibleQuantityScaled,
+    'unitAmountScaled': draft.unitAmountScaled,
+    'grossAmountCents': draft.grossAmountCents,
+    'withholdingTaxCents': draft.withholdingTaxCents,
+    'netAmountCents': draft.netAmountCents,
+    'notes': draft.notes,
+    'originType': InvestmentIncomeOriginType.manual.name,
+    'externalId': null,
+    'cancelledAt': null,
+    'voidedAt': null,
+    'mutationId': eventId,
+    'createdAt': FieldValue.serverTimestamp(),
+    'updatedAt': FieldValue.serverTimestamp(),
+    'schemaVersion': InvestmentIncomeEvent.currentSchemaVersion,
+    'revision': 1,
+  };
+
+  static Map<String, Object?> expectedUpdateMap({
+    required InvestmentIncomeDraft draft,
+    required String mutationId,
+    required int revision,
+  }) => <String, Object?>{
+    'incomeType': draft.type.name,
+    'inputMode': draft.inputMode.name,
+    'exDate': draft.exDate == null ? null : Timestamp.fromDate(draft.exDate!),
+    'expectedPaymentDate': Timestamp.fromDate(draft.expectedPaymentDate),
+    'eligibleQuantityScaled': draft.eligibleQuantityScaled,
+    'unitAmountScaled': draft.unitAmountScaled,
+    'grossAmountCents': draft.grossAmountCents,
+    'withholdingTaxCents': draft.withholdingTaxCents,
+    'netAmountCents': draft.netAmountCents,
+    'notes': draft.notes,
+    'mutationId': mutationId,
+    'updatedAt': FieldValue.serverTimestamp(),
+    'revision': revision,
+  };
+
+  static bool matchesDraft(
+    InvestmentIncomeEvent event,
+    InvestmentIncomeDraft draft,
+  ) =>
+      event.portfolioId == draft.portfolioId &&
+      event.assetId == draft.assetId &&
+      event.type == draft.type &&
+      event.inputMode == draft.inputMode &&
+      event.exDate == draft.exDate &&
+      event.expectedPaymentDate == draft.expectedPaymentDate &&
+      event.eligibleQuantityScaled == draft.eligibleQuantityScaled &&
+      event.unitAmountScaled == draft.unitAmountScaled &&
+      event.grossAmountCents == draft.grossAmountCents &&
+      event.withholdingTaxCents == draft.withholdingTaxCents &&
+      event.netAmountCents == draft.netAmountCents &&
+      event.notes == draft.notes;
+}
+
 void _requireExactFields(Map<String, dynamic> data, Set<String> expected) {
   final Set<String> actual = data.keys.toSet();
   if (actual.difference(expected).isNotEmpty ||
@@ -301,6 +453,17 @@ int _integer(Map<String, dynamic> data, String field) {
   final Object? value = data[field];
   if (value is! int) {
     throw StateError('invalid_integer');
+  }
+  return value;
+}
+
+int? _nullableInteger(Map<String, dynamic> data, String field) {
+  final Object? value = data[field];
+  if (value == null) {
+    return null;
+  }
+  if (value is! int) {
+    throw StateError('invalid_nullable_integer');
   }
   return value;
 }

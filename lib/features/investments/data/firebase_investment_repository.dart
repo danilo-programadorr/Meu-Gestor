@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:meu_gestor_financeiro/features/investments/data/firestore_investment_mappers.dart';
 import 'package:meu_gestor_financeiro/features/investments/data/investment_diagnostics.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_failure.dart';
+import 'package:meu_gestor_financeiro/features/investments/domain/investment_income_event.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_operation.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_portfolio.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_repository.dart';
@@ -35,6 +36,10 @@ final class FirebaseInvestmentRepository implements InvestmentRepository {
       _operations(ownerId).doc().id;
 
   @override
+  String newIncomeEventId({required String ownerId}) =>
+      _incomeEvents(ownerId).doc().id;
+
+  @override
   String newMutationId({required String ownerId}) =>
       _operations(ownerId).doc().id;
 
@@ -53,6 +58,7 @@ final class FirebaseInvestmentRepository implements InvestmentRepository {
               _portfolios(ownerId).get(options),
               _assets(ownerId).get(options),
               _operations(ownerId).get(options),
+              _incomeEvents(ownerId).get(options),
             ],
           ).timeout(_timeout);
       return decodeWorkspace(
@@ -60,6 +66,7 @@ final class FirebaseInvestmentRepository implements InvestmentRepository {
         portfolioDocuments: _documents(snapshots[0]),
         assetDocuments: _documents(snapshots[1]),
         operationDocuments: _documents(snapshots[2]),
+        incomeDocuments: _documents(snapshots[3]),
         isFromCache: snapshots.any(
           (QuerySnapshot<Map<String, dynamic>> value) =>
               value.metadata.isFromCache,
@@ -81,6 +88,8 @@ final class FirebaseInvestmentRepository implements InvestmentRepository {
     required List<InvestmentDocumentData> portfolioDocuments,
     required List<InvestmentDocumentData> assetDocuments,
     required List<InvestmentDocumentData> operationDocuments,
+    List<InvestmentDocumentData> incomeDocuments =
+        const <InvestmentDocumentData>[],
     required bool isFromCache,
     required bool hasPendingWrites,
     required DateTime now,
@@ -128,10 +137,24 @@ final class FirebaseInvestmentRepository implements InvestmentRepository {
             )
             .toList(growable: false)
           ..sort(_compareOperations);
+    final List<InvestmentIncomeEvent> incomeEvents =
+        incomeDocuments
+            .map(
+              (InvestmentDocumentData document) =>
+                  FirestoreInvestmentIncomeEventMapper.fromMap(
+                    data: document.data,
+                    documentId: document.id,
+                    expectedOwnerId: ownerId,
+                    now: now,
+                  ),
+            )
+            .toList(growable: false)
+          ..sort(_compareIncomeEvents);
     return InvestmentWorkspaceReadResult(
       portfolios: List<InvestmentPortfolio>.unmodifiable(portfolios),
       assets: List<TrackedInvestmentAsset>.unmodifiable(assets),
       operations: List<InvestmentOperation>.unmodifiable(operations),
+      incomeEvents: List<InvestmentIncomeEvent>.unmodifiable(incomeEvents),
       isFromServer: !isFromCache,
       hasPendingWrites: hasPendingWrites,
     );
@@ -550,6 +573,334 @@ final class FirebaseInvestmentRepository implements InvestmentRepository {
     }
   }
 
+  @override
+  Future<InvestmentIncomeEvent> createIncomeEvent({
+    required String ownerId,
+    required String eventId,
+    required InvestmentIncomeDraft draft,
+  }) async {
+    final DocumentReference<Map<String, dynamic>> reference = _incomeEvents(
+      ownerId,
+    ).doc(eventId);
+    InvestmentIncomeDraft? normalized;
+    try {
+      await _firestore
+          .runTransaction<void>((Transaction transaction) async {
+            final DocumentSnapshot<Map<String, dynamic>> existing =
+                await transaction.get(reference);
+            final TrackedInvestmentAsset asset = await _incomeAssetReference(
+              transaction,
+              ownerId: ownerId,
+              portfolioId: draft.portfolioId,
+              assetId: draft.assetId,
+              requireActivePortfolio: true,
+            );
+            normalized = draft.normalized(assetType: asset.type);
+            if (existing.exists) {
+              final InvestmentIncomeEvent event = _incomeFromSnapshot(
+                existing,
+                ownerId,
+              );
+              if (!FirestoreInvestmentIncomeEventMapper.matchesDraft(
+                    event,
+                    normalized!,
+                  ) ||
+                  event.status != InvestmentIncomeStatus.expected ||
+                  event.mutationId != eventId) {
+                throw const InvestmentFailure(
+                  kind: InvestmentFailureKind.alreadyExists,
+                  safeMessage: 'Esta tentativa já possui outro provento.',
+                  code: 'investment_income_id_conflict',
+                );
+              }
+              return;
+            }
+            transaction.set(
+              reference,
+              FirestoreInvestmentIncomeEventMapper.creationMap(
+                ownerId: ownerId,
+                eventId: eventId,
+                draft: normalized!,
+              ),
+            );
+          })
+          .timeout(_timeout);
+      return _readIncomeEvent(ownerId, eventId);
+    } on Object catch (error) {
+      if (_isUncertain(error) && normalized != null) {
+        final InvestmentIncomeEvent? confirmed = await _tryReadIncomeEvent(
+          ownerId,
+          eventId,
+        );
+        if (confirmed != null &&
+            confirmed.status == InvestmentIncomeStatus.expected &&
+            confirmed.mutationId == eventId &&
+            FirestoreInvestmentIncomeEventMapper.matchesDraft(
+              confirmed,
+              normalized!,
+            )) {
+          return confirmed;
+        }
+      }
+      throw _mapAndRecord('create_investment_income', 'transaction', error);
+    }
+  }
+
+  @override
+  Future<InvestmentIncomeEvent> updateExpectedIncomeEvent({
+    required String ownerId,
+    required String eventId,
+    required int expectedRevision,
+    required String mutationId,
+    required InvestmentIncomeDraft draft,
+  }) async {
+    _requireMutationId(mutationId);
+    final DocumentReference<Map<String, dynamic>> reference = _incomeEvents(
+      ownerId,
+    ).doc(eventId);
+    InvestmentIncomeDraft? normalized;
+    try {
+      await _firestore
+          .runTransaction<void>((Transaction transaction) async {
+            final InvestmentIncomeEvent current = _incomeFromSnapshot(
+              await transaction.get(reference),
+              ownerId,
+            );
+            final TrackedInvestmentAsset asset = await _incomeAssetReference(
+              transaction,
+              ownerId: ownerId,
+              portfolioId: current.portfolioId,
+              assetId: current.assetId,
+              requireActivePortfolio: true,
+            );
+            normalized = draft.normalized(assetType: asset.type);
+            if (normalized!.portfolioId != current.portfolioId ||
+                normalized!.assetId != current.assetId) {
+              throw const InvestmentFailure(
+                kind: InvestmentFailureKind.failedPrecondition,
+                safeMessage:
+                    'A carteira e o ativo de um provento não podem ser alterados.',
+                code: 'investment_income_reference_immutable',
+              );
+            }
+            if (current.status == InvestmentIncomeStatus.expected &&
+                current.mutationId == mutationId &&
+                FirestoreInvestmentIncomeEventMapper.matchesDraft(
+                  current,
+                  normalized!,
+                )) {
+              return;
+            }
+            if (current.status != InvestmentIncomeStatus.expected) {
+              throw const InvestmentFailure(
+                kind: InvestmentFailureKind.failedPrecondition,
+                safeMessage: 'Somente proventos previstos podem ser editados.',
+                code: 'investment_income_not_editable',
+              );
+            }
+            if (current.revision != expectedRevision) {
+              throw _concurrencyFailure();
+            }
+            transaction.update(
+              reference,
+              FirestoreInvestmentIncomeEventMapper.expectedUpdateMap(
+                draft: normalized!,
+                mutationId: mutationId,
+                revision: current.revision + 1,
+              ),
+            );
+          })
+          .timeout(_timeout);
+      return _readIncomeEvent(ownerId, eventId);
+    } on Object catch (error) {
+      if (_isUncertain(error) && normalized != null) {
+        final InvestmentIncomeEvent? confirmed = await _tryReadIncomeEvent(
+          ownerId,
+          eventId,
+        );
+        if (confirmed?.status == InvestmentIncomeStatus.expected &&
+            confirmed?.mutationId == mutationId &&
+            FirestoreInvestmentIncomeEventMapper.matchesDraft(
+              confirmed!,
+              normalized!,
+            )) {
+          return confirmed;
+        }
+      }
+      throw _mapAndRecord('update_investment_income', 'transaction', error);
+    }
+  }
+
+  @override
+  Future<InvestmentIncomeEvent> receiveIncomeEvent({
+    required String ownerId,
+    required String eventId,
+    required int expectedRevision,
+    required String mutationId,
+    required DateTime receivedDate,
+  }) async {
+    _requireMutationId(mutationId);
+    final DateTime normalizedDate = InvestmentIncomeEvent.normalizeCivilDate(
+      receivedDate,
+    );
+    InvestmentIncomeEvent.validateReceivedDate(normalizedDate, now: _now());
+    final DocumentReference<Map<String, dynamic>> reference = _incomeEvents(
+      ownerId,
+    ).doc(eventId);
+    try {
+      await _firestore
+          .runTransaction<void>((Transaction transaction) async {
+            final InvestmentIncomeEvent current = _incomeFromSnapshot(
+              await transaction.get(reference),
+              ownerId,
+            );
+            if (current.status == InvestmentIncomeStatus.received &&
+                current.mutationId == mutationId &&
+                current.receivedDate == normalizedDate) {
+              return;
+            }
+            if (current.status != InvestmentIncomeStatus.expected) {
+              throw const InvestmentFailure(
+                kind: InvestmentFailureKind.failedPrecondition,
+                safeMessage: 'Este provento não pode ser confirmado.',
+                code: 'investment_income_receive_transition_denied',
+              );
+            }
+            if (current.revision != expectedRevision) {
+              throw _concurrencyFailure();
+            }
+            final TrackedInvestmentAsset asset = await _incomeAssetReference(
+              transaction,
+              ownerId: ownerId,
+              portfolioId: current.portfolioId,
+              assetId: current.assetId,
+              requireActivePortfolio: true,
+            );
+            if (!current.type.isCompatibleWith(asset.type)) {
+              throw const InvestmentFailure(
+                kind: InvestmentFailureKind.failedPrecondition,
+                safeMessage: 'O provento não é compatível com este ativo.',
+                code: 'investment_income_asset_type_mismatch',
+              );
+            }
+            transaction.update(reference, <String, Object?>{
+              'status': InvestmentIncomeStatus.received.name,
+              'receivedDate': Timestamp.fromDate(normalizedDate),
+              'mutationId': mutationId,
+              'updatedAt': FieldValue.serverTimestamp(),
+              'revision': current.revision + 1,
+            });
+          })
+          .timeout(_timeout);
+      return _readIncomeEvent(ownerId, eventId);
+    } on Object catch (error) {
+      if (_isUncertain(error)) {
+        final InvestmentIncomeEvent? confirmed = await _tryReadIncomeEvent(
+          ownerId,
+          eventId,
+        );
+        if (confirmed?.status == InvestmentIncomeStatus.received &&
+            confirmed?.mutationId == mutationId &&
+            confirmed?.receivedDate == normalizedDate) {
+          return confirmed!;
+        }
+      }
+      throw _mapAndRecord('receive_investment_income', 'transaction', error);
+    }
+  }
+
+  @override
+  Future<InvestmentIncomeEvent> cancelIncomeEvent({
+    required String ownerId,
+    required String eventId,
+    required int expectedRevision,
+    required String mutationId,
+  }) => _terminalIncomeTransition(
+    ownerId: ownerId,
+    eventId: eventId,
+    expectedRevision: expectedRevision,
+    mutationId: mutationId,
+    from: InvestmentIncomeStatus.expected,
+    to: InvestmentIncomeStatus.cancelled,
+    timestampField: 'cancelledAt',
+    operationName: 'cancel_investment_income',
+  );
+
+  @override
+  Future<InvestmentIncomeEvent> voidIncomeEvent({
+    required String ownerId,
+    required String eventId,
+    required int expectedRevision,
+    required String mutationId,
+  }) => _terminalIncomeTransition(
+    ownerId: ownerId,
+    eventId: eventId,
+    expectedRevision: expectedRevision,
+    mutationId: mutationId,
+    from: InvestmentIncomeStatus.received,
+    to: InvestmentIncomeStatus.voided,
+    timestampField: 'voidedAt',
+    operationName: 'void_investment_income',
+  );
+
+  Future<InvestmentIncomeEvent> _terminalIncomeTransition({
+    required String ownerId,
+    required String eventId,
+    required int expectedRevision,
+    required String mutationId,
+    required InvestmentIncomeStatus from,
+    required InvestmentIncomeStatus to,
+    required String timestampField,
+    required String operationName,
+  }) async {
+    _requireMutationId(mutationId);
+    final DocumentReference<Map<String, dynamic>> reference = _incomeEvents(
+      ownerId,
+    ).doc(eventId);
+    try {
+      await _firestore
+          .runTransaction<void>((Transaction transaction) async {
+            final InvestmentIncomeEvent current = _incomeFromSnapshot(
+              await transaction.get(reference),
+              ownerId,
+            );
+            if (current.status == to && current.mutationId == mutationId) {
+              return;
+            }
+            if (current.status != from || !current.canTransitionTo(to)) {
+              throw const InvestmentFailure(
+                kind: InvestmentFailureKind.failedPrecondition,
+                safeMessage: 'Esta transição de provento não é permitida.',
+                code: 'investment_income_transition_denied',
+              );
+            }
+            if (current.revision != expectedRevision) {
+              throw _concurrencyFailure();
+            }
+            transaction.update(reference, <String, Object?>{
+              'status': to.name,
+              timestampField: FieldValue.serverTimestamp(),
+              'mutationId': mutationId,
+              'updatedAt': FieldValue.serverTimestamp(),
+              'revision': current.revision + 1,
+            });
+          })
+          .timeout(_timeout);
+      return _readIncomeEvent(ownerId, eventId);
+    } on Object catch (error) {
+      if (_isUncertain(error)) {
+        final InvestmentIncomeEvent? confirmed = await _tryReadIncomeEvent(
+          ownerId,
+          eventId,
+        );
+        if (confirmed?.status == to && confirmed?.mutationId == mutationId) {
+          return confirmed!;
+        }
+      }
+      throw _mapAndRecord(operationName, 'transaction', error);
+    }
+  }
+
   Future<InvestmentPortfolio> _readPortfolio(String ownerId, String id) async {
     final DocumentSnapshot<Map<String, dynamic>> snapshot = await _portfolios(
       ownerId,
@@ -574,6 +925,17 @@ final class FirebaseInvestmentRepository implements InvestmentRepository {
     return _operationFromSnapshot(snapshot, ownerId);
   }
 
+  Future<InvestmentIncomeEvent> _readIncomeEvent(
+    String ownerId,
+    String id,
+  ) async {
+    final DocumentSnapshot<Map<String, dynamic>> snapshot = await _incomeEvents(
+      ownerId,
+    ).doc(id).get(const GetOptions(source: Source.server)).timeout(_timeout);
+    _requireConfirmed(snapshot);
+    return _incomeFromSnapshot(snapshot, ownerId);
+  }
+
   Future<InvestmentPortfolio?> _tryReadPortfolio(
     String ownerId,
     String id,
@@ -594,6 +956,43 @@ final class FirebaseInvestmentRepository implements InvestmentRepository {
     } on Object {
       return null;
     }
+  }
+
+  Future<InvestmentIncomeEvent?> _tryReadIncomeEvent(
+    String ownerId,
+    String id,
+  ) async {
+    try {
+      return await _readIncomeEvent(ownerId, id);
+    } on Object {
+      return null;
+    }
+  }
+
+  Future<TrackedInvestmentAsset> _incomeAssetReference(
+    Transaction transaction, {
+    required String ownerId,
+    required String portfolioId,
+    required String assetId,
+    required bool requireActivePortfolio,
+  }) async {
+    final InvestmentPortfolio portfolio = _portfolioFromSnapshot(
+      await transaction.get(_portfolios(ownerId).doc(portfolioId)),
+      ownerId,
+    );
+    final TrackedInvestmentAsset asset = _assetFromSnapshot(
+      await transaction.get(_assets(ownerId).doc(assetId)),
+      ownerId,
+    );
+    if ((requireActivePortfolio && portfolio.isArchived) ||
+        asset.portfolioId != portfolio.id) {
+      throw const InvestmentFailure(
+        kind: InvestmentFailureKind.failedPrecondition,
+        safeMessage: 'A carteira ou o ativo não está disponível.',
+        code: 'investment_income_reference_unavailable',
+      );
+    }
+    return asset;
   }
 
   InvestmentPortfolio _portfolioFromSnapshot(
@@ -654,6 +1053,26 @@ final class FirebaseInvestmentRepository implements InvestmentRepository {
     );
   }
 
+  InvestmentIncomeEvent _incomeFromSnapshot(
+    DocumentSnapshot<Map<String, dynamic>> snapshot,
+    String ownerId,
+  ) {
+    final Map<String, dynamic>? data = snapshot.data();
+    if (!snapshot.exists || data == null) {
+      throw const InvestmentFailure(
+        kind: InvestmentFailureKind.notFound,
+        safeMessage: 'Este provento não foi encontrado.',
+        code: 'investment_income_not_found',
+      );
+    }
+    return FirestoreInvestmentIncomeEventMapper.fromMap(
+      data: data,
+      documentId: snapshot.id,
+      expectedOwnerId: ownerId,
+      now: _now(),
+    );
+  }
+
   static void _requireConfirmed(DocumentSnapshot<Map<String, dynamic>> value) {
     if (value.metadata.isFromCache || value.metadata.hasPendingWrites) {
       throw const InvestmentFailure(
@@ -672,6 +1091,9 @@ final class FirebaseInvestmentRepository implements InvestmentRepository {
 
   CollectionReference<Map<String, dynamic>> _operations(String ownerId) =>
       _user(ownerId).collection('investmentOperations');
+
+  CollectionReference<Map<String, dynamic>> _incomeEvents(String ownerId) =>
+      _user(ownerId).collection('investmentIncomeEvents');
 
   DocumentReference<Map<String, dynamic>> _user(String ownerId) {
     if (ownerId.isEmpty || ownerId.contains('/')) {
@@ -768,6 +1190,16 @@ final class FirebaseInvestmentRepository implements InvestmentRepository {
 
   static bool _isUncertain(Object error) => mapFailure(error).isUncertain;
 
+  static void _requireMutationId(String mutationId) {
+    if (mutationId.isEmpty || mutationId.contains('/')) {
+      throw const InvestmentFailure(
+        kind: InvestmentFailureKind.validation,
+        safeMessage: 'Não foi possível identificar esta tentativa.',
+        code: 'invalid_investment_income_mutation_id',
+      );
+    }
+  }
+
   static InvestmentFailure _concurrencyFailure() => const InvestmentFailure(
     kind: InvestmentFailureKind.aborted,
     safeMessage:
@@ -789,6 +1221,18 @@ final class FirebaseInvestmentRepository implements InvestmentRepository {
     InvestmentOperation second,
   ) {
     final int byDate = first.occurredAt.compareTo(second.occurredAt);
+    if (byDate != 0) {
+      return byDate;
+    }
+    final int byCreation = first.createdAt.compareTo(second.createdAt);
+    return byCreation != 0 ? byCreation : first.id.compareTo(second.id);
+  }
+
+  static int _compareIncomeEvents(
+    InvestmentIncomeEvent first,
+    InvestmentIncomeEvent second,
+  ) {
+    final int byDate = first.relevantDate.compareTo(second.relevantDate);
     if (byDate != 0) {
       return byDate;
     }

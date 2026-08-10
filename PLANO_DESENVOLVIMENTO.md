@@ -708,10 +708,23 @@ Situação em 09/08/2026: implementação e validações concluídas; Security R
 Situação em 09/08/2026: implementação visual concluída sobre a INV-1A; 532 testes Flutter e 40 testes de regras aprovados, logs auditados e APK debug development aprovado manualmente. O checkpoint Git conjunto foi autorizado.
 
 - O cabeçalho preserva retorno seguro, privacidade e ação compacta de criação. O seletor de carteira permanece antes das abas e o gerenciamento reúne criação, edição, arquivamento e restauração.
-- Resumo, Ativos e Lançamentos são as únicas abas. Proventos, rentabilidade, rankings, notícias, B3, corretoras, integrações, paywall e cotação não aparecem como recursos disponíveis.
+- Resumo, Ativos e Lançamentos eram as abas aprovadas na UI-INV-1B; o INV-PROV-1 acrescenta somente a quarta aba Proventos. Rentabilidade, rankings, notícias, integrações, paywall e cotação não aparecem como recursos disponíveis. A antiga proposta de integração B3/corretoras foi cancelada e não integra o planejamento.
 - O cartão principal apresenta somente custo acompanhado, ativos cadastrados, posições abertas, resultado realizado e carteira selecionada.
 - O gráfico nativo de evolução agrega compras e vendas efetivamente registradas. A rosca usa custo atual das posições abertas e alterna entre classes e ativos, com legenda textual e privacidade conjunta.
 - A lista de ativos possui busca por ticker/nome, filtro Ações/FIIs e ordenação determinística. Lançamentos usam cartões responsivos com filtros por operação, ativo e período, sem tabela horizontal obrigatória.
 - A prévia de operação reutiliza tipos escalados e `InvestmentArithmetic` do domínio para valor bruto, taxas, valor final, impacto na quantidade e possível novo preço médio de compra.
 - Domínio, dados, controllers de persistência, Firestore, Security Rules, rotas funcionais e separação do saldo permanecem fora do redesign e devem conservar os hashes registrados antes da implementação.
 - Referências visuais privadas permanecem em `.codex-tmp/`, ignoradas pelo Git, e não fornecem marca, logo, textos, imagens ou ativos ao aplicativo.
+
+## 31. INV-PROV-1 — Proventos manuais
+
+Situação em 10/08/2026: implementação e validações concluídas; Security Rules compiladas e publicadas exclusivamente no Firebase development, sem acesso a production, com SHA-256 `8B689BA72FE05B1C04409E00083644D83B2EEACFDDA67A7C8D003B843E102FBE`; APK debug development gerado e aprovado manualmente. Commit e push permaneciam pendentes no momento desta atualização documental.
+
+- Ações aceitam dividendos e JCP; FIIs aceitam rendimentos de FII. O registro pertence a carteira e ativo próprios e usa origem exclusivamente manual.
+- O evento nasce previsto, pode ser recebido ou cancelado e, depois de recebido, pode somente ser anulado. Cancelado e anulado preservam o documento e nunca restauram.
+- Valores aceitam total em centavos ou quantidade escala 8 vezes valor unitário escala 6, com intermediário `BigInt`, half-up, imposto retido informado e líquido derivado.
+- Data-com é opcional; previsão pode ser futura; recebimento efetivo usa data civil de São Paulo e não pode estar no futuro.
+- A coleção `investmentIncomeEvents` possui mapper fechado, referências ativas, revisões, mutations idempotentes, timestamps do servidor e confirmação por releitura server-only.
+- A quarta aba apresenta resumo líquido, filtros, colunas de 12 meses, distribuição por ativo, lista e histórico mensal/anual somente com dados persistidos. Privacidade, temas, 320 px e fonte a 180% são preservados.
+- Proventos não criam receita no núcleo financeiro, não referenciam conta e não alteram saldo, compromissos, posição ou resumo mensal.
+- Agenda automática de proventos, amortização, eventos corporativos, cálculo tributário, DARF, notificações, assinatura e integrações permanecem fora deste incremento. A integração B3 e as integrações automáticas com corretoras foram canceladas por decisão do responsável pelo projeto: não constituem requisito, limitação pendente ou incremento futuro, e nenhuma implementação, pesquisa técnica ou preparação arquitetural deve ser iniciada. A futura cotação de mercado com atraso por provedor de dados independente permanece separada dessa decisão.

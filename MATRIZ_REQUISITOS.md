@@ -342,12 +342,27 @@
 
 | ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |
 |---|---|---:|---:|---|---|---|---|---|
-| UI-INV-001-1B | Navegar por Resumo, Ativos e Lançamentos | P0 | UI-INV-1B | seletor de carteira e três abas funcionam com retorno seguro e sem abas vazias | implementado localmente | apresentação INV-1A | baixo | neutro |
+| UI-INV-001-1B | Navegar no módulo de investimentos | P0 | UI-INV-1B | seletor de carteira e abas autorizadas funcionam com retorno seguro e sem abas vazias; INV-PROV-1 acrescenta Proventos | implementado localmente | apresentação INV-1A | baixo | neutro |
 | UI-INV-002-1B | Resumir somente dados reais | P0 | UI-INV-1B | custo, contagens e resultado realizado não são confundidos com patrimônio, cotação ou rentabilidade | implementado localmente | projeção INV-1A | alto: evita indução financeira | CPU local |
 | UI-INV-003-1B | Visualizar evolução e alocação | P0 | UI-INV-1B | gráficos nativos usam operações e custo das posições, possuem legenda, vazio, semântica e privacidade | implementado localmente | `CustomPainter` e operações locais | médio | CPU local proporcional ao histórico |
 | UI-INV-004-1B | Localizar ativos e operações | P1 | UI-INV-1B | busca, tipo, operação, ativo e período filtram localmente com ordenação determinística | implementado localmente | workspace confirmado | baixo | neutro |
 | UI-INV-005-1B | Revisar operação antes de confirmar | P0 | UI-INV-1B | prévia usa aritmética canônica e diálogo confirma valor final e impacto estimado | implementado localmente | domínio escalado existente | alto | neutro |
 | UI-INV-006-1B | Preservar acessibilidade móvel | P0 | UI-INV-1B | 320 px, fonte 180%, temas, teclado, rolagem, privacidade, semântica e alvos de toque não geram overflow | implementado e coberto por widgets | sistema visual | médio | neutro |
+
+## Incremento INV-PROV-1 — Proventos manuais
+
+| ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |
+|---|---|---:|---:|---|---|---|---|---|
+| INV-PROV-001 | Registrar tipos compatíveis | P0 | INV-PROV-1 | ação aceita dividendo/JCP e FII aceita rendimento; carteira e ativo próprios e ativos são obrigatórios | implementado localmente | INV-1A | alto | uma escrita por evento |
+| INV-PROV-002 | Preservar estados e histórico | P0 | INV-PROV-1 | previsto vai a recebido/cancelado; recebido vai a anulado; terminais não restauram nem excluem | implementado e coberto | revisão e timestamps servidor | crítico | uma escrita por transição |
+| INV-PROV-003 | Calcular valores exatamente | P0 | INV-PROV-1 | total usa centavos; por unidade usa escalas 8/6, `BigInt` e half-up; líquido é bruto menos imposto | implementado e coberto unitariamente | tipos escalados | crítico | neutro |
+| INV-PROV-004 | Tratar datas civis | P0 | INV-PROV-1 | data-com opcional e previsão usam São Paulo; recebido efetivo não pode ser futuro | implementado | objeto de data civil | alto | neutro |
+| INV-PROV-005 | Impedir impacto financeiro | P0 | INV-PROV-1 | nenhuma mutação cria lançamento ou altera conta, saldo, compromisso, posição ou resumo mensal | implementado por coleção/contrato separado e testado | núcleo financeiro | crítico | neutro |
+| INV-PROV-006 | Confirmar e reconciliar | P0 | INV-PROV-1 | server-only confirma mutação; timeout/indisponibilidade/aborto reutilizam IDs e não duplicam | implementado em repositório/controller | Firestore | alto | releitura por mutação |
+| INV-PROV-007 | Proteger acesso e contrato | P0 | INV-PROV-1 | UID, email, perfil, owner cruzado, campos exatos, referências, revisão e exclusão são validados | 50/50 no Emulator; regras compiladas e publicadas exclusivamente em development, sem acesso a production; SHA-256 `8B689BA72FE05B1C04409E00083644D83B2EEACFDDA67A7C8D003B843E102FBE` | Emulator `demo-*` e publicação development autorizada | crítico | leituras de referências |
+| INV-PROV-008 | Apresentar dados reais | P0 | INV-PROV-1 | resumo, filtros, gráficos, cartões e histórico usam somente eventos persistidos; nenhum provento é simulado | implementado | workspace confirmado | alto | CPU local proporcional ao histórico |
+| INV-PROV-009 | Preservar UX acessível | P0 | INV-PROV-1 | quarta aba, privacidade, temas, 320 px, fonte 180%, teclado e semântica funcionam sem overflow | implementado e coberto por widgets | sistema visual | médio | neutro |
+| INV-PROV-010 | Manter fronteiras do escopo | P0 | INV-PROV-1 | sem agenda automática, amortização, cálculo tributário, notificação, paywall ou integração financeira; integração B3 e integrações automáticas com corretoras canceladas e fora do planejamento | confirmado por auditoria de código e decisão do responsável | nenhuma dependência nova | alto | nenhum serviço externo |
 
 ## Incrementos futuros de dados, privacidade e armazenamento
 

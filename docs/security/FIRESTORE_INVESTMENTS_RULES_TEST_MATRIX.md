@@ -1,6 +1,6 @@
-# Matriz local de regras — INV-1A investimentos manuais
+# Matriz local de regras — INV-1A e INV-PROV-1
 
-Escopo: `investmentPortfolios`, `investmentAssets` e `investmentOperations` sob `users/{uid}`. Execução exclusivamente no Firestore Emulator com Project ID `demo-meu-gestor-financeiro`.
+Escopo: `investmentPortfolios`, `investmentAssets`, `investmentOperations` e `investmentIncomeEvents` sob `users/{uid}`. Execução exclusivamente no Firestore Emulator com Project ID `demo-meu-gestor-financeiro`.
 
 | Caso | Resultado esperado |
 |---|---|
@@ -20,5 +20,15 @@ Escopo: `investmentPortfolios`, `investmentAssets` e `investmentOperations` sob 
 | anular o topo e restaurar atomicamente quantidade e elo anterior | permitir |
 | duas operações válidas na mesma data civil | permitir, preservando cadeia por ID |
 | regressões de perfil, contas, categorias, lançamentos, compromissos e owner | preservar |
+| criar provento total ou por unidade com carteira/ativo ativos e tipo compatível | permitir |
+| provento com referência ausente/arquivada, ação/FII incompatível ou valor divergente | negar |
+| editar campos financeiros de uma previsão com revisão e mutation novas | permitir |
+| confirmar recebimento com data efetiva não futura | permitir |
+| cancelar previsão ou anular recebimento preservando valores e datas | permitir |
+| editar recebido, restaurar cancelado/anulado ou excluir provento | negar |
+| duas transições concorrentes sobre a mesma revisão | permitir somente uma |
+| mutação de provento afetar conta, lançamento ou projeção do ativo | não ocorre; documentos permanecem iguais |
 
 O log é auditado contra limite de 1.000 expressões, excesso de leituras de regras, avaliação interrompida, erro de valor nulo e falha interna do Emulator.
+
+Situação do INV-PROV-1: 50 testes aprovados em nove suites; regras compiladas e publicadas com sucesso exclusivamente em development, sem acesso a production, com SHA-256 `8B689BA72FE05B1C04409E00083644D83B2EEACFDDA67A7C8D003B843E102FBE`. O APK debug development foi gerado e aprovado manualmente; commit e push permaneciam pendentes nesta atualização documental.

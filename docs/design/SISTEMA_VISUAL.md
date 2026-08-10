@@ -176,4 +176,15 @@ O tema claro usa fundo `#F4F7FA`, superfícies brancas, cartões secundários `#
 - Estados de carregamento, vazio, erro e retry possuem próximos passos claros. O gerenciador de carteiras reúne criação, edição, arquivamento e restauração sem apagar ativos ou operações.
 - Em largura de 320 px e fonte a 180%, ações quebram linha, cartões não dependem de largura fixa e o estado da posição fica abaixo do título quando necessário.
 - Temas claro, escuro e sistema reutilizam o sistema visual aprovado; azul-gelo permanece em destaques discretos e não ocupa grandes superfícies.
-- Logos, marcas, fotos, ilustrações proprietárias, barra inferior global, paywall, B3, rankings, notícias, proventos e rentabilidade de mercado não compõem o redesign.
+- Logos, marcas, fotos, ilustrações proprietárias, barra inferior global, paywall, B3, rankings, notícias, agenda automática e rentabilidade de mercado não compõem o redesign.
+
+## 18. INV-PROV-1 — proventos manuais
+
+- Proventos é a quarta aba do módulo e preserva o seletor de carteira acima das abas. Não ocupa a Home nem sugere dinheiro disponível.
+- A hierarquia é resumo líquido do período, filtros, colunas recebido/previsto, distribuição por ativo, registros e histórico mensal/anual.
+- Colunas compartilham escala e base; rosca e legendas possuem equivalentes textuais. Gráficos vazios explicam a ausência de dados e nunca recebem exemplos fictícios.
+- Cartões exibem ativo, tipo, previsão, status, bruto, imposto e líquido. A ação primária confirma recebimento; edição/cancelamento aparecem somente no previsto e anulação somente no recebido.
+- O formulário explica antes dos campos que nenhum saldo será alterado, oferece modos total e por unidade, prévia canônica e diálogo de confirmação.
+- Privacidade oculta valores e quantidades em resumo, gráficos, cartões, histórico, prévia e confirmação. Datas, tipos e status permanecem legíveis.
+- Em 320 px ou fonte a 180%, cabeçalho, filtros e seletor do histórico se empilham; formulários mantêm rolagem com teclado e dropdowns usam a largura disponível.
+- Azul-gelo permanece em seleção e destaque discreto. Não são usados logos, marca de referência, cotação, ranking, notícias, B3, paywall ou agenda automática.

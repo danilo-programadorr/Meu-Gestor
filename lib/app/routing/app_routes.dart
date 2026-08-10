@@ -83,4 +83,10 @@ abstract final class AppRoutes {
     String assetId,
     InvestmentOperationKind kind,
   ) => '${investmentAssetDetails(assetId)}/operacao/nova?kind=${kind.name}';
+
+  static String newInvestmentIncomeEvent(String portfolioId) =>
+      '/investimentos/provento/novo?portfolioId=${Uri.encodeQueryComponent(portfolioId)}';
+
+  static String editInvestmentIncomeEvent(String eventId) =>
+      '/investimentos/provento/${Uri.encodeComponent(eventId)}/editar';
 }

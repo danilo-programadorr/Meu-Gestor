@@ -1375,6 +1375,210 @@ service cloud.firestore {
         );
     }
 
+    function investmentIncomeFields() {
+      return [
+        'ownerId', 'portfolioId', 'assetId', 'incomeType', 'status',
+        'inputMode', 'exDate', 'expectedPaymentDate', 'receivedDate',
+        'eligibleQuantityScaled', 'unitAmountScaled', 'grossAmountCents',
+        'withholdingTaxCents', 'netAmountCents', 'notes', 'originType',
+        'externalId', 'cancelledAt', 'voidedAt', 'mutationId', 'createdAt',
+        'updatedAt', 'schemaVersion', 'revision'
+      ];
+    }
+
+    function isValidInvestmentIncomeAmounts(data) {
+      let perUnitCents = data.inputMode == 'perUnit'
+        && data.eligibleQuantityScaled is int
+        && data.unitAmountScaled is int
+          ? (data.eligibleQuantityScaled / 100000000.0)
+            * (data.unitAmountScaled / 10000.0)
+          : 0;
+      return data.grossAmountCents is int
+        && data.grossAmountCents >= 1
+        && data.grossAmountCents <= 9999999999
+        && data.withholdingTaxCents is int
+        && data.withholdingTaxCents >= 0
+        && data.withholdingTaxCents <= data.grossAmountCents
+        && data.netAmountCents is int
+        && data.netAmountCents ==
+          data.grossAmountCents - data.withholdingTaxCents
+        && (
+          data.inputMode == 'total'
+            ? data.eligibleQuantityScaled == null
+              && data.unitAmountScaled == null
+            : data.inputMode == 'perUnit'
+              && data.eligibleQuantityScaled >= 1
+              && data.eligibleQuantityScaled <= 999999999999999
+              && data.unitAmountScaled >= 1
+              && data.unitAmountScaled <= 999999999999
+              && data.grossAmountCents - 0.5 <= perUnitCents
+              && perUnitCents < data.grossAmountCents + 0.5
+        );
+    }
+
+    function isValidInvestmentIncomeStatus(data) {
+      return data.status in ['expected', 'received', 'cancelled', 'voided']
+        && (data.receivedDate == null || data.receivedDate is timestamp)
+        && (data.cancelledAt == null || data.cancelledAt is timestamp)
+        && (data.voidedAt == null || data.voidedAt is timestamp)
+        && (
+          data.status == 'expected'
+            ? data.receivedDate == null
+              && data.cancelledAt == null
+              && data.voidedAt == null
+            : data.status == 'received'
+              ? data.receivedDate is timestamp
+                && data.receivedDate <= request.time
+                && data.cancelledAt == null
+                && data.voidedAt == null
+              : data.status == 'cancelled'
+                ? data.receivedDate == null
+                  && data.cancelledAt is timestamp
+                  && data.voidedAt == null
+                : data.receivedDate is timestamp
+                  && data.receivedDate <= request.time
+                  && data.cancelledAt == null
+                  && data.voidedAt is timestamp
+        );
+    }
+
+    function isValidInvestmentIncome(data, userId) {
+      return data.keys().hasAll(investmentIncomeFields())
+        && data.keys().hasOnly(investmentIncomeFields())
+        && data.ownerId == userId
+        && data.portfolioId is string
+        && data.portfolioId.size() >= 1
+        && data.portfolioId.size() <= 128
+        && data.assetId is string
+        && data.assetId.size() >= 1
+        && data.assetId.size() <= 160
+        && data.incomeType in ['dividend', 'jcp', 'fiiIncome']
+        && data.inputMode in ['total', 'perUnit']
+        && (data.exDate == null || data.exDate is timestamp)
+        && data.expectedPaymentDate is timestamp
+        && data.notes is string
+        && data.notes.size() <= 240
+        && !data.notes.matches('.*[\\x00-\\x1F\\x7F].*')
+        && data.originType == 'manual'
+        && data.externalId == null
+        && data.mutationId is string
+        && data.mutationId.size() >= 1
+        && data.mutationId.size() <= 128
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && data.schemaVersion == 1
+        && data.revision is int
+        && data.revision >= 1
+        && isValidInvestmentIncomeAmounts(data)
+        && isValidInvestmentIncomeStatus(data);
+    }
+
+    function isCompatibleInvestmentIncome(assetType, incomeType) {
+      return assetType == 'stock'
+        ? incomeType in ['dividend', 'jcp']
+        : assetType == 'fii' && incomeType == 'fiiIncome';
+    }
+
+    function hasValidInvestmentIncomeReferences(userId, data) {
+      let portfolioPath = investmentPortfolioPath(userId, data.portfolioId);
+      let assetPath = investmentAssetPath(userId, data.assetId);
+      return existsAfter(portfolioPath)
+        && existsAfter(assetPath)
+        && getAfter(portfolioPath).data.ownerId == userId
+        && getAfter(portfolioPath).data.isArchived == false
+        && getAfter(assetPath).data.ownerId == userId
+        && getAfter(assetPath).data.portfolioId == data.portfolioId
+        && isCompatibleInvestmentIncome(
+          getAfter(assetPath).data.assetType,
+          data.incomeType
+        );
+    }
+
+    function isValidInvestmentIncomeCreate(userId, eventId) {
+      let data = request.resource.data;
+      return isValidInvestmentIncome(data, userId)
+        && data.status == 'expected'
+        && data.receivedDate == null
+        && data.cancelledAt == null
+        && data.voidedAt == null
+        && data.mutationId == eventId
+        && data.createdAt == request.time
+        && data.updatedAt == request.time
+        && data.revision == 1
+        && hasValidInvestmentIncomeReferences(userId, data);
+    }
+
+    function isValidInvestmentIncomeExpectedEdit(userId, data, changed) {
+      return data.status == 'expected'
+        && changed.hasAny([
+          'incomeType', 'inputMode', 'exDate', 'expectedPaymentDate',
+          'eligibleQuantityScaled', 'unitAmountScaled', 'grossAmountCents',
+          'withholdingTaxCents', 'netAmountCents', 'notes'
+        ])
+        && changed.hasOnly([
+          'incomeType', 'inputMode', 'exDate', 'expectedPaymentDate',
+          'eligibleQuantityScaled', 'unitAmountScaled', 'grossAmountCents',
+          'withholdingTaxCents', 'netAmountCents', 'notes', 'mutationId',
+          'updatedAt', 'revision'
+        ])
+        && hasValidInvestmentIncomeReferences(userId, data);
+    }
+
+    function isValidInvestmentIncomeReceive(userId, data, changed) {
+      return data.status == 'received'
+        && data.receivedDate is timestamp
+        && data.receivedDate <= request.time
+        && changed.hasAll(['status', 'receivedDate', 'mutationId', 'revision'])
+        && changed.hasOnly([
+          'status', 'receivedDate', 'mutationId', 'updatedAt', 'revision'
+        ])
+        && hasValidInvestmentIncomeReferences(userId, data);
+    }
+
+    function isValidInvestmentIncomeCancel(data, changed) {
+      return data.status == 'cancelled'
+        && data.cancelledAt == request.time
+        && changed.hasAll(['status', 'cancelledAt', 'mutationId', 'revision'])
+        && changed.hasOnly([
+          'status', 'cancelledAt', 'mutationId', 'updatedAt', 'revision'
+        ]);
+    }
+
+    function isValidInvestmentIncomeVoid(data, changed) {
+      return data.status == 'voided'
+        && data.voidedAt == request.time
+        && changed.hasAll(['status', 'voidedAt', 'mutationId', 'revision'])
+        && changed.hasOnly([
+          'status', 'voidedAt', 'mutationId', 'updatedAt', 'revision'
+        ]);
+    }
+
+    function isValidInvestmentIncomeUpdate(userId) {
+      let data = request.resource.data;
+      let changed = data.diff(resource.data).affectedKeys();
+      return isValidInvestmentIncome(data, userId)
+        && data.ownerId == resource.data.ownerId
+        && data.portfolioId == resource.data.portfolioId
+        && data.assetId == resource.data.assetId
+        && data.originType == resource.data.originType
+        && data.externalId == resource.data.externalId
+        && data.createdAt == resource.data.createdAt
+        && data.schemaVersion == resource.data.schemaVersion
+        && data.updatedAt == request.time
+        && data.revision == resource.data.revision + 1
+        && data.mutationId != resource.data.mutationId
+        && (
+          resource.data.status == 'expected'
+            ? data.status == 'expected'
+              ? isValidInvestmentIncomeExpectedEdit(userId, data, changed)
+              : data.status == 'received'
+                ? isValidInvestmentIncomeReceive(userId, data, changed)
+                : isValidInvestmentIncomeCancel(data, changed)
+            : resource.data.status == 'received'
+              && isValidInvestmentIncomeVoid(data, changed)
+        );
+    }
+
     function isCurrentLegalProfileData(data, userId) {
       return hasExactProfileFields(data)
         && data.ownerId == userId
@@ -1560,6 +1764,19 @@ service cloud.firestore {
           && isValidInvestmentOperationCreate(userId, operationId);
         allow update: if hasFinancialAccess(userId)
           && isValidInvestmentOperationVoid(userId, operationId);
+        allow delete: if false;
+
+        match /{document=**} {
+          allow read, write: if false;
+        }
+      }
+
+      match /investmentIncomeEvents/{eventId} {
+        allow get, list: if hasFinancialAccess(userId);
+        allow create: if hasFinancialAccess(userId)
+          && isValidInvestmentIncomeCreate(userId, eventId);
+        allow update: if hasFinancialAccess(userId)
+          && isValidInvestmentIncomeUpdate(userId);
         allow delete: if false;
 
         match /{document=**} {

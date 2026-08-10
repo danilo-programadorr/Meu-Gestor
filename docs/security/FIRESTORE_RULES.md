@@ -2,7 +2,7 @@
 
 ## Escopo
 
-O arquivo público `firestore.rules` protege o perfil `users/{uid}`, as subcoleções `accounts`, `categories`, `transactions`, `payables`, `receivables`, `investmentPortfolios`, `investmentAssets` e `investmentOperations`, além da leitura administrativa pontual em `system_admins/{uid}`. Caminhos financeiros e administrativos não autorizados continuam negados.
+O arquivo público `firestore.rules` protege o perfil `users/{uid}`, as subcoleções `accounts`, `categories`, `transactions`, `payables`, `receivables`, `investmentPortfolios`, `investmentAssets`, `investmentOperations` e `investmentIncomeEvents`, além da leitura administrativa pontual em `system_admins/{uid}`. Caminhos financeiros e administrativos não autorizados continuam negados.
 
 ## Garantias pretendidas
 
@@ -29,6 +29,8 @@ O arquivo público `firestore.rules` protege o perfil `users/{uid}`, as subcole�
 - operações de investimento são imutáveis, encadeadas cronologicamente e só podem ser criadas ou anuladas junto da projeção do ativo;
 - vendas não excedem a posição nem aceitam taxa superior ao valor bruto; concorrência e repetição preservam uma única ponta válida da cadeia;
 - investimentos não criam lançamentos, não referenciam contas e não alteram o saldo real;
+- proventos manuais exigem carteira/ativo próprios e ativos, tipo compatível, valores coerentes, revisão e timestamps do servidor;
+- somente previsões editam valores; recebimento, cancelamento e anulação seguem transições fechadas, sem restauração ou exclusão;
 - `system_admins` permite somente `get` do documento cujo ID coincide com o UID autenticado e verificado;
 - `system_admins` nega `list`, `create`, `update` e `delete` ao cliente;
 - `isActiveOwner()` valida papel, estado ativo, development, versão 1 e timestamp sem usar e-mail;
@@ -36,7 +38,7 @@ O arquivo público `firestore.rules` protege o perfil `users/{uid}`, as subcole�
 
 ## Validação local e publicação
 
-As regras são exercitadas no Emulator Suite com projeto isolado `demo-*`, incluindo acessos negados, transições atômicas, concorrência, regressões do núcleo financeiro e auditoria do log. A suíte consolidada após INV-1A possui 40 testes. Perfil, núcleo financeiro, compromissos, investimentos e owner foram publicados somente em development mediante autorizações específicas; produção permanece bloqueada.
+As regras são exercitadas no Emulator Suite com projeto isolado `demo-*`, incluindo acessos negados, transições, concorrência, regressões do núcleo financeiro e auditoria do log. A suíte consolidada após INV-PROV-1 possui 50 testes. Perfil, núcleo financeiro, compromissos, investimentos, proventos e owner foram publicados somente em development mediante autorizações específicas. A proteção de `investmentIncomeEvents` foi compilada e publicada com sucesso exclusivamente em development, sem acesso a production, com SHA-256 `8B689BA72FE05B1C04409E00083644D83B2EEACFDDA67A7C8D003B843E102FBE`; o APK debug development foi gerado e aprovado manualmente, enquanto commit e push permaneciam pendentes nesta atualização documental.
 
 ## Publicação
 
