@@ -17,6 +17,10 @@ Este documento detalha a estrutura solicitada na seção 19 de ESPECIFICACAO_FUN
 - Campos derivados protegidos são escritos somente por Cloud Functions.
 - Mapas e listas têm chaves, tipos e limites declarados; mapas arbitrários são proibidos.
 
+## Nota SUB-1D — nenhum dado comercial novo no cliente
+
+SUB-1D não altera esquema, índices, documentos ou Rules. Produto Google Play, token, recibo, identificador ofuscado, eventos de verificação, binding, acknowledgement e auditoria administrativa continuarão fora de `users/{uid}/entitlements/premium` e serão exclusivos de backend futuro. A página Premium só lê o entitlement canônico existente.
+
 ## 2. Perfil
 
 ### users/{userId} — UserProfileModel
@@ -406,6 +410,12 @@ O documento fixo contém exatamente `ownerId`, `planId`, `status`, `source`, `en
 O aplicativo poderá ler somente o entitlement do próprio UID e nunca poderá criar, ativar, renovar, revogar, reembolsar ou conceder. Purchase token, recibo bruto, payload do provedor, credenciais, dados de cartão, preço e auditoria confidencial não pertencerão ao documento legível pelo cliente. Grants administrativos e de development terão validade, ambiente e trilha de auditoria server-side; owner não recebe acesso cruzado.
 
 Ausência do documento representa plano gratuito. Expiração não apaga investimentos. O SUB-1B implementa mapper, repositório somente leitura e backend local em memória; suas regras foram publicadas exclusivamente em development com SHA-256 `F01E52545F2CE88896A48B28B957BF45F8AE79B0173DF2E20449929FF21532B4`, sem criar documento ou coleção e sem acessar production.
+
+### Enforcement local SUB-1C
+
+As coleções `investmentPortfolios`, `investmentAssets` e `investmentOperations` exigem `investmentsManual`; `investmentIncomeEvents` exige `investmentIncome`. Leituras aceitam acesso integral ou histórico somente leitura. Escritas exigem acesso integral no `request.time`, sem alterar os contratos, referências e transações atômicas existentes. Ausência, `pending`, documento inválido, capability ausente, UID/ambiente incompatível e confirmação não autoritativa negam.
+
+Alterar ou perder entitlement não escreve em documentos patrimoniais. Retomar acesso válido não exige migração. Esta versão das regras permanece apenas local e não foi publicada; antes de eventual deploy, development precisa de um emissor backend/administrativo seguro de entitlements de teste.
 
 As coleções internas conceituais `_premiumBillingEvents`, `_premiumPurchaseBindings`, `_premiumRtdnInbox`, `_premiumAcknowledgementOutbox` e `_premiumAdministrativeGrants` são inacessíveis ao cliente e não foram criadas externamente. Purchase token nunca integra a projeção; somente impressão digital versionada e referência abstrata de cofre pertencem ao backend futuro.
 

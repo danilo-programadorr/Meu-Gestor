@@ -1,5 +1,13 @@
 # Política de segurança
 
+## SUB-1D — Google Play Billing local
+
+- Resposta local de compra, debug, owner, e-mail, UID ou `dart-define` nunca concede Premium.
+- Tokens são transitórios; não entram em domínio, Firestore legível, Riverpod persistente, diagnóstico ou log. `pending` não libera nem pode ser acknowledged.
+- O futuro backend verificará compra e emitirá a identidade ofuscada não reversível antes de acknowledgement/outbox; UID puro não será enviado à Play.
+- O gerenciador abre somente a URI HTTPS oficial da Google Play. Não existe cancelamento simulado, endpoint, comando operacional, Firebase real, deploy ou acesso production nesta etapa.
+- Auditoria local de grant contém apenas ação, origem, ambiente, plano, contagem de capabilities, revisão e instante; não contém actor, owner, motivo, grant ID, token ou credencial.
+
 ## Versões suportadas
 
 O projeto está em desenvolvimento e ainda não possui versão de produção. Somente o código mais recente da branch `main` recebe correções de segurança neste momento.
@@ -38,14 +46,14 @@ E-mail, senha, UID hardcoded, parâmetro de rota, preferência ou armazenamento 
 
 Capabilities owner liberam funcionalidades do produto e futuros recursos comerciais, mas não ignoram Security Rules, isolamento por UID, autenticação, validações financeiras, concorrência, integridade ou limites técnicos contra abuso. Diagnósticos omitem identidade, conteúdo administrativo, tokens, project ID e dados financeiros.
 
-## Entitlement Premium — SUB-1A/SUB-1B
+## Entitlement Premium — SUB-1A/SUB-1B/SUB-1C
 
-O backend de referência SUB-1B permanece exclusivamente local, sem rede, com armazenamento em memória para testes e mapper/repositório Flutter somente leitura. As Security Rules foram compiladas e publicadas exclusivamente em development, sem acesso a production, com SHA-256 `F01E52545F2CE88896A48B28B957BF45F8AE79B0173DF2E20449929FF21532B4`. Não existe entitlement persistido, backend implantado, produto de loja, compra, paywall ou bloqueio ativo. Investimentos continuam acessíveis no ambiente development atual; commit e push permanecem pendentes.
+O backend de referência SUB-1B permanece exclusivamente local, sem rede, com armazenamento em memória para testes e mapper/repositório Flutter somente leitura. Suas Security Rules foram publicadas anteriormente somente em development, com SHA-256 `F01E52545F2CE88896A48B28B957BF45F8AE79B0173DF2E20449929FF21532B4`. O SUB-1C aplica enforcement apenas no código e nas regras locais; não houve nova publicação, Firebase real ou bloqueio de usuário development. Não existe entitlement real, backend implantado, produto de loja, compra ou paywall.
 
 O modelo legível não contém purchase token, recibo completo, payload Google, dados de cartão, preço, credencial ou identificador externo usado como autorização. O backend local usa token apenas transitoriamente, impressão digital HMAC versionada e referência abstrata de cofre; chaves sintéticas e cofre em memória são restritos aos testes. Runtime real exigirá KMS/Secret Manager e credenciais mínimas.
 
 Concessões administrativas e de development têm contrato local de validade, motivo, auditoria, capabilities, ambiente e revogação. São backend-only, limitadas ao próprio UID e development nunca atua em production. Owner não obtém acesso cruzado. A decisão local é projeção de experiência e nunca substitui autorização de backend e Security Rules.
 
-As regras publicadas em development permitem apenas `get` de `users/{uid}/entitlements/premium` pelo próprio UID autenticado, com e-mail confirmado e perfil jurídico atual. Listagem, criação, atualização, exclusão, subcoleções e acesso a todas as coleções internas de billing são negados. Elas não aplicam entitlement aos investimentos nem concedem Premium.
+As regras SUB-1C locais aplicam entitlement às quatro coleções de investimentos. Leituras exigem documento integralmente válido, UID próprio, perfil jurídico e capability; mutações exigem acesso integral por `request.time`. Listagem/escrita de entitlements, subcoleções, billing interno e owner cruzado continuam negados. Repositório, controller e rotas reforçam a decisão, mas não substituem as regras.
 
-Após perda de Premium, dados patrimoniais não são apagados nem alterados: leitura histórica é preservada, mutações são bloqueadas e cotações deixam de ser fornecidas. Esse comportamento ainda não foi conectado aos repositórios ou à interface. A integração B3/corretoras permanece cancelada; cotações por provedor independente permanecem bloqueadas por licenciamento e SUB-1.
+Após perda de Premium, dados patrimoniais não são apagados nem alterados: leitura histórica é preservada, mutações são bloqueadas e cotações deixam de ser fornecidas. Esse comportamento está conectado localmente aos repositórios, controllers, rotas e interface. Publicar as regras exige antes concessão development segura e auditável; Google Play e experiência comercial pertencem ao SUB-1D. A integração B3/corretoras permanece cancelada.

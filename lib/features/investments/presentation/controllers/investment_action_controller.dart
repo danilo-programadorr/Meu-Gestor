@@ -7,6 +7,8 @@ import 'package:meu_gestor_financeiro/features/investments/domain/investment_por
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_repository.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/tracked_investment_asset.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/controllers/investments_controller.dart';
+import 'package:meu_gestor_financeiro/features/subscriptions/domain/premium_capability.dart';
+import 'package:meu_gestor_financeiro/features/subscriptions/presentation/controllers/investment_premium_access_controller.dart';
 
 enum InvestmentActionStatus { idle, loading, success, failure }
 
@@ -81,15 +83,18 @@ final class InvestmentActionController extends Notifier<InvestmentActionState> {
       return false;
     }
     final String ownerId = requireInvestmentOwner(ref);
-    _pendingPortfolioId ??= _repository.newPortfolioId(ownerId: ownerId);
     return _run(
       ownerId: ownerId,
+      capability: PremiumCapability.investmentsManual,
       successMessage: 'Carteira criada e confirmada pelo servidor.',
-      operation: () => _repository.createPortfolio(
-        ownerId: ownerId,
-        portfolioId: _pendingPortfolioId!,
-        draft: draft.normalized(),
-      ),
+      operation: () {
+        _pendingPortfolioId ??= _repository.newPortfolioId(ownerId: ownerId);
+        return _repository.createPortfolio(
+          ownerId: ownerId,
+          portfolioId: _pendingPortfolioId!,
+          draft: draft.normalized(),
+        );
+      },
       onSuccess: () => _pendingPortfolioId = null,
       onDefiniteFailure: () => _pendingPortfolioId = null,
     );
@@ -99,6 +104,7 @@ final class InvestmentActionController extends Notifier<InvestmentActionState> {
     required InvestmentPortfolio portfolio,
     required InvestmentPortfolioDraft draft,
   }) => _runForCurrentOwner(
+    capability: PremiumCapability.investmentsManual,
     successMessage: 'Carteira atualizada e confirmada pelo servidor.',
     operation: (String ownerId) => _repository.updatePortfolio(
       ownerId: ownerId,
@@ -112,6 +118,7 @@ final class InvestmentActionController extends Notifier<InvestmentActionState> {
     required InvestmentPortfolio portfolio,
     required bool archived,
   }) => _runForCurrentOwner(
+    capability: PremiumCapability.investmentsManual,
     successMessage: archived
         ? 'Carteira arquivada. Nenhum histórico foi apagado.'
         : 'Carteira restaurada e confirmada pelo servidor.',
@@ -125,6 +132,7 @@ final class InvestmentActionController extends Notifier<InvestmentActionState> {
 
   Future<bool> createAsset(TrackedInvestmentAssetDraft draft) =>
       _runForCurrentOwner(
+        capability: PremiumCapability.investmentsManual,
         successMessage: 'Ativo adicionado à carteira.',
         operation: (String ownerId) => _repository.createAsset(
           ownerId: ownerId,
@@ -137,16 +145,19 @@ final class InvestmentActionController extends Notifier<InvestmentActionState> {
       return false;
     }
     final String ownerId = requireInvestmentOwner(ref);
-    _pendingOperationId ??= _repository.newOperationId(ownerId: ownerId);
     return _run(
       ownerId: ownerId,
+      capability: PremiumCapability.investmentsManual,
       successMessage:
           '${draft.kind.label} registrada e confirmada pelo servidor.',
-      operation: () => _repository.createOperation(
-        ownerId: ownerId,
-        operationId: _pendingOperationId!,
-        draft: draft,
-      ),
+      operation: () {
+        _pendingOperationId ??= _repository.newOperationId(ownerId: ownerId);
+        return _repository.createOperation(
+          ownerId: ownerId,
+          operationId: _pendingOperationId!,
+          draft: draft,
+        );
+      },
       onSuccess: () => _pendingOperationId = null,
       onDefiniteFailure: () => _pendingOperationId = null,
     );
@@ -157,16 +168,19 @@ final class InvestmentActionController extends Notifier<InvestmentActionState> {
       return false;
     }
     final String ownerId = requireInvestmentOwner(ref);
-    _pendingVoidMutationId ??= _repository.newMutationId(ownerId: ownerId);
     return _run(
       ownerId: ownerId,
+      capability: PremiumCapability.investmentsManual,
       successMessage: 'Operação anulada. O histórico foi preservado.',
-      operation: () => _repository.voidOperation(
-        ownerId: ownerId,
-        operationId: operation.id,
-        expectedRevision: operation.revision,
-        mutationId: _pendingVoidMutationId!,
-      ),
+      operation: () {
+        _pendingVoidMutationId ??= _repository.newMutationId(ownerId: ownerId);
+        return _repository.voidOperation(
+          ownerId: ownerId,
+          operationId: operation.id,
+          expectedRevision: operation.revision,
+          mutationId: _pendingVoidMutationId!,
+        );
+      },
       onSuccess: () => _pendingVoidMutationId = null,
       onDefiniteFailure: () => _pendingVoidMutationId = null,
     );
@@ -177,15 +191,20 @@ final class InvestmentActionController extends Notifier<InvestmentActionState> {
       return false;
     }
     final String ownerId = requireInvestmentOwner(ref);
-    _pendingIncomeEventId ??= _repository.newIncomeEventId(ownerId: ownerId);
     return _run(
       ownerId: ownerId,
+      capability: PremiumCapability.investmentIncome,
       successMessage: 'Provento previsto e confirmado pelo servidor.',
-      operation: () => _repository.createIncomeEvent(
-        ownerId: ownerId,
-        eventId: _pendingIncomeEventId!,
-        draft: draft,
-      ),
+      operation: () {
+        _pendingIncomeEventId ??= _repository.newIncomeEventId(
+          ownerId: ownerId,
+        );
+        return _repository.createIncomeEvent(
+          ownerId: ownerId,
+          eventId: _pendingIncomeEventId!,
+          draft: draft,
+        );
+      },
       onSuccess: () => _pendingIncomeEventId = null,
       onDefiniteFailure: () => _pendingIncomeEventId = null,
     );
@@ -196,18 +215,18 @@ final class InvestmentActionController extends Notifier<InvestmentActionState> {
     required InvestmentIncomeDraft draft,
   }) async {
     final String ownerId = requireInvestmentOwner(ref);
-    final String mutationId = _incomeMutationId(
-      ownerId: ownerId,
-      actionKey: 'edit:${event.id}:${event.revision}',
-    );
     return _run(
       ownerId: ownerId,
+      capability: PremiumCapability.investmentIncome,
       successMessage: 'Previsão atualizada e confirmada pelo servidor.',
       operation: () => _repository.updateExpectedIncomeEvent(
         ownerId: ownerId,
         eventId: event.id,
         expectedRevision: event.revision,
-        mutationId: mutationId,
+        mutationId: _incomeMutationId(
+          ownerId: ownerId,
+          actionKey: 'edit:${event.id}:${event.revision}',
+        ),
         draft: draft,
       ),
       onSuccess: _clearIncomeMutation,
@@ -220,18 +239,18 @@ final class InvestmentActionController extends Notifier<InvestmentActionState> {
     required DateTime receivedDate,
   }) async {
     final String ownerId = requireInvestmentOwner(ref);
-    final String mutationId = _incomeMutationId(
-      ownerId: ownerId,
-      actionKey: 'receive:${event.id}:${event.revision}',
-    );
     return _run(
       ownerId: ownerId,
+      capability: PremiumCapability.investmentIncome,
       successMessage: 'Recebimento confirmado. Nenhum saldo foi alterado.',
       operation: () => _repository.receiveIncomeEvent(
         ownerId: ownerId,
         eventId: event.id,
         expectedRevision: event.revision,
-        mutationId: mutationId,
+        mutationId: _incomeMutationId(
+          ownerId: ownerId,
+          actionKey: 'receive:${event.id}:${event.revision}',
+        ),
         receivedDate: receivedDate,
       ),
       onSuccess: _clearIncomeMutation,
@@ -277,14 +296,17 @@ final class InvestmentActionController extends Notifier<InvestmentActionState> {
     operation,
   }) {
     final String ownerId = requireInvestmentOwner(ref);
-    final String mutationId = _incomeMutationId(
-      ownerId: ownerId,
-      actionKey: '$action:${event.id}:${event.revision}',
-    );
     return _run(
       ownerId: ownerId,
+      capability: PremiumCapability.investmentIncome,
       successMessage: successMessage,
-      operation: () => operation(ownerId, mutationId),
+      operation: () => operation(
+        ownerId,
+        _incomeMutationId(
+          ownerId: ownerId,
+          actionKey: '$action:${event.id}:${event.revision}',
+        ),
+      ),
       onSuccess: _clearIncomeMutation,
       onDefiniteFailure: _clearIncomeMutation,
     );
@@ -307,12 +329,14 @@ final class InvestmentActionController extends Notifier<InvestmentActionState> {
   }
 
   Future<bool> _runForCurrentOwner({
+    required PremiumCapability capability,
     required String successMessage,
     required Future<Object> Function(String ownerId) operation,
   }) {
     final String ownerId = requireInvestmentOwner(ref);
     return _run(
       ownerId: ownerId,
+      capability: capability,
       successMessage: successMessage,
       operation: () => operation(ownerId),
     );
@@ -320,6 +344,7 @@ final class InvestmentActionController extends Notifier<InvestmentActionState> {
 
   Future<bool> _run({
     required String ownerId,
+    required PremiumCapability capability,
     required String successMessage,
     required Future<Object> Function() operation,
     void Function()? onSuccess,
@@ -330,14 +355,17 @@ final class InvestmentActionController extends Notifier<InvestmentActionState> {
     }
     state = const InvestmentActionState.loading();
     try {
+      _requirePremiumMutation(capability);
       await operation();
       if (_disposed || requireInvestmentOwner(ref) != ownerId) {
         return false;
       }
+      _requirePremiumMutation(capability);
       await ref.read(investmentsControllerProvider.notifier).refresh();
       if (_disposed || requireInvestmentOwner(ref) != ownerId) {
         return false;
       }
+      _requirePremiumMutation(capability);
       final AsyncValue<InvestmentsState> refreshed = ref.read(
         investmentsControllerProvider,
       );
@@ -369,5 +397,28 @@ final class InvestmentActionController extends Notifier<InvestmentActionState> {
       }
       return false;
     }
+  }
+
+  void _requirePremiumMutation(PremiumCapability capability) {
+    final InvestmentPremiumAccessState? access = ref
+        .read(investmentPremiumAccessControllerProvider)
+        .value;
+    if (access?.canMutate(capability) == true) {
+      return;
+    }
+    final bool unavailable =
+        access == null ||
+        access.status == InvestmentPremiumAccessStatus.confirmationError;
+    throw InvestmentFailure(
+      kind: unavailable
+          ? InvestmentFailureKind.premiumConfirmationUnavailable
+          : InvestmentFailureKind.premiumRequired,
+      safeMessage: unavailable
+          ? 'Não foi possível confirmar o Premium. Tente novamente.'
+          : 'Seu acesso está disponível somente para consulta.',
+      code: unavailable
+          ? 'investment_premium_confirmation_required'
+          : 'investment_premium_mutation_denied',
+    );
   }
 }

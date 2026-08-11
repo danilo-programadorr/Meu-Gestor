@@ -39,6 +39,7 @@ final class PremiumEntitlementPolicy {
         capability: capability,
         intent: intent,
         reason: PremiumAccessReason.missingEntitlement,
+        allowRetainedRead: false,
       );
     }
 
@@ -51,6 +52,16 @@ final class PremiumEntitlementPolicy {
         intent: intent,
         reason: PremiumAccessReason.environmentMismatch,
         requiresServerVerification: true,
+        allowRetainedRead: false,
+      );
+    }
+    if (!entitlement.capabilities.contains(capability)) {
+      return _withoutFullAccess(
+        capability: capability,
+        intent: intent,
+        reason: PremiumAccessReason.capabilityNotGranted,
+        requiresServerVerification: stale,
+        allowRetainedRead: false,
       );
     }
     if (entitlement.status == PremiumEntitlementStatus.revoked) {
@@ -67,14 +78,6 @@ final class PremiumEntitlementPolicy {
         reason: PremiumAccessReason.refunded,
       );
     }
-    if (!entitlement.capabilities.contains(capability)) {
-      return _withoutFullAccess(
-        capability: capability,
-        intent: intent,
-        reason: PremiumAccessReason.capabilityNotGranted,
-        requiresServerVerification: stale,
-      );
-    }
 
     final DateTime? startsAt = entitlement.currentPeriodStartedAt;
     if (startsAt != null && referenceInstant.isBefore(startsAt)) {
@@ -83,6 +86,7 @@ final class PremiumEntitlementPolicy {
         intent: intent,
         reason: PremiumAccessReason.notYetValid,
         requiresServerVerification: stale,
+        allowRetainedRead: false,
       );
     }
 
@@ -93,6 +97,7 @@ final class PremiumEntitlementPolicy {
           intent: intent,
           reason: PremiumAccessReason.pendingServerConfirmation,
           requiresServerVerification: true,
+          allowRetainedRead: false,
         );
       case PremiumEntitlementStatus.trialing:
         return _timedDecision(
@@ -194,9 +199,12 @@ final class PremiumEntitlementPolicy {
     required PremiumAccessIntent intent,
     required PremiumAccessReason reason,
     bool requiresServerVerification = false,
+    bool allowRetainedRead = true,
   }) {
     final bool canReadRetainedData =
-        intent == PremiumAccessIntent.read && capability.preservesUserData;
+        allowRetainedRead &&
+        intent == PremiumAccessIntent.read &&
+        capability.preservesUserData;
     return PremiumAccessDecision(
       mode: canReadRetainedData
           ? PremiumAccessMode.readOnly

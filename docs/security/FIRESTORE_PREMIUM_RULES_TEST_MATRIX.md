@@ -1,6 +1,6 @@
-# Matriz de testes Firestore — SUB-1B Premium
+# Matriz de testes Firestore — SUB-1B/SUB-1C Premium
 
-Escopo: `users/{uid}/entitlements/premium` é somente leitura própria; coleções operacionais de billing são totalmente privadas. A suíte local aprovou 57/57 casos no Emulator `demo-*` e as regras foram publicadas exclusivamente em development, sem acesso a production, com SHA-256 `F01E52545F2CE88896A48B28B957BF45F8AE79B0173DF2E20449929FF21532B4`. Nenhum documento foi criado e investimentos permanecem sem bloqueio Premium; commit e push estão pendentes.
+Escopo: `users/{uid}/entitlements/premium` é somente leitura própria; coleções operacionais de billing são totalmente privadas. O SUB-1C acrescenta enforcement local às quatro coleções de investimentos. A base SUB-1B de 57 casos foi preservada e ampliada para 69/69; as novas regras não foram publicadas, nenhum documento real foi criado e nenhum Firebase real foi acessado.
 
 | ID | Caso | Resultado esperado | Estado local |
 |---|---|---|---|
@@ -19,6 +19,18 @@ Escopo: `users/{uid}/entitlements/premium` é somente leitura própria; coleçõ
 | SUB-R-013 | ler/escrever `_premiumRtdnInbox` | negar | automatizado |
 | SUB-R-014 | ler/escrever `_premiumAcknowledgementOutbox` | negar | automatizado |
 | SUB-R-015 | ler/escrever `_premiumAdministrativeGrants` | negar | automatizado |
-| SUB-R-016 | criar carteira sem entitlement no SUB-1B | permitir conforme regras atuais | automatizado |
+| SUB-R-016 | criar carteira sem entitlement no SUB-1C | negar | automatizado |
+| SUB-R-017 | ausência ou `pending` lê/lista/escreve investimentos | negar | automatizado |
+| SUB-R-018 | trial/active/grace/cancelled vigente com capability | permitir leitura e escrita | automatizado |
+| SUB-R-019 | expired/hold/paused/revoked/refunded | permitir leitura histórica e negar escrita | automatizado |
+| SUB-R-020 | `investmentsManual` sem `investmentIncome` | negar proventos | automatizado |
+| SUB-R-021 | `investmentIncome` sem `investmentsManual` | negar carteira, ativo e operação | automatizado |
+| SUB-R-022 | capability duplicada/desconhecida ou schema/revisão/owner/ambiente inválidos | negar | automatizado |
+| SUB-R-023 | vencimento e limite da carência usam `request.time` | integral antes; somente leitura no/depois | automatizado |
+| SUB-R-024 | operações atômicas existentes com entitlement | permitir sem atingir limites | automatizado |
+| SUB-R-025 | delete, subcoleção e path desconhecido | negar | automatizado |
+| SUB-R-026 | batch cliente tenta criar entitlement e editar investimento | negar integralmente | automatizado |
 
-A suíte também preserva todos os casos anteriores de perfil, owner, contas, categorias, lançamentos, compromissos, investimentos e proventos. O SUB-1B não usa entitlement para liberar ou bloquear investimentos.
+A suíte também preserva todos os casos anteriores de perfil, owner, contas, categorias, lançamentos, compromissos, investimentos e proventos. O log integral deve permanecer sem limite de 1.000 expressões, excesso de leituras, avaliação interrompida, valor nulo ou falha interna.
+
+SUB-1D não adiciona escrita cliente de entitlement nem chamada Google Play no Emulator. A matriz mantém a negação de todas as escritas de `premium` e caminhos internos; a confirmação comercial permanece fora do cliente e depende de backend futuro.

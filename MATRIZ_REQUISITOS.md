@@ -371,7 +371,7 @@
 | SUB-001-1A | Modelar planos e entitlement puro | P0 | SUB-1A | gratuito é ausência; mensal/anual não têm preço e compartilham capabilities; entidade não importa Flutter/Firebase/pagamentos | implementado e coberto unitariamente | nenhuma dependência nova | alto | neutro |
 | SUB-002-1A | Representar ciclo completo | P0 | SUB-1A | dez estados canônicos validam período, carência, cancelamento, expiração, revogação e reembolso | implementado e coberto | instante UTC injetado | crítico | neutro |
 | SUB-003-1A | Decidir acesso explicitamente | P0 | SUB-1A | resultado informa integral/somente leitura/negado, motivo, validade, carência, cancelamento e releitura | implementado e coberto nos limites exatos | entidade válida | crítico | neutro |
-| SUB-004-1A | Preservar dados após expiração | P0 | SUB-1A | carteira, ativos, operações e proventos permanecem legíveis; mutações e cotação são negadas; nenhum saldo muda | política de domínio implementada; aplicação futura não conectada | SUB-1B e regras futuras | crítico | reduz consumo de cotação |
+| SUB-004-1A | Preservar dados após expiração | P0 | SUB-1A | carteira, ativos, operações e proventos permanecem legíveis; mutações e cotação são negadas; nenhum saldo muda | política aplicada localmente pelo SUB-1C | SUB-1B/SUB-1C | crítico | reduz consumo de cotação |
 | SUB-005-1A | Reconciliar eventos determinísticos | P0 | SUB-1A | revisão antiga/repetida, período regressivo, owner/ambiente divergente e restauração terminal são negados | implementado em política de transição | backend futuro | crítico | neutro |
 | SUB-006-1A | Restringir contrato cliente | P0 | SUB-1A | repositório prevê somente leitura, observação confirmada, releitura e diagnóstico sanitizado; nenhuma mutação | interface pura criada, sem implementação | backend/persistência futuros | crítico | neutro |
 | SUB-007-1A | Manter fronteiras operacionais | P0 | SUB-1A | sem Billing, produto, backend, persistência, regras, paywall, grant owner ou bloqueio atual | confirmado por auditoria e hash das regras | autorização futura | crítico | nenhum serviço externo |
@@ -387,7 +387,30 @@
 | SUB-005-1B | Restringir grants | P0 | SUB-1B | próprio UID, motivo, validade, ambiente, revisão, capabilities e revogação; dev nega production | implementado localmente | autorização backend futura | crítico | zero externo |
 | SUB-006-1B | Ler projeção confirmada | P0 | SUB-1B | mapper exato, `Source.server`, ausência explícita, watch sem cache/pending e diagnóstico sanitizado | implementado sem conexão à UI | Firestore SDK existente | alto | uma leitura futura |
 | SUB-007-1B | Proteger Firestore | P0 | SUB-1B | próprio `get`; list/write/cross UID/owner/subcoleção/internos negados | 57/57 no Emulator; regras publicadas somente em development, sem production; SHA-256 `F01E52545F2CE88896A48B28B957BF45F8AE79B0173DF2E20449929FF21532B4` | backend real e enforcement futuros | crítico | leituras de perfil |
-| SUB-008-1B | Preservar escopo e UX | P0 | SUB-1B | sem paywall/bloqueio/compra; investimentos atuais seguem acessíveis e nenhum dado é apagado | confirmado | SUB-1C futuro | alto | neutro |
+| SUB-008-1B | Preservar escopo e UX | P0 | SUB-1B | sem paywall/bloqueio/compra; investimentos atuais seguem acessíveis e nenhum dado é apagado | preservado; enforcement acrescentado localmente no SUB-1C | SUB-1C | alto | neutro |
+
+## Incremento SUB-1C — Enforcement Premium local
+
+| ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |
+|---|---|---:|---:|---|---|---|---|---|
+| SUB-001-1C | Coordenar acesso confirmado | P0 | SUB-1C | servidor, capability, ambiente e instante canônico produzem loading/integral/somente leitura/negado/erro; cache não concede | implementado localmente | SUB-1A/SUB-1B | crítico | uma releitura por sessão/refresh |
+| SUB-002-1C | Proteger repositório e controllers | P0 | SUB-1C | toda leitura/mutação passa por guard; negação não chama Firestore nem consome ID; resposta tardia e múltiplos toques não geram sucesso | implementado e testado | repositório atual | crítico | neutro |
+| SUB-003-1C | Proteger rotas e interface | P0 | SUB-1C | deep links aguardam confirmação; somente leitura preserva consulta e remove ações; negado não carrega dados nem simula compra | implementado e testado em 320 px/fonte 180% | go_router/Riverpod | alto | neutro |
+| SUB-004-1C | Separar capabilities | P0 | SUB-1C | manual governa carteira/ativo/operação e income governa provento, sem concessão cruzada | implementado em quatro camadas | entitlement | crítico | neutro |
+| SUB-005-1C | Aplicar Rules como autoridade | P0 | SUB-1C | UID, perfil, documento válido, capability, `request.time` e invariantes existentes autorizam; owner não ignora | implementado somente localmente | Emulator `demo-*` | crítico | leitura do entitlement |
+| SUB-006-1C | Preservar patrimônio | P0 | SUB-1C | perda não apaga/grava/arquiva nem altera custo, quantidade, resultado, saldo ou resumo; retomada não migra | implementado por ausência de escrita e coberto | política canônica | crítico | neutro |
+| SUB-007-1C | Manter publicação bloqueada | P0 | SUB-1C | nenhuma regra é publicada antes de existir emissão development segura; nenhum usuário real é bloqueado | confirmado | backend administrativo futuro | crítico | zero externo |
+| SUB-008-1C | Manter escopo comercial | P0 | SUB-1C | sem Billing, preço, compra, paywall, grant real, cotações ou cálculo; SUB-1D futuro | confirmado | autorização futura | alto | zero externo |
+
+## Incremento SUB-1D — Google Play Billing local
+
+| ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |
+|---|---|---:|---:|---|---|---|---|---|
+| SUB-001-1D | Catálogo mensal/anual | P0 | SUB-1D | IDs explícitos, distintos, validados; preços somente da loja | local e falha fechado | produtos Play futuros | alto | consulta futura |
+| SUB-002-1D | Compra segura | P0 | SUB-1D | loja + backend + App Check + ambiente + perfil + operação livre; resposta local não concede | local, fluxo real bloqueado | backend/Play futuros | crítico | cobrança futura |
+| SUB-003-1D | Restauração e gestão | P0 | SUB-1D | restore verifica backend; link oficial sem cancelamento simulado | local e testado | backend/Play futuros | alto | neutro |
+| SUB-004-1D | Token, identidade e acknowledgement | P0 | SUB-1D | token transitório; UID não vai à Play; ack só após backend | contrato local | backend/KMS futuros | crítico | infraestrutura futura |
+| SUB-005-1D | UX e preservação | P0 | SUB-1D | preparação, pendente, leitura, falha, acessibilidade e dados preservados | local e testado | sistema visual | alto | neutro |
 
 ## Incrementos futuros de dados, privacidade e armazenamento
 

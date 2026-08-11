@@ -13,6 +13,8 @@ Não há cotações, APIs externas, corretoras, Open Finance, agenda automática
 - `presentation`: controllers Riverpod, formulários, lista de carteiras/posições e detalhe com histórico;
 - `firestore.rules`: autorização por UID, perfil jurídico, contratos fechados e vínculo atômico entre ativo e operação.
 
+O SUB-1C acrescenta `PremiumGuardedInvestmentRepository`, um coordenador de entitlement confirmado pelo servidor e gates nas rotas. `investmentsManual` protege carteira, ativo e operação; `investmentIncome` protege proventos. Nenhuma camada confia exclusivamente nos widgets e owner não possui bypass.
+
 Tipos Firebase não entram no domínio e widgets não acessam Firestore diretamente.
 
 ## Representação numérica
@@ -50,6 +52,8 @@ Investimentos são acessados pelo grupo Patrimônio no Menu da Home e não ocupa
 
 Valores e quantidades seguem a privacidade global compartilhada com a Home. Layouts cobrem temas claro/escuro, 320 px, fonte ampliada, rolagem, alvos de toque, tooltips e texto equivalente a indicadores visuais.
 
+Quando um entitlement antes válido perde vigência, a área permanece consultável e exibe aviso discreto de preservação. Criar, editar, arquivar, restaurar, comprar, vender, anular e alterar proventos desaparecem; “Gerenciar carteiras” passa a “Consultar carteiras”. Ausência, `pending`, documento inválido, capability ausente ou falha de confirmação não carregam o workspace. O fluxo negado não mostra preço, compra ou botão funcional de assinatura.
+
 O redesign UI-INV-1B permanece integralmente na apresentação. A área usa seletor de carteira e abas Resumo, Ativos, Lançamentos e Proventos. Evolução de compras/vendas é agregada das operações ativas; alocação usa o custo canônico das posições abertas. Busca, filtros e ordenação não gravam estado remoto.
 
 A prévia do formulário não cria uma segunda regra financeira: quantidade e preço continuam escalados, valor bruto e possível média usam `InvestmentArithmetic`, e a confirmação persiste o mesmo `InvestmentOperationDraft` validado pelo fluxo original. Métricas sem fonte real — cotação, patrimônio de mercado, valorização e rentabilidade não realizada — não possuem campos substitutos.
@@ -69,3 +73,5 @@ Proventos são acompanhamento patrimonial. Não existe referência a conta, cate
 ## Limitação segura
 
 Security Rules não recalculam custo médio nem percorrem todo o histórico. Por isso operações devem ser cadastradas da mais antiga para a mais recente e correções antigas exigem anular primeiro as posteriores. O cliente não promete edição histórica arbitrária nem enfraquece regras para simulá-la.
+
+O enforcement SUB-1C e suas regras estão somente locais e não bloqueiam usuários do Firebase development. A publicação exige primeiro concessão development segura por backend autorizado. Google Play, compra e experiência comercial pertencem ao SUB-1D.

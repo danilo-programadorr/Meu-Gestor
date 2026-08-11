@@ -16,7 +16,7 @@ void main() {
   });
 
   test(
-    'providers Premium não são consumidos pela interface ou investimentos',
+    'repositório Premium é consumido somente pelo coordenador de enforcement',
     () {
       final List<File> dartFiles = Directory('lib')
           .listSync(recursive: true)
@@ -33,7 +33,15 @@ void main() {
           )
           .map((File file) => file.path)
           .toList();
-      expect(consumers, isEmpty);
+      expect(consumers, hasLength(2));
+      expect(
+        consumers,
+        everyElement(
+          contains(
+            'features${Platform.pathSeparator}subscriptions${Platform.pathSeparator}presentation${Platform.pathSeparator}controllers${Platform.pathSeparator}',
+          ),
+        ),
+      );
     },
   );
 }

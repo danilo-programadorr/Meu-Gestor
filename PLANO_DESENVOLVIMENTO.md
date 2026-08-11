@@ -757,3 +757,21 @@ Situação em 10/08/2026: implementação e 717 validações concluídas; Securi
 - `users/{uid}/entitlements/premium` tem mapper estrito e repositório Flutter somente leitura confirmada pelo servidor. Ausência é explícita e diagnósticos são sanitizados.
 - Security Rules locais permitem apenas `get` do próprio `premium` com autenticação, e-mail confirmado e perfil jurídico; negam listagem, escrita, acesso cruzado, subcoleções e coleções internas.
 - Investimentos continuam acessíveis no development atual. Paywall, compra, Google Play Billing e aplicação das policies aos módulos permanecem fora do SUB-1B.
+
+## 34. SUB-1C — Enforcement Premium local e modo somente leitura
+
+Situação em 10/08/2026: implementado e validado somente no worktree local com 655 testes Flutter, 27 testes backend e 68 testes do Emulator (750 validações). `firestore.rules` foi alterado localmente, mas não foi publicado; nenhum Firebase real, Google Play, APK, commit ou push foi executado e nenhum usuário development real foi bloqueado.
+
+- `InvestmentPremiumAccessController` relê o entitlement do servidor, rejeita cache/escrita pendente e produz acesso integral, somente leitura, negado ou erro recuperável.
+- `investmentsManual` protege carteiras, ativos e operações; `investmentIncome` protege proventos. Cotações, calculadoras e análises continuam sem funcionalidade.
+- `PremiumGuardedInvestmentRepository`, controllers e gates de rota impedem contorno por widget ou deep link, bloqueiam resposta tardia/múltiplos toques e não consomem ID quando a autorização falha.
+- Regras locais exigem UID próprio, e-mail confirmado, perfil jurídico, entitlement válido, capability e `request.time`; owner não possui bypass. Invariantes financeiras e operações atômicas permanecem intactas.
+- Perda de Premium não grava nem apaga dados. Consulta, filtros, privacidade, temas e navegação permanecem; ações mutáveis desaparecem. Ausência nunca é expiração e não carrega dados Premium.
+- A tela negada não possui preço, compra ou botão funcional de assinatura. Confirmação indisponível falha fechada e oferece retry com texto sanitizado.
+- Publicação depende primeiro de um método backend/administrativo autorizado para emitir entitlements development seguros. SUB-1D cuidará de Google Play, compra e experiência comercial mediante autorização própria.
+
+## 35. SUB-1D — Interface e preparação Google Play Billing
+
+Concluído localmente: contratos de catálogo, compra, restauração, atualizações, verificação, disponibilidade e gerenciamento; página Premium, rota, entradas de Menu/Perfil, gateway Flutter e testes determinísticos. A cobrança continua bloqueada por ausência de produtos Play, backend seguro, identificação ofuscada emitida pelo servidor, App Check, grant development real e publicação autorizada das regras SUB-1C.
+
+Integração B3/corretoras permanece cancelada. Cotações atrasadas por provedor independente continuam tema separado e não foram iniciadas.

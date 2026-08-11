@@ -1,6 +1,7 @@
 export * from './errors.mjs';
 export * from './gateway.mjs';
 export * from './grants.mjs';
+export * from './grant_audit.mjs';
 export * from './mapper.mjs';
 export * from './processor.mjs';
 export * from './rtdn.mjs';

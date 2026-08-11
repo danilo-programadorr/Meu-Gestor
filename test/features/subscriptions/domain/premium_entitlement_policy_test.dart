@@ -120,6 +120,25 @@ void main() {
       }
     });
 
+    test('pending e ausência negam também a leitura', () {
+      expect(
+        decide(
+          null,
+          DateTime.utc(2026, 8, 21),
+          intent: PremiumAccessIntent.read,
+        ).mode,
+        PremiumAccessMode.denied,
+      );
+      expect(
+        decide(
+          premiumEntitlement(status: PremiumEntitlementStatus.pending),
+          DateTime.utc(2026, 8, 21),
+          intent: PremiumAccessIntent.read,
+        ).mode,
+        PremiumAccessMode.denied,
+      );
+    });
+
     test('revogação e reembolso prevalecem sobre período futuro', () {
       for (final PremiumEntitlementStatus status in <PremiumEntitlementStatus>[
         PremiumEntitlementStatus.revoked,
@@ -154,6 +173,15 @@ void main() {
           intent: PremiumAccessIntent.consumeService,
         ).reason,
         PremiumAccessReason.capabilityNotGranted,
+      );
+      expect(
+        decide(
+          limited,
+          DateTime.utc(2026, 8, 21),
+          capability: PremiumCapability.investmentIncome,
+          intent: PremiumAccessIntent.read,
+        ).mode,
+        PremiumAccessMode.denied,
       );
     });
 
@@ -199,7 +227,7 @@ void main() {
       }
     });
 
-    test('ambiente divergente falha fechado sem perder leitura histórica', () {
+    test('ambiente divergente falha fechado inclusive para leitura', () {
       const PremiumEntitlementPolicy productionPolicy =
           PremiumEntitlementPolicy(environment: PremiumEnvironment.production);
       final PremiumEntitlement grant = premiumEntitlement(
@@ -225,8 +253,25 @@ void main() {
               referenceInstant: DateTime.utc(2026, 8, 21),
             )
             .mode,
-        PremiumAccessMode.readOnly,
+        PremiumAccessMode.denied,
       );
+    });
+
+    test('estados com acesso anterior preservam somente leitura', () {
+      for (final PremiumEntitlementStatus status in <PremiumEntitlementStatus>[
+        PremiumEntitlementStatus.accountHold,
+        PremiumEntitlementStatus.paused,
+        PremiumEntitlementStatus.expired,
+        PremiumEntitlementStatus.revoked,
+        PremiumEntitlementStatus.refunded,
+      ]) {
+        final PremiumAccessDecision result = decide(
+          premiumEntitlement(status: status),
+          DateTime.utc(2026, 9, 11),
+          intent: PremiumAccessIntent.read,
+        );
+        expect(result.mode, PremiumAccessMode.readOnly, reason: status.name);
+      }
     });
 
     test('verificação antiga sinaliza releitura sem usar relógio real', () {

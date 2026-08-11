@@ -38,11 +38,15 @@ O arquivo público `firestore.rules` protege o perfil `users/{uid}`, as subcole�
 - entitlement Premium permite somente `get` do documento fixo próprio, com autenticação, e-mail confirmado e perfil jurídico atual;
 - listagem, escrita, entitlement desconhecido, subcoleções e acesso owner cruzado são negados;
 - eventos, vínculos, inbox RTDN, outbox de acknowledgement e grants internos Premium são totalmente inacessíveis ao cliente;
-- as regras Premium não bloqueiam investimentos no SUB-1B.
+- o SUB-1C local exige entitlement estruturalmente válido e capability própria para ler investimentos; acesso histórico é somente leitura;
+- mutações exigem acesso integral no `request.time` e preservam contratos, referências, revisões, atomicidade e exclusões negadas;
+- `investmentsManual` não concede proventos e `investmentIncome` não concede carteira, ativo ou operação; owner não possui bypass.
 
 ## Validação local e publicação
 
-As regras são exercitadas no Emulator Suite com projeto isolado `demo-*`, incluindo acessos negados, transições, concorrência, regressões do núcleo financeiro e auditoria do log. O conjunto SUB-1B foi compilado e publicado exclusivamente em development, sem acesso a production, com SHA-256 `F01E52545F2CE88896A48B28B957BF45F8AE79B0173DF2E20449929FF21532B4`. Somente `firestore.rules` foi publicado; nenhum documento, índice ou outro recurso Firebase foi modificado. Backend real, Google Play e enforcement Premium permanecem não implementados, investimentos continuam acessíveis e commit/push estão pendentes.
+As regras são exercitadas no Emulator Suite com projeto isolado `demo-*`, incluindo acessos negados, transições, concorrência, regressões do núcleo financeiro e auditoria do log. O conjunto SUB-1B foi publicado anteriormente somente em development com SHA-256 `F01E52545F2CE88896A48B28B957BF45F8AE79B0173DF2E20449929FF21532B4`. O enforcement SUB-1C alterou o arquivo apenas localmente: não houve deploy, Firebase real ou bloqueio de usuário development. A publicação futura depende de entitlements development emitidos com segurança por backend autorizado.
+
+Para manter operações complexas abaixo de 1.000 expressões, leituras validam o contrato completo do entitlement; mutações validam o conjunto exato de campos e os atributos determinantes de autorização. Validações duplicadas em transições de proventos foram eliminadas sem mudar campos, estados ou transições aceitos. A matriz local cobre também excesso de leituras, avaliação interrompida e erros internos.
 
 ## Publicação
 

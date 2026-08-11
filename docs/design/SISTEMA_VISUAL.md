@@ -188,3 +188,18 @@ O tema claro usa fundo `#F4F7FA`, superfícies brancas, cartões secundários `#
 - Privacidade oculta valores e quantidades em resumo, gráficos, cartões, histórico, prévia e confirmação. Datas, tipos e status permanecem legíveis.
 - Em 320 px ou fonte a 180%, cabeçalho, filtros e seletor do histórico se empilham; formulários mantêm rolagem com teclado e dropdowns usam a largura disponível.
 - Azul-gelo permanece em seleção e destaque discreto. Não são usados logos, marca de referência, cotação, ranking, notícias, B3, paywall ou agenda automática.
+
+## 19. SUB-1C — estados Premium em investimentos
+
+- Acesso integral preserva a experiência atual sem selo ou interrupção desnecessária.
+- Somente leitura usa aviso discreto com ícone, texto de preservação e linguagem de consulta; ações mutáveis somem e “Gerenciar carteiras” passa a “Consultar carteiras”.
+- Acesso negado e confirmação indisponível usam página rolável, botão Voltar, texto seguro e retry quando aplicável. Não exibem preço, simulação, botão funcional de assinatura ou detalhe técnico.
+- O gate não constrói conteúdo protegido durante loading ou negação. Privacidade, tema, filtros e navegação de consulta permanecem disponíveis quando há leitura histórica.
+- Os estados cobrem 320 px, tema claro/escuro, fonte a 180%, semântica e alvos de toque. Compra e paywall comercial pertencem ao SUB-1D.
+
+## 20. SUB-1D — Premium e assinatura
+
+- A página Premium é rolável, usa retorno seguro e não ocupa a Home. Menu e Perfil expõem “Premium e assinatura” em Conta e aplicativo.
+- A página prioriza status, benefícios reais, planos somente quando a loja os devolver, restauração, gerenciamento externo e documentos jurídicos. Não usa desconto, urgência, preço, depoimento ou benefício fictício.
+- Carregando, preparação, indisponível, pendente, verificando, ativa, somente leitura, cancelada e falha possuem texto equivalente e semântica; cores não são a única indicação.
+- Em 320 px, teclado e fonte 180%, cartões quebram texto, botões mantêm alvo Material e a rolagem preserva todas as ações. Tema claro/escuro reutiliza superfícies e azul-gelo discreto.

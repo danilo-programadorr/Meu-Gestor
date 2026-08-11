@@ -17,6 +17,8 @@ class InvestmentIncomeTab extends ConsumerStatefulWidget {
     required this.events,
     required this.valuesVisible,
     required this.now,
+    required this.canRead,
+    required this.canMutate,
     required this.onRefresh,
     super.key,
   });
@@ -26,6 +28,8 @@ class InvestmentIncomeTab extends ConsumerStatefulWidget {
   final List<InvestmentIncomeEvent> events;
   final bool valuesVisible;
   final DateTime now;
+  final bool canRead;
+  final bool canMutate;
   final Future<void> Function() onRefresh;
 
   @override
@@ -54,6 +58,34 @@ class _InvestmentIncomeTabState extends ConsumerState<InvestmentIncomeTab> {
 
   @override
   Widget build(BuildContext context) {
+    if (!widget.canRead) {
+      return ListView(
+        key: const ValueKey<String>('investment-income-denied-scroll'),
+        padding: const EdgeInsets.all(AppSpacing.md),
+        children: const <Widget>[
+          Card(
+            child: Padding(
+              padding: EdgeInsets.all(AppSpacing.lg),
+              child: Column(
+                children: <Widget>[
+                  Icon(Icons.lock_outline_rounded, size: 40),
+                  SizedBox(height: AppSpacing.sm),
+                  Text(
+                    'Proventos não estão incluídos neste acesso Premium.',
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: AppSpacing.xs),
+                  Text(
+                    'Nenhum dado de proventos foi carregado.',
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
     final InvestmentActionState action = ref.watch(
       investmentActionControllerProvider,
     );
@@ -109,7 +141,10 @@ class _InvestmentIncomeTabState extends ConsumerState<InvestmentIncomeTab> {
           children: <Widget>[
             _IncomeHeader(
               portfolioName: widget.portfolio.name,
-              canCreate: widget.assets.isNotEmpty && !action.isLoading,
+              canCreate:
+                  widget.canMutate &&
+                  widget.assets.isNotEmpty &&
+                  !action.isLoading,
               onCreate: () => context.push(
                 AppRoutes.newInvestmentIncomeEvent(widget.portfolio.id),
               ),
@@ -169,7 +204,7 @@ class _InvestmentIncomeTabState extends ConsumerState<InvestmentIncomeTab> {
             if (filtered.isEmpty)
               _IncomeEmpty(
                 hasAny: portfolioEvents.isNotEmpty,
-                canCreate: widget.assets.isNotEmpty,
+                canCreate: widget.canMutate && widget.assets.isNotEmpty,
                 onCreate: () => context.push(
                   AppRoutes.newInvestmentIncomeEvent(widget.portfolio.id),
                 ),
@@ -183,6 +218,7 @@ class _InvestmentIncomeTabState extends ConsumerState<InvestmentIncomeTab> {
                     asset: assetsById[event.assetId],
                     valuesVisible: widget.valuesVisible,
                     actionLoading: action.isLoading,
+                    canMutate: widget.canMutate,
                     onEdit: () => context.push(
                       AppRoutes.editInvestmentIncomeEvent(event.id),
                     ),
@@ -649,6 +685,7 @@ class _IncomeEventCard extends StatelessWidget {
     required this.asset,
     required this.valuesVisible,
     required this.actionLoading,
+    required this.canMutate,
     required this.onEdit,
     required this.onReceive,
     required this.onCancel,
@@ -659,6 +696,7 @@ class _IncomeEventCard extends StatelessWidget {
   final TrackedInvestmentAsset? asset;
   final bool valuesVisible;
   final bool actionLoading;
+  final bool canMutate;
   final VoidCallback onEdit;
   final VoidCallback onReceive;
   final VoidCallback onCancel;
@@ -746,7 +784,7 @@ class _IncomeEventCard extends StatelessWidget {
             const SizedBox(height: AppSpacing.sm),
             Text(event.notes),
           ],
-          if (!event.isTerminal) ...<Widget>[
+          if (canMutate && !event.isTerminal) ...<Widget>[
             const SizedBox(height: AppSpacing.sm),
             Wrap(
               alignment: WrapAlignment.end,

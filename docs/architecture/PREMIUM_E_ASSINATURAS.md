@@ -1,8 +1,8 @@
-# SUB-1A/SUB-1B — Entitlement Premium
+# SUB-1A/SUB-1B/SUB-1C/SUB-1D — Entitlement Premium
 
 ## Fronteira atual
 
-O SUB-1A criou tipos de domínio e contratos. O SUB-1B acrescenta uma referência de backend exclusivamente local, persistência transacional em memória para testes e mapper/repositório Flutter somente leitura. As Security Rules foram publicadas exclusivamente em development, sem acesso a production, com SHA-256 `F01E52545F2CE88896A48B28B957BF45F8AE79B0173DF2E20449929FF21532B4`. O incremento não cobra, não consulta loja real, não persiste entitlement, não aplica paywall e não muda o acesso atual aos investimentos. Não há produto mensal/anual configurado, período de teste real, endpoint ou runtime de nuvem; commit e push permanecem pendentes.
+O SUB-1A criou tipos de domínio e contratos. O SUB-1B acrescentou uma referência de backend exclusivamente local, persistência transacional em memória para testes e mapper/repositório Flutter somente leitura; suas regras de leitura foram publicadas anteriormente apenas em development com SHA-256 `F01E52545F2CE88896A48B28B957BF45F8AE79B0173DF2E20449929FF21532B4`. O SUB-1C aplica localmente o entitlement aos investimentos em regras, repositório, controllers, rotas e interface. As regras SUB-1C não foram publicadas e nenhum usuário development real foi bloqueado. Não há cobrança, loja real, entitlement real, paywall, produto mensal/anual configurado, endpoint ou runtime de nuvem.
 
 O domínio vive em `lib/features/subscriptions/domain/` e não importa Flutter, Firebase, Riverpod, Google Play Billing nem biblioteca de pagamento. A referência local vive em `backend/subscriptions/`, usa ESM e APIs nativas do Node, sem dependências externas. Preços e moeda não fazem parte do modelo.
 
@@ -60,7 +60,7 @@ As capabilities iniciais são:
 
 A solicitação também informa a intenção `read`, `mutate` ou `consumeService`. Isso evita transformar leitura histórica em permissão de edição. Carteiras, ativos, operações e proventos são dados preserváveis: após perda de acesso, leitura recebe `readOnly`, enquanto criação, edição, operações e proventos são negados. Cotações, calculadoras e análises não são dados históricos preservados; cotações deixam de ser fornecidas para evitar custo recorrente.
 
-Nenhum desses bloqueios está conectado à interface ou aos repositórios de investimentos no SUB-1B. As duas primeiras capabilities correspondem a módulos existentes; as demais apenas reservam significado estável e não habilitam funcionalidade.
+No SUB-1C, `investmentsManual` e `investmentIncome` são aplicadas separadamente em profundidade. As demais capabilities apenas reservam significado estável e não habilitam funcionalidade.
 
 ## Decisão de acesso
 
@@ -79,7 +79,7 @@ A decisão cliente serve à experiência e falha de maneira explicável. Ela nã
 
 `PremiumEntitlementRepository` oferece somente leitura atual, observação de snapshots confirmados, releitura do servidor e diagnóstico sanitizado. A implementação Firebase lê com `Source.server`, ignora snapshots de cache ou com escrita pendente e usa mapper de campos exatos. Entitlement ausente é resultado explícito. Não existem métodos cliente para criar, ativar, renovar, revogar, reembolsar ou conceder.
 
-O contrato local usa o documento fixo `users/{uid}/entitlements/premium`, escrito exclusivamente pelo backend futuro. As regras permitem apenas `get` próprio com autenticação, e-mail confirmado e perfil jurídico válido; negam listagem e toda escrita cliente. Token, recibo bruto, identidade de pagamento e auditoria confidencial ficam fora do documento legível.
+O contrato local usa o documento fixo `users/{uid}/entitlements/premium`, escrito exclusivamente pelo backend futuro. A leitura do entitlement permite apenas `get` próprio com autenticação, e-mail confirmado e perfil jurídico válido; listagem e toda escrita cliente são negadas. Localmente, as coleções de investimentos também exigem entitlement, capability e estado temporal coerentes. Token, recibo bruto, identidade de pagamento e auditoria confidencial ficam fora do documento legível.
 
 O processador local recebe ator autenticado, App Check validado, ambiente, produto e token; calcula uma impressão digital HMAC, consulta um gateway fake, valida o DTO, reconcilia em armazenamento transacional e devolve somente confirmação sanitizada que exige releitura do servidor. Eventos repetidos, concorrentes, antigos e timeouts pós-commit são idempotentes. RTDN é apenas sinal e nunca autoridade. A outbox de acknowledgement é repetível sem confirmação duplicada.
 
@@ -87,6 +87,24 @@ As coleções conceituais `_premiumBillingEvents`, `_premiumPurchaseBindings`, `
 
 ## Preservação e experiência
 
-Perder Premium nunca apaga carteira, ativos, operações ou proventos, nunca recalcula preço médio e nunca modifica conta, saldo ou resumo mensal. A renovação recuperará mutações sem migração dos dados históricos. A interface futura deverá explicar o estado, manter leitura e oferecer ação segura de renovação, sem esconder dados ou simular benefícios indisponíveis.
+Perder Premium nunca apaga carteira, ativos, operações ou proventos, nunca recalcula preço médio e nunca modifica conta, saldo ou resumo mensal. A renovação recupera mutações sem migração dos dados históricos. O SUB-1C apresenta o estado, mantém leitura e oculta ações mutáveis; ausência não carrega listas e falha de confirmação oferece retry sem sucesso falso. Compra, preço, restauração comercial e ação de renovação pertencem ao SUB-1D.
 
-Google Play Billing será integrado somente em incremento posterior. A integração B3/corretoras permanece cancelada. Cotação atrasada por provedor independente permanece bloqueada por licenciamento e pela implementação segura de SUB-1.
+## Enforcement local SUB-1C
+
+O coordenador relê o entitlement do servidor e produz estados explícitos. Cache e escrita pendente não autorizam. Um decorator protege o repositório e os controllers verificam acesso antes e depois de cada operação, preservando IDs e descartando respostas tardias. Gates protegem inclusive deep links para formulários e detalhes. A interface somente leitura preserva seleção, filtros, privacidade, tema e navegação, mas não apresenta criar, editar, arquivar, restaurar, comprar, vender, anular ou alterar provento.
+
+As regras SUB-1C permanecem somente locais. A publicação depende de um mecanismo backend/administrativo autorizado para criar entitlements development com validade e auditoria; publicá-las antes disso bloquearia usuários development reais. O detalhamento está no ADR-021 e na matriz `docs/security/PREMIUM_ENFORCEMENT_MATRIX.md`.
+
+O adaptador local de Google Play Billing foi preparado no SUB-1D; a integração comercial real exige um gate posterior com produtos, backend, verificação, regras e autorizações externas. A integração B3/corretoras permanece cancelada. Cotação atrasada por provedor independente permanece bloqueada por licenciamento e pela implementação segura de SUB-1.
+
+## SUB-1D — experiência Google Play preparada localmente
+
+O SUB-1D adiciona contratos distintos para catálogo, compra, restauração, atualizações do ciclo, verificação, disponibilidade e gerenciamento. `in_app_purchase` 3.3.0 é o adaptador Flutter oficial adequado; o projeto atual já atende seu mínimo Android (o adaptador Android resolve `minSdk 21`) e não precisou de dependência Gradle manual. `url_launcher` 6.3.2 abre a URI pública oficial de assinaturas, com deep link específico somente quando package e produto configurados passam na validação; caso contrário usa a Central geral.
+
+Mensal e anual não possuem ID, preço ou oferta no código. IDs válidos são lidos por configuração explícita, conferidos como distintos e falham fechados quando ausentes. Título, descrição, preço localizado e moeda só chegam da Play Store. Sem produtos reais, sem backend verificador e sem App Check preparado, a página informa **Assinaturas em preparação**, não consulta a loja e não permite iniciar cobrança.
+
+Em uma ativação futura, a sequência obrigatória será: catálogo da Play, confirmação explícita do usuário, atualização `pending`/`purchased`/`restored`, verificação de servidor, releitura `Source.server` do entitlement, e só então acknowledgement por backend/outbox. `pending`, cancelamento, falha, timeout, backend indisponível, resposta tardia ou entitlement ausente nunca liberam capacidade. O token é transitório, não é persistido pelo Flutter e não compõe logs, Riverpod ou diagnósticos. O `obfuscatedAccountId` será emitido por mecanismo não reversível aprovado no backend, específico por ambiente; UID puro não será enviado.
+
+Restauração encaminha cada compra relevante ao verificador e relê o servidor; ausência, assinatura expirada, conta Google diferente e erro não criam entitlement. A página mantém acesso oficial para gerenciamento/cancelamento na Google Play e não simula cancelamento no aplicativo. A tela negada e o modo somente leitura oferecem a página Premium sem carregar listas protegidas nem alterar o enforcement SUB-1C.
+
+Testes reais futuros exigirão produtos configurados, backend, regras publicadas e license testers da Play Console. License testers permitem testar fluxo com métodos de teste, inclusive compras pendentes; acknowledgement só pode ocorrer depois de `PURCHASED`. Nada disso foi configurado ou acessado neste checkpoint.

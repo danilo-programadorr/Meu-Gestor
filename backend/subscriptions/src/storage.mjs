@@ -13,7 +13,7 @@ export class SubscriptionTransactionalStorage {
 export class InMemorySubscriptionStorage extends SubscriptionTransactionalStorage {
   #state = {
     entitlements: new Map(), bindings: new Map(), events: new Map(),
-    rtdnInbox: new Map(), acknowledgementOutbox: new Map(), grants: new Map(),
+    rtdnInbox: new Map(), acknowledgementOutbox: new Map(), grants: new Map(), audits: [],
   };
   #queue = Promise.resolve();
   failBeforeCommit = false;
@@ -41,4 +41,5 @@ export class InMemorySubscriptionStorage extends SubscriptionTransactionalStorag
   async entitlement(ownerId) { return (await this.snapshot()).entitlements.get(ownerId) ?? null; }
   async event(eventId) { return (await this.snapshot()).events.get(eventId) ?? null; }
   async binding(fingerprint) { return (await this.snapshot()).bindings.get(fingerprint) ?? null; }
+  async audits() { return (await this.snapshot()).audits; }
 }

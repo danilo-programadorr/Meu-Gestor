@@ -47,26 +47,31 @@ final class FirebaseInvestmentRepository implements InvestmentRepository {
   Future<InvestmentWorkspaceReadResult> readWorkspace({
     required String ownerId,
     required bool serverOnly,
+    bool includeIncome = true,
   }) async {
     try {
       final GetOptions? options = serverOnly
           ? const GetOptions(source: Source.server)
           : null;
+      final List<Future<QuerySnapshot<Map<String, dynamic>>>> reads =
+          <Future<QuerySnapshot<Map<String, dynamic>>>>[
+            _portfolios(ownerId).get(options),
+            _assets(ownerId).get(options),
+            _operations(ownerId).get(options),
+            if (includeIncome) _incomeEvents(ownerId).get(options),
+          ];
       final List<QuerySnapshot<Map<String, dynamic>>> snapshots =
           await Future.wait<QuerySnapshot<Map<String, dynamic>>>(
-            <Future<QuerySnapshot<Map<String, dynamic>>>>[
-              _portfolios(ownerId).get(options),
-              _assets(ownerId).get(options),
-              _operations(ownerId).get(options),
-              _incomeEvents(ownerId).get(options),
-            ],
+            reads,
           ).timeout(_timeout);
       return decodeWorkspace(
         ownerId: ownerId,
         portfolioDocuments: _documents(snapshots[0]),
         assetDocuments: _documents(snapshots[1]),
         operationDocuments: _documents(snapshots[2]),
-        incomeDocuments: _documents(snapshots[3]),
+        incomeDocuments: includeIncome
+            ? _documents(snapshots[3])
+            : const <InvestmentDocumentData>[],
         isFromCache: snapshots.any(
           (QuerySnapshot<Map<String, dynamic>> value) =>
               value.metadata.isFromCache,

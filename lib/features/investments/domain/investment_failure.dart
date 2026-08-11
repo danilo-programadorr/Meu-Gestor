@@ -12,6 +12,8 @@ enum InvestmentFailureKind {
   insufficientPosition,
   chronologicalOrder,
   historicalCorrectionBlocked,
+  premiumRequired,
+  premiumConfirmationUnavailable,
   overflow,
   unknown,
 }

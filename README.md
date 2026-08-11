@@ -46,7 +46,7 @@ Concluído e validado localmente:
 - proventos manuais previstos, recebidos, cancelados ou anulados, com dividendos, JCP e rendimentos de FII separados do núcleo financeiro;
 - acesso owner seguro, confirmado pelo servidor, com Área do proprietário e revalidação;
 - capabilities preparadas para futuros recursos de assinatura, funcionalidades pagas e IA;
-- entitlement Premium com domínio puro, backend SUB-1B exclusivamente local e leitura confirmada; regras publicadas somente em development, ainda sem cobrança, compra, paywall ou bloqueio;
+- entitlement Premium com domínio puro, backend SUB-1B local e enforcement SUB-1C apenas local em regras, repositório, rotas e interface; ainda sem cobrança, compra ou paywall;
 - regras Firestore publicadas em development com isolamento por UID, campos fechados e negação por padrão;
 - testes unitários, de widgets, integração de fluxos e segurança estrutural.
 
@@ -203,7 +203,8 @@ O papel `owner` recebe capabilities centralizadas para módulos implementados, r
 - [x] Proventos manuais
 - [x] Domínio e contrato de entitlement Premium (sem cobrança ou paywall)
 - [x] Backend development local e leitura do entitlement; regras publicadas somente em development
-- [ ] Google Play Billing, backend e aplicação segura do Premium
+- [x] Enforcement Premium local e modo somente leitura em investimentos (regras ainda não publicadas)
+- [-] SUB-1D: experiência e adaptador local de Google Play Billing preparados; backend real e cobrança continuam bloqueados
 - [ ] Cotações atrasadas por provedor independente, condicionadas a licenciamento e SUB-1
 - [ ] Projeções
 - [ ] Cartões e faturas
@@ -227,3 +228,9 @@ Distribuído sob a licença [MIT](LICENSE).
 <div align="center">
 Construído de forma incremental, verificável e orientada à segurança.
 </div>
+
+## SUB-1D — Google Play Billing preparado localmente
+
+O mesmo checkpoint do SUB-1C inclui a página **Premium e assinatura**, acessível por Menu, Perfil e pela tela negada de investimentos. Há contratos de catálogo, compra, restauração, verificação, disponibilidade e gerenciamento externo. `in_app_purchase` 3.3.0 e `url_launcher` 6.3.2 são plugins mantidos pelo Flutter.
+
+Mensal e anual não possuem IDs, preços ou ofertas versionados. Sem catálogo real, backend verificador e App Check preparado, a interface mostra “Assinaturas em preparação” e nenhuma cobrança é iniciada. Resposta local de compra nunca concede Premium: exige verificação de backend e releitura confirmada do entitlement. Não foram criados produtos Play, backend Cloud, grants reais ou regras publicadas.

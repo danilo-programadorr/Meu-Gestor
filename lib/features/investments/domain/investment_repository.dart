@@ -30,6 +30,7 @@ abstract interface class InvestmentRepository {
   Future<InvestmentWorkspaceReadResult> readWorkspace({
     required String ownerId,
     required bool serverOnly,
+    bool includeIncome = true,
   });
 
   Future<InvestmentPortfolio> createPortfolio({

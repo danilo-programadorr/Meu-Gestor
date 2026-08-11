@@ -246,6 +246,16 @@ test('grant revocation is terminal and idempotent', async () => {
   assert.equal((await h.storage.entitlement('synthetic-user-1')).status, 'revoked');
 });
 
+test('grant audit is sanitized and never retains actor, owner, reason or grant ID', async () => {
+  const h = harness();
+  await applyAdministrativeGrant({ request: grant(), storage: h.storage, clock: fixedNow });
+  const [audit] = await h.storage.audits();
+  assert.deepEqual(Object.keys(audit).sort(), ['action', 'at', 'capabilityCount', 'environment', 'planId', 'revision', 'source']);
+  assert.equal(JSON.stringify(audit).includes('synthetic-user-1'), false);
+  assert.equal(JSON.stringify(audit).includes('synthetic support test'), false);
+  assert.equal(JSON.stringify(audit).includes('grant-1'), false);
+});
+
 test('token fingerprint is deterministic and keyed', () => {
   const first = new PurchaseTokenFingerprinter({ key: 'synthetic-key-a' }).fingerprint('synthetic-token');
   const repeated = new PurchaseTokenFingerprinter({ key: 'synthetic-key-a' }).fingerprint('synthetic-token');

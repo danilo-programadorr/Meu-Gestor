@@ -43,3 +43,7 @@ Antes de qualquer publicação futura de produção, todos os casos permitidos e
 ## SUB-1B
 
 O entitlement Premium possui matriz própria em `FIRESTORE_PREMIUM_RULES_TEST_MATRIX.md`. Ela cobre leitura própria confirmada, acesso cruzado, owner, autenticação, perfil jurídico, listagem, escritas, caminhos desconhecidos, subcoleções, cinco coleções internas e regressão de investimentos sem paywall. Os 57 testes permanecem locais no Emulator `demo-*`; as regras foram publicadas somente em development, sem acesso a production, com SHA-256 `F01E52545F2CE88896A48B28B957BF45F8AE79B0173DF2E20449929FF21532B4`.
+
+## SUB-1C
+
+O enforcement local amplia a mesma suíte para ausência, `pending`, estados integrais, estados somente leitura, capabilities separadas, contrato inválido, fronteiras de `request.time`, delete e operações atômicas. As regras SUB-1C não foram publicadas. A matriz funcional também está em `PREMIUM_ENFORCEMENT_MATRIX.md`.

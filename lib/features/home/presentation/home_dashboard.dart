@@ -35,6 +35,7 @@ final class HomeDashboardCallbacks {
     required this.onPayables,
     required this.onReceivables,
     required this.onInvestments,
+    this.onPremium = _ignorePremium,
     required this.onTransaction,
     required this.onRetryWorkspace,
     required this.onRetryCommitments,
@@ -54,9 +55,12 @@ final class HomeDashboardCallbacks {
   final VoidCallback onPayables;
   final VoidCallback onReceivables;
   final VoidCallback onInvestments;
+  final VoidCallback onPremium;
   final ValueChanged<String> onTransaction;
   final VoidCallback onRetryWorkspace;
   final VoidCallback onRetryCommitments;
+
+  static void _ignorePremium() {}
 }
 
 class HomeDashboardBody extends StatelessWidget {
@@ -2442,6 +2446,8 @@ Future<void> _openDashboardMenu(
       callbacks.onReceivables();
     case _DashboardMenuDestination.investments:
       callbacks.onInvestments();
+    case _DashboardMenuDestination.premium:
+      callbacks.onPremium();
     case _DashboardMenuDestination.profile:
       callbacks.onProfile();
     case _DashboardMenuDestination.appearance:
@@ -2456,6 +2462,7 @@ enum _DashboardMenuDestination {
   payables,
   receivables,
   investments,
+  premium,
   profile,
   appearance,
 }
@@ -2550,6 +2557,11 @@ class _DashboardMenuSheet extends StatelessWidget {
                     destination: _DashboardMenuDestination.profile,
                     icon: Icons.person_outline_rounded,
                     label: 'Perfil',
+                  ),
+                  _DashboardMenuItemData(
+                    destination: _DashboardMenuDestination.premium,
+                    icon: Icons.workspace_premium_outlined,
+                    label: 'Premium e assinatura',
                   ),
                   _DashboardMenuItemData(
                     destination: _DashboardMenuDestination.appearance,

@@ -27,9 +27,17 @@ import 'package:meu_gestor_financeiro/features/investments/presentation/pages/in
 import 'package:meu_gestor_financeiro/features/investments/presentation/pages/investments_page.dart';
 import 'package:meu_gestor_financeiro/features/profile/data/user_profile_providers.dart';
 import 'package:meu_gestor_financeiro/features/profile/presentation/controllers/profile_gate_controller.dart';
+import 'package:meu_gestor_financeiro/features/subscriptions/data/premium_entitlement_providers.dart';
+import 'package:meu_gestor_financeiro/features/subscriptions/domain/premium_capability.dart';
+import 'package:meu_gestor_financeiro/features/subscriptions/domain/premium_entitlement.dart';
+import 'package:meu_gestor_financeiro/features/subscriptions/domain/premium_entitlement_failure.dart';
+import 'package:meu_gestor_financeiro/features/subscriptions/domain/premium_entitlement_status.dart';
+import 'package:meu_gestor_financeiro/features/subscriptions/presentation/controllers/investment_premium_access_controller.dart';
+import 'package:meu_gestor_financeiro/features/subscriptions/presentation/widgets/investment_premium_route_gate.dart';
 
 import '../../../support/fake_auth_repository.dart';
 import '../../../support/fake_investment_repository.dart';
+import '../../../support/fake_premium_entitlement_repository.dart';
 import '../../../support/fake_user_profile_repository.dart';
 import '../../../support/profile_fixtures.dart';
 
@@ -173,6 +181,166 @@ void main() {
     expect(find.byTooltip('Gerenciar carteiras'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('Premium encerrado preserva dados e remove ações de alteração', (
+    WidgetTester tester,
+  ) async {
+    final _WidgetContext context = await _context(
+      withOperations: true,
+      entitlement: syntheticPremiumEntitlement(
+        status: PremiumEntitlementStatus.expired,
+      ),
+    );
+    addTearDown(context.dispose);
+    await _pump(tester, context, const InvestmentsPage());
+
+    expect(
+      find.textContaining('carteira está disponível somente para consulta'),
+      findsOneWidget,
+    );
+    expect(find.text('Custo atual acompanhado'), findsOneWidget);
+    expect(find.byTooltip('Criar carteira'), findsNothing);
+    expect(find.byTooltip('Gerenciar carteiras'), findsNothing);
+    expect(find.byTooltip('Consultar carteiras'), findsOneWidget);
+    await _tapInvestmentTab(tester, 'Ativos');
+    expect(find.text('Adicionar ativo'), findsNothing);
+    await tester.scrollUntilVisible(
+      find.text('PETR4'),
+      180,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const ValueKey<String>('investments-scroll')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    expect(find.text('PETR4'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'capability manual não consulta nem apresenta dados de proventos',
+    (WidgetTester tester) async {
+      final _WidgetContext context = await _context(
+        withIncome: true,
+        entitlement: syntheticPremiumEntitlement(
+          capabilities: const <PremiumCapability>{
+            PremiumCapability.investmentsManual,
+          },
+        ),
+      );
+      addTearDown(context.dispose);
+      await _pump(tester, context, const InvestmentsPage());
+
+      await _tapInvestmentTab(tester, 'Proventos');
+      expect(
+        find.text('Proventos não estão incluídos neste acesso Premium.'),
+        findsOneWidget,
+      );
+      expect(find.text('Rendimentos esperados'), findsNothing);
+      expect(context.repository.lastIncludeIncome, isFalse);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'rota direta de mutação encerrada não constrói conteúdo protegido',
+    (WidgetTester tester) async {
+      final _WidgetContext context = await _context(
+        entitlement: syntheticPremiumEntitlement(
+          status: PremiumEntitlementStatus.expired,
+        ),
+      );
+      addTearDown(context.dispose);
+      await _pump(
+        tester,
+        context,
+        const InvestmentPremiumRouteGate(
+          capability: PremiumCapability.investmentsManual,
+          intent: PremiumAccessIntent.mutate,
+          fallbackLocation: '/',
+          child: Text('CONTEUDO_PROTEGIDO'),
+        ),
+      );
+
+      expect(find.text('Somente consulta'), findsOneWidget);
+      expect(find.text('CONTEUDO_PROTEGIDO'), findsNothing);
+      expect(
+        find.textContaining('dados continuam preservados'),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('gate mantém loading estável sem construir dados protegidos', (
+    WidgetTester tester,
+  ) async {
+    final Completer<void> premiumBarrier = Completer<void>();
+    final _WidgetContext context = await _context(
+      waitForInvestments: false,
+      premiumReadBarrier: premiumBarrier,
+    );
+    addTearDown(context.dispose);
+    await _pump(
+      tester,
+      context,
+      const InvestmentPremiumRouteGate(
+        capability: PremiumCapability.investmentsManual,
+        intent: PremiumAccessIntent.read,
+        fallbackLocation: '/',
+        child: Text('CONTEUDO_APOS_LOADING'),
+      ),
+      settle: false,
+    );
+
+    expect(find.bySemanticsLabel('Confirmando acesso Premium'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.text('CONTEUDO_APOS_LOADING'), findsNothing);
+    premiumBarrier.complete();
+    await tester.pumpAndSettle();
+    expect(find.text('CONTEUDO_APOS_LOADING'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'falha de confirmação oferece retry seguro em tela pequena e escura',
+    (WidgetTester tester) async {
+      await tester.binding.setSurfaceSize(const Size(320, 568));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final _WidgetContext context = await _context(
+        waitForInvestments: false,
+        premiumFailure: const PremiumEntitlementFailure(
+          kind: PremiumEntitlementFailureKind.unavailable,
+          safeMessage: 'Confirmação indisponível.',
+          code: 'synthetic_unavailable',
+        ),
+      );
+      addTearDown(context.dispose);
+      await _pump(
+        tester,
+        context,
+        const InvestmentPremiumRouteGate(
+          capability: PremiumCapability.investmentsManual,
+          intent: PremiumAccessIntent.read,
+          fallbackLocation: '/',
+          child: Text('CONTEUDO_CONFIRMADO'),
+        ),
+        theme: AppTheme.dark,
+        textScaler: const TextScaler.linear(1.8),
+      );
+
+      expect(find.text('Confirmação indisponível'), findsOneWidget);
+      expect(find.text('CONTEUDO_CONFIRMADO'), findsNothing);
+      expect(find.text('Tentar novamente'), findsOneWidget);
+      await tester.ensureVisible(find.text('Tentar novamente'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Tentar novamente'));
+      await tester.pumpAndSettle();
+      expect(find.text('CONTEUDO_CONFIRMADO'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('resumo usa operações reais nos gráficos e nas classes', (
     WidgetTester tester,
@@ -657,6 +825,9 @@ Future<_WidgetContext> _context({
   bool withIncome = false,
   Completer<void>? readBarrier,
   bool waitForInvestments = true,
+  PremiumEntitlement? entitlement,
+  Object? premiumFailure,
+  Completer<void>? premiumReadBarrier,
 }) async {
   final FakeAuthRepository auth = FakeAuthRepository(
     initialUser: const AuthUser(
@@ -666,6 +837,12 @@ Future<_WidgetContext> _context({
     ),
   );
   final FakeInvestmentRepository repository = FakeInvestmentRepository();
+  final FakePremiumEntitlementRepository premiumRepository =
+      FakePremiumEntitlementRepository(
+          entitlement: entitlement ?? syntheticPremiumEntitlement(),
+        )
+        ..nextFailure = premiumFailure
+        ..readBarrier = premiumReadBarrier;
   repository.readBarrier = readBarrier;
   if (withAsset || withOperations || withIncome) {
     final DateTime now = DateTime.utc(2026, 8, 4, 12);
@@ -777,6 +954,10 @@ Future<_WidgetContext> _context({
         ),
       ),
       investmentRepositoryProvider.overrideWithValue(repository),
+      premiumEntitlementRepositoryProvider.overrideWithValue(premiumRepository),
+      premiumAccessReferenceClockProvider.overrideWithValue(
+        () => DateTime.utc(2026, 8, 10, 12),
+      ),
     ],
   );
   final Completer<void> gateReady = Completer<void>();

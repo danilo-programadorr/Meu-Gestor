@@ -13,6 +13,7 @@ import 'package:meu_gestor_financeiro/features/investments/domain/tracked_invest
 import 'package:meu_gestor_financeiro/features/investments/presentation/controllers/investment_action_controller.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/controllers/investments_controller.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/widgets/investment_view_support.dart';
+import 'package:meu_gestor_financeiro/features/subscriptions/presentation/controllers/investment_premium_access_controller.dart';
 
 class InvestmentAssetDetailsPage extends ConsumerWidget {
   const InvestmentAssetDetailsPage({required this.assetId, super.key});
@@ -25,6 +26,12 @@ class InvestmentAssetDetailsPage extends ConsumerWidget {
       investmentsControllerProvider,
     );
     final bool valuesVisible = ref.watch(financialPrivacyControllerProvider);
+    final bool canMutate =
+        ref
+            .watch(investmentPremiumAccessControllerProvider)
+            .value
+            ?.canMutateManual ==
+        true;
     return SafeBackScope(
       fallbackLocation: AppRoutes.investments,
       child: Scaffold(
@@ -54,8 +61,13 @@ class InvestmentAssetDetailsPage extends ConsumerWidget {
               onRetry: () =>
                   ref.read(investmentsControllerProvider.notifier).refresh(),
             ),
-            data: (InvestmentsState state) =>
-                _buildData(context, ref, state, valuesVisible: valuesVisible),
+            data: (InvestmentsState state) => _buildData(
+              context,
+              ref,
+              state,
+              valuesVisible: valuesVisible,
+              canMutate: canMutate,
+            ),
           ),
         ),
       ),
@@ -67,6 +79,7 @@ class InvestmentAssetDetailsPage extends ConsumerWidget {
     WidgetRef ref,
     InvestmentsState state, {
     required bool valuesVisible,
+    required bool canMutate,
   }) {
     final TrackedInvestmentAsset? asset = state.assetById(assetId);
     if (asset == null) {
@@ -180,36 +193,37 @@ class InvestmentAssetDetailsPage extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: AppSpacing.md),
-            Wrap(
-              spacing: AppSpacing.sm,
-              runSpacing: AppSpacing.sm,
-              children: <Widget>[
-                FilledButton.icon(
-                  onPressed: action.isLoading
-                      ? null
-                      : () => context.push(
-                          AppRoutes.newInvestmentOperation(
-                            assetId,
-                            InvestmentOperationKind.buy,
+            if (canMutate)
+              Wrap(
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.sm,
+                children: <Widget>[
+                  FilledButton.icon(
+                    onPressed: action.isLoading
+                        ? null
+                        : () => context.push(
+                            AppRoutes.newInvestmentOperation(
+                              assetId,
+                              InvestmentOperationKind.buy,
+                            ),
                           ),
-                        ),
-                  icon: const Icon(Icons.add_shopping_cart_outlined),
-                  label: const Text('Registrar compra'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: action.isLoading || position.quantityScaled == 0
-                      ? null
-                      : () => context.push(
-                          AppRoutes.newInvestmentOperation(
-                            assetId,
-                            InvestmentOperationKind.sell,
+                    icon: const Icon(Icons.add_shopping_cart_outlined),
+                    label: const Text('Registrar compra'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: action.isLoading || position.quantityScaled == 0
+                        ? null
+                        : () => context.push(
+                            AppRoutes.newInvestmentOperation(
+                              assetId,
+                              InvestmentOperationKind.sell,
+                            ),
                           ),
-                        ),
-                  icon: const Icon(Icons.sell_outlined),
-                  label: const Text('Registrar venda'),
-                ),
-              ],
-            ),
+                    icon: const Icon(Icons.sell_outlined),
+                    label: const Text('Registrar venda'),
+                  ),
+                ],
+              ),
             const SizedBox(height: AppSpacing.xl),
             Text(
               'Histórico de operações',
@@ -233,7 +247,9 @@ class InvestmentAssetDetailsPage extends ConsumerWidget {
                   child: _OperationCard(
                     operation: operation,
                     valuesVisible: valuesVisible,
+                    canMutate: canMutate,
                     canVoid:
+                        canMutate &&
                         !operation.isVoided &&
                         asset.lastOperationId == operation.id,
                     isLoading: action.isLoading,
@@ -396,6 +412,7 @@ class _OperationCard extends StatelessWidget {
   const _OperationCard({
     required this.operation,
     required this.valuesVisible,
+    required this.canMutate,
     required this.canVoid,
     required this.isLoading,
     required this.onVoid,
@@ -403,6 +420,7 @@ class _OperationCard extends StatelessWidget {
 
   final InvestmentOperation operation;
   final bool valuesVisible;
+  final bool canMutate;
   final bool canVoid;
   final bool isLoading;
   final VoidCallback onVoid;
@@ -470,7 +488,7 @@ class _OperationCard extends StatelessWidget {
                   label: const Text('Anular'),
                 ),
               ),
-            ] else if (!operation.isVoided) ...<Widget>[
+            ] else if (canMutate && !operation.isVoided) ...<Widget>[
               const SizedBox(height: AppSpacing.xs),
               Text(
                 'Para corrigir esta operação, anule primeiro as operações posteriores.',

@@ -1,5 +1,6 @@
 import { deny, requireExactObject, requireText, requireUtcInstant } from './errors.mjs';
 import { PREMIUM_CAPABILITIES } from './mapper.mjs';
+import { sanitizeGrantAudit } from './grant_audit.mjs';
 
 const FIELDS = Object.freeze(['grantId', 'actorId', 'ownerId', 'reason', 'environment', 'source', 'planId', 'validFrom', 'validUntil', 'capabilities']);
 
@@ -32,6 +33,7 @@ export async function applyAdministrativeGrant({ request, storage, clock }) {
     state.entitlements.set(request.ownerId, projection);
     const confirmation = { ownerId: request.ownerId, status: 'active', revision: projection.revision, requiresServerRefresh: true };
     state.grants.set(request.grantId, { request: structuredClone(request), confirmation, revoked: false });
+    state.audits.push(sanitizeGrantAudit({ request, action: 'granted', revision: projection.revision, at: now }));
     return confirmation;
   });
 }
@@ -50,6 +52,7 @@ export async function revokeAdministrativeGrant({ grantId, actorId, ownerId, rea
     grant.revoked = true;
     grant.revocationReason = reason;
     grant.revokeConfirmation = { ownerId, status: 'revoked', revision: projection.revision, requiresServerRefresh: true };
+    state.audits.push(sanitizeGrantAudit({ request: grant.request, action: 'revoked', revision: projection.revision, at: now }));
     return grant.revokeConfirmation;
   });
 }

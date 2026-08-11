@@ -85,7 +85,13 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - preservação de carteiras, ativos, operações e proventos após perda do Premium, sem alterar preço médio, contas, saldo ou resumo mensal.
 - SUB-1B com backend ESM exclusivamente local e sem dependências externas, gateway fake, DTO estrito, token protegido, reconciliação idempotente, RTDN, acknowledgement e grants sintéticos;
 - mapper e repositório do entitlement somente leitura confirmada, além de Security Rules locais que negam toda escrita cliente e coleções internas Premium.
-- Security Rules SUB-1B compiladas e publicadas exclusivamente em development, sem acesso a production, com SHA-256 `F01E52545F2CE88896A48B28B957BF45F8AE79B0173DF2E20449929FF21532B4`; backend real, Google Play e enforcement Premium permanecem ausentes.
+- Security Rules SUB-1B compiladas e publicadas exclusivamente em development, sem acesso a production, com SHA-256 `F01E52545F2CE88896A48B28B957BF45F8AE79B0173DF2E20449929FF21532B4`; naquele checkpoint, backend real, Google Play e enforcement ainda estavam ausentes.
+- SUB-1C aplica localmente entitlement confirmado aos investimentos em regras, repository guard, controllers, rotas e interface, com capabilities manuais e de proventos independentes.
+- Perda de Premium preserva dados em modo somente leitura; ausência, `pending`, documento inválido ou confirmação indisponível não carregam dados nem autorizam mutações. Não há compra, preço ou paywall.
+- As regras SUB-1C permanecem não publicadas para não bloquear usuários development sem mecanismo seguro de concessão; nenhum Firebase real foi acessado.
+- SUB-1D adiciona página Premium, catálogo mensal/anual configurável, contratos de Google Play Billing, restauração, verificação falha-fechada, gerenciamento oficial de assinatura e integração UX com Menu, Perfil e gate de investimentos.
+- `in_app_purchase` 3.3.0 e `url_launcher` 6.3.2, ambos mantidos pelo Flutter, são usados somente como adaptadores locais; não existem produtos, preços, cobrança, token persistido, backend Cloud ou entitlement liberado pelo cliente.
+- auditoria sanitizada para grants development no backend local; não há comando ou endpoint público de concessão.
 
 ### Segurança
 

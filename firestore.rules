@@ -1417,11 +1417,7 @@ service cloud.firestore {
     }
 
     function isValidInvestmentIncomeStatus(data) {
-      return data.status in ['expected', 'received', 'cancelled', 'voided']
-        && (data.receivedDate == null || data.receivedDate is timestamp)
-        && (data.cancelledAt == null || data.cancelledAt is timestamp)
-        && (data.voidedAt == null || data.voidedAt is timestamp)
-        && (
+      return (
           data.status == 'expected'
             ? data.receivedDate == null
               && data.cancelledAt == null
@@ -1435,7 +1431,8 @@ service cloud.firestore {
                 ? data.receivedDate == null
                   && data.cancelledAt is timestamp
                   && data.voidedAt == null
-                : data.receivedDate is timestamp
+                : data.status == 'voided'
+                  && data.receivedDate is timestamp
                   && data.receivedDate <= request.time
                   && data.cancelledAt == null
                   && data.voidedAt is timestamp
@@ -1525,8 +1522,7 @@ service cloud.firestore {
     }
 
     function isValidInvestmentIncomeReceive(userId, data, changed) {
-      return data.status == 'received'
-        && data.receivedDate is timestamp
+      return data.receivedDate is timestamp
         && data.receivedDate <= request.time
         && changed.hasAll(['status', 'receivedDate', 'mutationId', 'revision'])
         && changed.hasOnly([
@@ -1536,8 +1532,7 @@ service cloud.firestore {
     }
 
     function isValidInvestmentIncomeCancel(data, changed) {
-      return data.status == 'cancelled'
-        && data.cancelledAt == request.time
+      return data.cancelledAt == request.time
         && changed.hasAll(['status', 'cancelledAt', 'mutationId', 'revision'])
         && changed.hasOnly([
           'status', 'cancelledAt', 'mutationId', 'updatedAt', 'revision'
@@ -1545,8 +1540,7 @@ service cloud.firestore {
     }
 
     function isValidInvestmentIncomeVoid(data, changed) {
-      return data.status == 'voided'
-        && data.voidedAt == request.time
+      return data.voidedAt == request.time
         && changed.hasAll(['status', 'voidedAt', 'mutationId', 'revision'])
         && changed.hasOnly([
           'status', 'voidedAt', 'mutationId', 'updatedAt', 'revision'
@@ -1557,13 +1551,9 @@ service cloud.firestore {
       let data = request.resource.data;
       let changed = data.diff(resource.data).affectedKeys();
       return isValidInvestmentIncome(data, userId)
-        && data.ownerId == resource.data.ownerId
         && data.portfolioId == resource.data.portfolioId
         && data.assetId == resource.data.assetId
-        && data.originType == resource.data.originType
-        && data.externalId == resource.data.externalId
         && data.createdAt == resource.data.createdAt
-        && data.schemaVersion == resource.data.schemaVersion
         && data.updatedAt == request.time
         && data.revision == resource.data.revision + 1
         && data.mutationId != resource.data.mutationId
@@ -1604,6 +1594,192 @@ service cloud.firestore {
       return !isVerifiedOwner(userId)
         ? false
         : hasCurrentLegalProfile(userId);
+    }
+
+    function premiumEntitlementPath(userId) {
+      return /databases/$(database)/documents/users/$(userId)/entitlements/premium;
+    }
+
+    function premiumEntitlementFields() {
+      return [
+        'ownerId', 'planId', 'status', 'source', 'environment',
+        'capabilities', 'startedAt', 'currentPeriodStart',
+        'currentPeriodEnd', 'graceUntil', 'cancelAtPeriodEnd',
+        'cancelledAt', 'expiredAt', 'revokedAt', 'refundedAt',
+        'lastVerifiedAt', 'revision', 'schemaVersion', 'createdAt',
+        'updatedAt'
+      ];
+    }
+
+    function hasValidPremiumCapabilities(capabilities) {
+      return capabilities is list
+        && capabilities.size() <= 5
+        && capabilities.toSet().size() == capabilities.size()
+        && capabilities.hasOnly([
+          'investmentsManual', 'investmentIncome', 'investmentQuotes',
+          'investmentCalculators', 'investmentAnalysis'
+        ]);
+    }
+
+    function hasValidPremiumPeriod(data) {
+      return data.status == 'pending'
+        ? data.startedAt == null
+          && data.currentPeriodStart == null
+          && data.currentPeriodEnd == null
+        : data.startedAt is timestamp
+          && data.currentPeriodStart is timestamp
+          && data.currentPeriodEnd is timestamp
+          && data.startedAt < data.currentPeriodEnd
+          && data.currentPeriodStart >= data.startedAt
+          && data.currentPeriodStart < data.currentPeriodEnd
+          && data.lastVerifiedAt >= data.startedAt;
+    }
+
+    function hasValidPremiumLifecycleDates(data) {
+      return (
+          data.status == 'gracePeriod'
+            ? data.graceUntil is timestamp
+              && data.graceUntil > data.currentPeriodEnd
+            : data.graceUntil == null
+        )
+        && (
+          data.status == 'cancelled'
+            ? data.cancelAtPeriodEnd == true
+              && data.cancelledAt is timestamp
+              && data.cancelledAt >= data.startedAt
+              && data.cancelledAt <= data.lastVerifiedAt
+            : data.status == 'expired' && data.cancelAtPeriodEnd == true
+              ? data.cancelledAt is timestamp
+                && data.cancelledAt >= data.startedAt
+                && data.cancelledAt <= data.lastVerifiedAt
+              : data.cancelAtPeriodEnd == false
+                && data.cancelledAt == null
+        )
+        && (
+          data.status == 'expired'
+            ? data.expiredAt is timestamp
+              && data.expiredAt >= data.currentPeriodEnd
+              && data.expiredAt <= data.lastVerifiedAt
+            : data.expiredAt == null
+        )
+        && (
+          data.status == 'revoked'
+            ? data.revokedAt is timestamp
+              && data.revokedAt >= data.startedAt
+              && data.revokedAt <= data.lastVerifiedAt
+            : data.revokedAt == null
+        )
+        && (
+          data.status == 'refunded'
+            ? data.refundedAt is timestamp
+              && data.refundedAt >= data.startedAt
+              && data.refundedAt <= data.lastVerifiedAt
+            : data.refundedAt == null
+        );
+    }
+
+    function isValidPremiumEntitlementData(data, userId) {
+      return data.keys().hasAll(premiumEntitlementFields())
+        && data.keys().hasOnly(premiumEntitlementFields())
+        && data.ownerId == userId
+        && data.planId in ['monthly', 'annual']
+        && data.status in [
+          'pending', 'trialing', 'active', 'gracePeriod', 'accountHold',
+          'paused', 'cancelled', 'expired', 'revoked', 'refunded'
+        ]
+        && data.source in [
+          'googlePlay', 'administrativeGrant', 'developmentGrant'
+        ]
+        && data.environment == 'development'
+        && (data.status != 'pending' || data.source == 'googlePlay')
+        && hasValidPremiumCapabilities(data.capabilities)
+        && data.cancelAtPeriodEnd is bool
+        && data.lastVerifiedAt is timestamp
+        && data.revision is int
+        && data.revision >= 1
+        && data.schemaVersion == 1
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && data.updatedAt >= data.createdAt
+        && data.updatedAt >= data.lastVerifiedAt
+        && hasValidPremiumPeriod(data)
+        && hasValidPremiumLifecycleDates(data);
+    }
+
+    function isPremiumFullAccess(data) {
+      return request.time >= data.currentPeriodStart
+        && (
+          data.status in ['trialing', 'active', 'cancelled']
+            ? request.time < data.currentPeriodEnd
+            : data.status == 'gracePeriod'
+              && request.time < data.graceUntil
+        );
+    }
+
+    function isPremiumHistoricalRead(data) {
+      return data.status in [
+          'expired', 'accountHold', 'paused', 'revoked', 'refunded'
+        ]
+        || data.status in ['trialing', 'active', 'cancelled']
+          && request.time >= data.currentPeriodEnd
+        || data.status == 'gracePeriod'
+          && request.time >= data.graceUntil;
+    }
+
+    function isValidPremiumMutationData(data, userId) {
+      return data.keys().hasAll(premiumEntitlementFields())
+        && data.keys().hasOnly(premiumEntitlementFields())
+        && data.ownerId == userId
+        && data.planId in ['monthly', 'annual']
+        && data.source in [
+          'googlePlay', 'administrativeGrant', 'developmentGrant'
+        ]
+        && data.environment == 'development'
+        && data.status in ['trialing', 'active', 'gracePeriod', 'cancelled']
+        && hasValidPremiumCapabilities(data.capabilities)
+        && data.currentPeriodStart is timestamp
+        && data.currentPeriodEnd is timestamp
+        && data.currentPeriodStart < data.currentPeriodEnd
+        && data.revision is int
+        && data.revision >= 1
+        && data.schemaVersion == 1
+        && (
+          data.status == 'gracePeriod'
+            ? data.graceUntil is timestamp
+              && data.graceUntil > data.currentPeriodEnd
+            : data.status == 'cancelled'
+              ? data.cancelAtPeriodEnd == true
+              : true
+        );
+    }
+
+    function hasPremiumReadAccess(userId, capability) {
+      let entitlementPath = premiumEntitlementPath(userId);
+      let entitlement = get(entitlementPath);
+      return hasFinancialAccess(userId)
+        && exists(entitlementPath)
+        && isValidPremiumEntitlementData(
+          entitlement.data,
+          userId
+        )
+        && capability in entitlement.data.capabilities
+        && (
+          isPremiumFullAccess(entitlement.data)
+          || isPremiumHistoricalRead(entitlement.data)
+        );
+    }
+
+    function hasPremiumMutationAccess(userId, capability) {
+      let entitlementPath = premiumEntitlementPath(userId);
+      let entitlement = get(entitlementPath);
+      return hasFinancialAccess(userId)
+        && exists(entitlementPath)
+        && isValidPremiumMutationData(
+          entitlement.data,
+          userId
+        )
+        && capability in entitlement.data.capabilities
+        && isPremiumFullAccess(entitlement.data);
     }
 
     function isActiveOwnerDocument(owner) {
@@ -1733,10 +1909,19 @@ service cloud.firestore {
       }
 
       match /investmentPortfolios/{portfolioId} {
-        allow get, list: if hasFinancialAccess(userId);
-        allow create: if hasFinancialAccess(userId)
+        allow get, list: if hasPremiumReadAccess(
+          userId,
+          'investmentsManual'
+        );
+        allow create: if hasPremiumMutationAccess(
+            userId,
+            'investmentsManual'
+          )
           && isValidInvestmentPortfolioCreate(userId);
-        allow update: if hasFinancialAccess(userId)
+        allow update: if hasPremiumMutationAccess(
+            userId,
+            'investmentsManual'
+          )
           && isValidInvestmentPortfolioUpdate(userId);
         allow delete: if false;
 
@@ -1746,10 +1931,19 @@ service cloud.firestore {
       }
 
       match /investmentAssets/{assetId} {
-        allow get, list: if hasFinancialAccess(userId);
-        allow create: if hasFinancialAccess(userId)
+        allow get, list: if hasPremiumReadAccess(
+          userId,
+          'investmentsManual'
+        );
+        allow create: if hasPremiumMutationAccess(
+            userId,
+            'investmentsManual'
+          )
           && isValidInvestmentAssetCreate(userId, assetId);
-        allow update: if hasFinancialAccess(userId)
+        allow update: if hasPremiumMutationAccess(
+            userId,
+            'investmentsManual'
+          )
           && isValidInvestmentAssetUpdate(userId, assetId);
         allow delete: if false;
 
@@ -1759,10 +1953,19 @@ service cloud.firestore {
       }
 
       match /investmentOperations/{operationId} {
-        allow get, list: if hasFinancialAccess(userId);
-        allow create: if hasFinancialAccess(userId)
+        allow get, list: if hasPremiumReadAccess(
+          userId,
+          'investmentsManual'
+        );
+        allow create: if hasPremiumMutationAccess(
+            userId,
+            'investmentsManual'
+          )
           && isValidInvestmentOperationCreate(userId, operationId);
-        allow update: if hasFinancialAccess(userId)
+        allow update: if hasPremiumMutationAccess(
+            userId,
+            'investmentsManual'
+          )
           && isValidInvestmentOperationVoid(userId, operationId);
         allow delete: if false;
 
@@ -1772,10 +1975,19 @@ service cloud.firestore {
       }
 
       match /investmentIncomeEvents/{eventId} {
-        allow get, list: if hasFinancialAccess(userId);
-        allow create: if hasFinancialAccess(userId)
+        allow get, list: if hasPremiumReadAccess(
+          userId,
+          'investmentIncome'
+        );
+        allow create: if hasPremiumMutationAccess(
+            userId,
+            'investmentIncome'
+          )
           && isValidInvestmentIncomeCreate(userId, eventId);
-        allow update: if hasFinancialAccess(userId)
+        allow update: if hasPremiumMutationAccess(
+            userId,
+            'investmentIncome'
+          )
           && isValidInvestmentIncomeUpdate(userId);
         allow delete: if false;
 

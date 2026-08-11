@@ -22,12 +22,15 @@ final class FakeInvestmentRepository implements InvestmentRepository {
   Completer<void>? incomeActionBarrier;
   int createPortfolioCalls = 0;
   int readCalls = 0;
+  bool? lastIncludeIncome;
   final List<String> createPortfolioIds = <String>[];
   final List<String> createOperationIds = <String>[];
   final List<String> voidMutationIds = <String>[];
   final List<String> createIncomeIds = <String>[];
   final List<String> incomeMutationIds = <String>[];
   int _id = 0;
+
+  int get generatedIdCount => _id;
 
   @override
   String newPortfolioId({required String ownerId}) => 'portfolio-${++_id}';
@@ -45,8 +48,10 @@ final class FakeInvestmentRepository implements InvestmentRepository {
   Future<InvestmentWorkspaceReadResult> readWorkspace({
     required String ownerId,
     required bool serverOnly,
+    bool includeIncome = true,
   }) async {
     readCalls += 1;
+    lastIncludeIncome = includeIncome;
     final Completer<void>? barrier = readBarrier;
     if (barrier != null) {
       await barrier.future;
@@ -61,7 +66,9 @@ final class FakeInvestmentRepository implements InvestmentRepository {
       portfolios: List<InvestmentPortfolio>.unmodifiable(portfolios),
       assets: List<TrackedInvestmentAsset>.unmodifiable(assets),
       operations: List<InvestmentOperation>.unmodifiable(operations),
-      incomeEvents: List<InvestmentIncomeEvent>.unmodifiable(incomeEvents),
+      incomeEvents: includeIncome
+          ? List<InvestmentIncomeEvent>.unmodifiable(incomeEvents)
+          : const <InvestmentIncomeEvent>[],
       isFromServer: serverConfirmed,
       hasPendingWrites: !serverConfirmed,
     );
