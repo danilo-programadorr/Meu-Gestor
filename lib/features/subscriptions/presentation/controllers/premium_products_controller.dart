@@ -42,6 +42,9 @@ final class PremiumProductsController
       premiumBillingAvailabilityProvider,
     );
     if (!availability.productsConfigured ||
+        !ref
+            .read(premiumProductCatalogConfigurationProvider)
+            .matchesApprovedCommercialModel ||
         !availability.backendVerificationAvailable ||
         !availability.identityAvailable) {
       return PremiumProductsState(
@@ -72,11 +75,14 @@ final class PremiumProductsController
           message: checked.safeMessage,
         );
       }
-      final List<PremiumStoreProduct> products = await ref
+      final PremiumProductCatalogConfiguration configuration = ref.read(
+        premiumProductCatalogConfigurationProvider,
+      );
+      final List<PremiumStoreProduct> response = await ref
           .read(premiumBillingGatewayProvider)
-          .loadProducts(
-            configuration: ref.read(premiumProductCatalogConfigurationProvider),
-          );
+          .loadProducts(configuration: configuration);
+      final List<PremiumStoreProduct> products = configuration
+          .selectDisplayProducts(response);
       if (products.length != 2) {
         return PremiumProductsState(
           status: PremiumProductsStatus.unavailable,

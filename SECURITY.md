@@ -1,12 +1,37 @@
 # Política de segurança
 
-## SUB-1D — Google Play Billing local
+## SUB-1D/SUB-1E-1 — Google Play Billing local
 
 - Resposta local de compra, debug, owner, e-mail, UID ou `dart-define` nunca concede Premium.
 - Tokens são transitórios; não entram em domínio, Firestore legível, Riverpod persistente, diagnóstico ou log. `pending` não libera nem pode ser acknowledged.
 - O futuro backend verificará compra e emitirá a identidade ofuscada não reversível antes de acknowledgement/outbox; UID puro não será enviado à Play.
 - O gerenciador abre somente a URI HTTPS oficial da Google Play. Não existe cancelamento simulado, endpoint, comando operacional, Firebase real, deploy ou acesso production nesta etapa.
 - Auditoria local de grant contém apenas ação, origem, ambiente, plano, contagem de capabilities, revisão e instante; não contém actor, owner, motivo, grant ID, token ou credencial.
+- O catálogo local aceita somente `meu_gestor_premium`, planos-base `mensal`/`anual` e oferta `teste-3d` exclusivamente mensal. Preço aprovado, preço de teste, status ou resposta de loja recebidos pelo cliente, relógio do aparelho, cache ou resposta tardia não são autoridade de acesso; a confirmação futura exige verificação server-side independente.
+- O preço exibido, a moeda, a elegibilidade e a oferta devem vir da resposta atual da Play Store. R$ 19,90 e R$ 209,90 são apenas parâmetros comerciais da futura configuração Play Brasil; não pertencem a entitlement, Firestore ou decisão local.
+- Perda de conexão, restauração sem confirmação, cancelamento, pendência ou falha do verificador permanecem negados até releitura do entitlement canônico. Google Play Developer API e RTDN continuarão atrás de backend autorizado; nesta etapa só existem contratos/fakes sintéticos.
+
+## SUB-1E-2 — Teste fechado local
+
+- `closedTestGrant` não é assinatura, compra, preço, oferta Play nem direito de production. É uma concessão backend-only para o teste fechado em `development`, track `closed` e janela global UTC fixa de quinze dias.
+- Lista de testadores, UID, início, expiração e revisão são tratados somente pelo backend futuro. O app não possui escrita, restauração ou reutilização; owner continua sem acesso cruzado.
+- A concessão ativa tem exatamente as cinco capabilities Premium; a expiração é materializada por relógio confiável do backend e remove capabilities. Não há cálculo pelo relógio do aparelho, primeiro login, popup modal de expiração ou alteração do núcleo gratuito.
+- Regras locais mantêm escrita cliente negada e rejeitam a fonte fora da forma ativa/expirada prevista. Production não aceitará essa fonte; entitlement verificado da Google Play será obrigatório depois do lançamento.
+
+## SUB-1E-3A — Borda Premium Gen 2 local
+
+- A estrutura em `backend/functions/premium` é uma composição local por injeção, sem SDK Firebase, credential, chamada HTTP, Function publicada ou acesso externo. Ela reutiliza o núcleo transacional único e não replica decisão financeira/comercial.
+- Verificação, restauração e leitura confirmada serão callables novas com App Check individual; RTDN e administração de teste fechado não são chamadas do aplicativo e exigem perímetro/identidade server-side futuros. Nenhum bypass owner é aceito.
+- IAM futuro será mínimo e separado por função/ambiente. Segredos, caso necessários, permanecem em Secret Manager/runtime autorizado e nunca em `.env`, JSON, logs, diagnóstico ou Git.
+- Rollback futuro não exclui entitlement, eventos, vínculos, outbox ou auditoria; a resposta a timeout, repetição e concorrência continua idempotente e falha fechada.
+
+## SUB-1E-3B-1 — Bootstrap Premium em development
+
+- Somente três callables Gen 2 Premium foram publicadas e republicadas com Node 22 em development, com região fixa sul-americana, identidade runtime dedicada e limites mínimos. App Check é exigido apenas nessas callables; não houve enforcement global.
+- Leitura exige UID do token autenticado, e-mail confirmado pelo token e perfil jurídico atual. O documento retornado é sanitizado e deve pertencer ao próprio UID.
+- Verificação e restauração de compra retornam falha fechada e não aceitam token, não escrevem Firestore e não concedem Premium. RTDN, grants, Secret Manager e Play Developer API não foram publicados.
+- Regras SUB-1E, Authentication, dados Firestore, App Check global e production não foram alterados. A limpeza automática do Artifact Registry foi configurada separadamente para reter somente artefatos de deploy de até 14 dias na região das Functions, sem remoção manual de imagens, revisões ou Functions.
+- A configuração local de entrega das Functions Premium usa Node 22 e omite dependências opcionais. Firestore permanece dependência direta necessária; Cloud Storage, `uuid`, `gaxios`, `teeny-request` e `retry-request` não podem ser importados pelo runtime Premium e a árvore efetiva de produção auditada sem opcionais não possui vulnerabilidades. O lockfile com opcionais não é prova de conteúdo publicado.
 
 ## Versões suportadas
 
@@ -56,4 +81,4 @@ Concessões administrativas e de development têm contrato local de validade, mo
 
 As regras SUB-1C locais aplicam entitlement às quatro coleções de investimentos. Leituras exigem documento integralmente válido, UID próprio, perfil jurídico e capability; mutações exigem acesso integral por `request.time`. Listagem/escrita de entitlements, subcoleções, billing interno e owner cruzado continuam negados. Repositório, controller e rotas reforçam a decisão, mas não substituem as regras.
 
-Após perda de Premium, dados patrimoniais não são apagados nem alterados: leitura histórica é preservada, mutações são bloqueadas e cotações deixam de ser fornecidas. Esse comportamento está conectado localmente aos repositórios, controllers, rotas e interface. Publicar as regras exige antes concessão development segura e auditável; Google Play e experiência comercial pertencem ao SUB-1D. A integração B3/corretoras permanece cancelada.
+Após perda de Premium, dados patrimoniais não são apagados nem alterados: leitura histórica é preservada, mutações são bloqueadas e cotações deixam de ser fornecidas. Esse comportamento está conectado localmente aos repositórios, controllers, rotas e interface. Publicar as regras exige antes concessão development segura e auditável; Google Play e experiência comercial pertencem ao SUB-1D/SUB-1E-1. A integração B3/corretoras permanece cancelada.

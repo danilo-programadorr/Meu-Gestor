@@ -28,4 +28,4 @@ Leituras usam validação estrutural completa do entitlement. O caminho de muta�
 
 ## Consequências e limites
 
-O enforcement está somente no worktree local. `firestore.rules` não foi publicado; fazê-lo antes de existir concessão development segura bloquearia usuários reais. Não há backend implantado, Google Play Billing, produto, preço, compra, restauração comercial, paywall, grant real ou entitlement real. O SUB-1D será responsável pela experiência comercial e depende de backend autoritativo, entitlements development administráveis com segurança e autorização própria para publicação.
+O enforcement está somente no worktree local. `firestore.rules` não foi publicado; fazê-lo antes de existir concessão development segura bloquearia usuários reais. Não há backend implantado, Google Play Billing ativo, produto Play criado, preço autoritativo, compra, restauração comercial, paywall, grant real ou entitlement real. O SUB-1D/SUB-1E-1 prepara localmente a experiência e o catálogo comercial; a ativação depende de backend autoritativo, entitlements development administráveis com segurança e autorização própria para publicação.

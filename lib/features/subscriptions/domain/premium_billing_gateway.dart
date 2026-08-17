@@ -15,6 +15,4 @@ abstract interface class PremiumBillingGateway {
   });
 
   Future<void> restorePurchases();
-
-  Future<void> completePurchase(PremiumPurchaseUpdate update);
 }

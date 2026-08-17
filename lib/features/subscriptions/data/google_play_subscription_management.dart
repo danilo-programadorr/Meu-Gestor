@@ -9,10 +9,10 @@ final class GooglePlaySubscriptionManagement
   final PremiumProductCatalogConfiguration configuration;
 
   @override
-  Future<bool> open({String? productId}) {
+  Future<bool> open({String? subscriptionId}) {
     final Uri destination = PremiumSubscriptionUri.create(
       configuration: configuration,
-      productId: productId,
+      subscriptionId: subscriptionId,
     );
     return launchUrl(destination, mode: LaunchMode.externalApplication);
   }

@@ -11,7 +11,6 @@ final class DisabledPremiumPurchaseVerificationGateway
 
   @override
   Future<PremiumPurchaseVerificationResult> verify({
-    required String productId,
-    required String verificationPayload,
+    required PremiumPurchaseVerificationRequest request,
   }) async => PremiumPurchaseVerificationResult.unavailable;
 }

@@ -3,9 +3,9 @@ import 'package:meu_gestor_financeiro/features/subscriptions/domain/premium_bill
 abstract interface class PremiumPurchaseVerificationGateway {
   bool get isAvailable;
 
-  /// Recebe o payload somente em memória e nunca devolve nem armazena o token.
+  /// Recebe a evidência somente em memória. O backend deve verificar a compra
+  /// contra a Google Play; não devolve nem armazena o payload no cliente.
   Future<PremiumPurchaseVerificationResult> verify({
-    required String productId,
-    required String verificationPayload,
+    required PremiumPurchaseVerificationRequest request,
   });
 }

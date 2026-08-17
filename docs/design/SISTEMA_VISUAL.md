@@ -195,9 +195,9 @@ O tema claro usa fundo `#F4F7FA`, superfícies brancas, cartões secundários `#
 - Somente leitura usa aviso discreto com ícone, texto de preservação e linguagem de consulta; ações mutáveis somem e “Gerenciar carteiras” passa a “Consultar carteiras”.
 - Acesso negado e confirmação indisponível usam página rolável, botão Voltar, texto seguro e retry quando aplicável. Não exibem preço, simulação, botão funcional de assinatura ou detalhe técnico.
 - O gate não constrói conteúdo protegido durante loading ou negação. Privacidade, tema, filtros e navegação de consulta permanecem disponíveis quando há leitura histórica.
-- Os estados cobrem 320 px, tema claro/escuro, fonte a 180%, semântica e alvos de toque. Compra e paywall comercial pertencem ao SUB-1D.
+- Os estados cobrem 320 px, tema claro/escuro, fonte a 180%, semântica e alvos de toque. Compra e paywall comercial pertencem ao SUB-1D/SUB-1E-1.
 
-## 20. SUB-1D — Premium e assinatura
+## 20. SUB-1D/SUB-1E-1 — Premium e assinatura
 
 - A página Premium é rolável, usa retorno seguro e não ocupa a Home. Menu e Perfil expõem “Premium e assinatura” em Conta e aplicativo.
 - A página prioriza status, benefícios reais, planos somente quando a loja os devolver, restauração, gerenciamento externo e documentos jurídicos. Não usa desconto, urgência, preço, depoimento ou benefício fictício.

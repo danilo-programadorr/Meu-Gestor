@@ -1,0 +1,22 @@
+{
+  "name": "meu-gestor-financeiro-premium-functions-boundary",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "main": "index.mjs",
+  "engines": {
+    "node": "22"
+  },
+  "scripts": {
+    "check": "node ../../subscriptions/scripts/check.mjs",
+    "test": "node --test test/*.test.mjs",
+    "test:callables": "node --test test/firebase_callables.test.mjs",
+    "test:production-artifact": "node --test test/production_artifact.test.mjs test/runtime_dependency_boundary.test.mjs",
+    "audit:production-artifact": "npm audit --omit=dev --omit=optional --audit-level=moderate"
+  },
+  "dependencies": {
+    "@google-cloud/firestore": "8.7.1",
+    "firebase-admin": "14.2.0",
+    "firebase-functions": "7.3.2"
+  }
+}

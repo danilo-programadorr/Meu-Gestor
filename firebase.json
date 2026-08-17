@@ -1,4 +1,17 @@
 {
+  "functions": [
+    {
+      "source": "backend/functions/premium",
+      "codebase": "premium",
+      "runtime": "nodejs22",
+      "ignore": [
+        "node_modules",
+        ".git",
+        ".codex-tmp",
+        "test"
+      ]
+    }
+  ],
   "firestore": {
     "rules": "firestore.rules"
   },

@@ -56,6 +56,7 @@ final class PremiumEntitlement {
       environment: environment,
       capabilityCount: capabilityList.length,
       uniqueCapabilityCount: capabilitySet.length,
+      capabilities: capabilitySet,
       entitlementStartedAt: entitlementStartedAt,
       currentPeriodStartedAt: currentPeriodStartedAt,
       currentPeriodEndsAt: currentPeriodEndsAt,
@@ -128,6 +129,7 @@ final class PremiumEntitlement {
     required PremiumEnvironment environment,
     required int capabilityCount,
     required int uniqueCapabilityCount,
+    required Set<PremiumCapability> capabilities,
     required DateTime? entitlementStartedAt,
     required DateTime? currentPeriodStartedAt,
     required DateTime? currentPeriodEndsAt,
@@ -210,6 +212,29 @@ final class PremiumEntitlement {
     if (source == PremiumEntitlementSource.developmentGrant &&
         environment != PremiumEnvironment.development) {
       throw _state('development_grant_wrong_environment');
+    }
+    if (source == PremiumEntitlementSource.closedTestGrant &&
+        environment != PremiumEnvironment.development) {
+      throw _state('closed_test_grant_wrong_environment');
+    }
+    if (source == PremiumEntitlementSource.closedTestGrant) {
+      final Set<PremiumCapability> fullPremiumCapabilities =
+          PremiumPlan.monthly.includedCapabilities;
+      final bool hasExactlyFullPremiumCapabilities =
+          capabilities.length == fullPremiumCapabilities.length &&
+          capabilities.containsAll(fullPremiumCapabilities);
+      if (status == PremiumEntitlementStatus.active &&
+          !hasExactlyFullPremiumCapabilities) {
+        throw _state('closed_test_grant_requires_full_capabilities');
+      }
+      if (status == PremiumEntitlementStatus.expired &&
+          capabilities.isNotEmpty) {
+        throw _state('expired_closed_test_grant_keeps_no_capabilities');
+      }
+      if (status != PremiumEntitlementStatus.active &&
+          status != PremiumEntitlementStatus.expired) {
+        throw _state('invalid_closed_test_grant_status');
+      }
     }
 
     if ((status == PremiumEntitlementStatus.gracePeriod) !=

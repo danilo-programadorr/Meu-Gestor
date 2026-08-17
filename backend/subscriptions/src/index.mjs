@@ -1,4 +1,8 @@
 export * from './errors.mjs';
+export * from './catalog.mjs';
+export * from './closed_test_grants.mjs';
+export * from './environment.mjs';
+export * from './firestore_transactional_storage.mjs';
 export * from './gateway.mjs';
 export * from './grants.mjs';
 export * from './grant_audit.mjs';
@@ -7,3 +11,4 @@ export * from './processor.mjs';
 export * from './rtdn.mjs';
 export * from './storage.mjs';
 export * from './token_security.mjs';
+export * from './transition_policy.mjs';

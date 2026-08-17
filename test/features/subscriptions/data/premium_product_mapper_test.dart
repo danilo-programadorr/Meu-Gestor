@@ -22,10 +22,21 @@ void main() {
     final product = PremiumProductMapper.map(
       details: details(),
       plan: PremiumPlan.monthly,
+      subscriptionId: 'meu_gestor_premium',
+      basePlanId: 'mensal',
+      offerId: 'teste-3d',
+      offerToken: 'synthetic-offer-token',
     );
     expect(product.localizedPrice, 'R\$ 9,90');
     expect(product.currencyCode, 'BRL');
     expect(product.periodLabel, 'Mensal');
+    expect(product.subscriptionId, 'meu_gestor_premium');
+    expect(product.basePlanId, 'mensal');
+    expect(product.offerId, 'teste-3d');
+    expect(
+      product.offerLabel,
+      'Teste gratuito por 3 dias, sujeito à elegibilidade na Google Play.',
+    );
   });
 
   test('recusa produto incompleto, moeda inválida e ID ausente', () {
@@ -36,8 +47,13 @@ void main() {
       details(id: ''),
     ]) {
       expect(
-        () =>
-            PremiumProductMapper.map(details: value, plan: PremiumPlan.monthly),
+        () => PremiumProductMapper.map(
+          details: value,
+          plan: PremiumPlan.monthly,
+          subscriptionId: 'meu_gestor_premium',
+          basePlanId: 'mensal',
+          offerToken: 'synthetic-offer-token',
+        ),
         throwsFormatException,
       );
     }

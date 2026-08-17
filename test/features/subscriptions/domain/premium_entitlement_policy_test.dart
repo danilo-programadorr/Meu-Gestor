@@ -257,6 +257,56 @@ void main() {
       );
     });
 
+    test(
+      'teste fechado development libera todas as capabilities sem relógio do aparelho',
+      () {
+        final PremiumEntitlement grant = premiumEntitlement(
+          source: PremiumEntitlementSource.closedTestGrant,
+          currentPeriodStartedAt: DateTime.utc(2026, 8, 6),
+          currentPeriodEndsAt: DateTime.utc(2026, 8, 21),
+          lastVerifiedAt: DateTime.utc(2026, 8, 6),
+        );
+
+        for (final PremiumCapability capability in PremiumCapability.values) {
+          expect(
+            decide(
+              grant,
+              DateTime.utc(2026, 9, 30),
+              capability: capability,
+              intent: PremiumAccessIntent.mutate,
+            ).mode,
+            PremiumAccessMode.full,
+            reason: capability.name,
+          );
+        }
+      },
+    );
+
+    test('teste fechado expirado volta à experiência normal sem popup', () {
+      final PremiumEntitlement expiredGrant = premiumEntitlement(
+        source: PremiumEntitlementSource.closedTestGrant,
+        status: PremiumEntitlementStatus.expired,
+        capabilities: const <PremiumCapability>{},
+        currentPeriodStartedAt: DateTime.utc(2026, 8, 6),
+        currentPeriodEndsAt: DateTime.utc(2026, 8, 21),
+        expiredAt: DateTime.utc(2026, 8, 21),
+        lastVerifiedAt: DateTime.utc(2026, 8, 21),
+      );
+
+      expect(
+        decide(
+          expiredGrant,
+          DateTime.utc(2026, 8, 21),
+          intent: PremiumAccessIntent.read,
+        ).mode,
+        PremiumAccessMode.readOnly,
+      );
+      expect(
+        decide(expiredGrant, DateTime.utc(2026, 8, 21)).reason,
+        PremiumAccessReason.expired,
+      );
+    });
+
     test('estados com acesso anterior preservam somente leitura', () {
       for (final PremiumEntitlementStatus status in <PremiumEntitlementStatus>[
         PremiumEntitlementStatus.accountHold,

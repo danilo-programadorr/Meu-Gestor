@@ -74,4 +74,4 @@ Proventos são acompanhamento patrimonial. Não existe referência a conta, cate
 
 Security Rules não recalculam custo médio nem percorrem todo o histórico. Por isso operações devem ser cadastradas da mais antiga para a mais recente e correções antigas exigem anular primeiro as posteriores. O cliente não promete edição histórica arbitrária nem enfraquece regras para simulá-la.
 
-O enforcement SUB-1C e suas regras estão somente locais e não bloqueiam usuários do Firebase development. A publicação exige primeiro concessão development segura por backend autorizado. Google Play, compra e experiência comercial pertencem ao SUB-1D.
+O enforcement SUB-1C e suas regras estão somente locais e não bloqueiam usuários do Firebase development. A publicação exige primeiro concessão development segura por backend autorizado. Google Play, compra e experiência comercial pertencem ao SUB-1D/SUB-1E-1.

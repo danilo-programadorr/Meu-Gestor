@@ -1688,10 +1688,14 @@ service cloud.firestore {
           'paused', 'cancelled', 'expired', 'revoked', 'refunded'
         ]
         && data.source in [
-          'googlePlay', 'administrativeGrant', 'developmentGrant'
+          'googlePlay', 'administrativeGrant', 'developmentGrant',
+          'closedTestGrant'
         ]
         && data.environment == 'development'
         && (data.status != 'pending' || data.source == 'googlePlay')
+        && (data.source != 'closedTestGrant'
+          || data.status == 'active' && data.capabilities.size() == 5
+          || data.status == 'expired' && data.capabilities.size() == 0)
         && hasValidPremiumCapabilities(data.capabilities)
         && data.cancelAtPeriodEnd is bool
         && data.lastVerifiedAt is timestamp
@@ -1732,11 +1736,13 @@ service cloud.firestore {
         && data.ownerId == userId
         && data.planId in ['monthly', 'annual']
         && data.source in [
-          'googlePlay', 'administrativeGrant', 'developmentGrant'
+          'googlePlay', 'administrativeGrant', 'developmentGrant',
+          'closedTestGrant'
         ]
         && data.environment == 'development'
         && data.status in ['trialing', 'active', 'gracePeriod', 'cancelled']
         && hasValidPremiumCapabilities(data.capabilities)
+        && (data.source != 'closedTestGrant' || data.capabilities.size() == 5)
         && data.currentPeriodStart is timestamp
         && data.currentPeriodEnd is timestamp
         && data.currentPeriodStart < data.currentPeriodEnd

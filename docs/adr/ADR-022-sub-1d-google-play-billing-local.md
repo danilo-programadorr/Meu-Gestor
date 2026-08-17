@@ -2,12 +2,12 @@
 
 ## Status
 
-Aceito localmente em 10/08/2026. A integração estrutural não autoriza produto, cobrança, backend Cloud, deploy de regras ou produção.
+Substituído pelo ADR-023 em 10/08/2026 quanto ao modelo de catálogo. Este ADR preserva a decisão histórica, aceita localmente em 10/08/2026, de preparar a integração estrutural sem autorizar produto, cobrança, backend Cloud, deploy de regras ou produção.
 
-## Decisão
+## Decisão histórica
 
 - Usar `in_app_purchase` 3.3.0, mantido pelo Flutter, como adaptador da Google Play Billing; `url_launcher` 6.3.2, também mantido pelo Flutter, abre somente a Central oficial de Assinaturas.
-- IDs mensal/anual são configuração explícita e validada. Não há ID, preço, oferta, token ou pacote real versionado.
+- Na versão original, IDs mensal/anual eram configuração explícita e validada. O ADR-023 substitui esse desenho pelo produto único `meu_gestor_premium`, planos-base e oferta mensal; continuam ausentes produto Play criado, preço autoritativo, token ou pacote real versionado.
 - A UI mostra preço e moeda somente quando a loja devolve dados completos. Sem catálogo ou verificador, mostra “Assinaturas em preparação”.
 - Uma atualização local de compra nunca concede capability. O token permanece em memória apenas para o contrato de verificação e não aparece em estado, diagnóstico ou log. A liberação exige verificação de backend e releitura confirmada do entitlement canônico.
 - `pending` não confirma nem reconhece compra; acknowledgement fica condicionado ao backend/outbox real após confirmação. O identificador ofuscado de conta também é contrato de backend futuro: UID puro não será enviado à Google Play.

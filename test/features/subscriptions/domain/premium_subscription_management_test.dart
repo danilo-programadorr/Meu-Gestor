@@ -3,23 +3,30 @@ import 'package:meu_gestor_financeiro/features/subscriptions/domain/premium_bill
 import 'package:meu_gestor_financeiro/features/subscriptions/domain/premium_subscription_management.dart';
 
 void main() {
-  const PremiumProductCatalogConfiguration configuration =
-      PremiumProductCatalogConfiguration(
-        monthlyProductId: 'premium.monthly',
-        annualProductId: 'premium.annual',
-        androidPackageName: 'br.com.example.development',
-      );
+  const PremiumProductCatalogConfiguration
+  configuration = PremiumProductCatalogConfiguration(
+    subscriptionId: PremiumProductCatalogConfiguration.approvedSubscriptionId,
+    monthlyBasePlanId:
+        PremiumProductCatalogConfiguration.approvedMonthlyBasePlanId,
+    annualBasePlanId:
+        PremiumProductCatalogConfiguration.approvedAnnualBasePlanId,
+    monthlyTrialOfferId:
+        PremiumProductCatalogConfiguration.approvedMonthlyTrialOfferId,
+    monthlyTrialDurationHours:
+        PremiumProductCatalogConfiguration.approvedMonthlyTrialDurationHours,
+    androidPackageName: 'br.com.example.development',
+  );
 
   test('link específico da Google Play valida package e produto', () {
     final Uri uri = PremiumSubscriptionUri.create(
       configuration: configuration,
-      productId: 'premium.monthly',
+      subscriptionId: 'meu_gestor_premium',
     );
     expect(uri.scheme, 'https');
     expect(uri.host, 'play.google.com');
     expect(uri.path, '/store/account/subscriptions');
     expect(uri.queryParameters, <String, String>{
-      'sku': 'premium.monthly',
+      'sku': 'meu_gestor_premium',
       'package': 'br.com.example.development',
     });
   });
@@ -28,18 +35,26 @@ void main() {
     expect(
       PremiumSubscriptionUri.create(
         configuration: configuration,
-        productId: 'unknown.product',
+        subscriptionId: 'unknown.product',
       ).queryParameters,
       isEmpty,
     );
     expect(
       PremiumSubscriptionUri.create(
         configuration: const PremiumProductCatalogConfiguration(
-          monthlyProductId: 'premium.monthly',
-          annualProductId: 'premium.annual',
+          subscriptionId:
+              PremiumProductCatalogConfiguration.approvedSubscriptionId,
+          monthlyBasePlanId:
+              PremiumProductCatalogConfiguration.approvedMonthlyBasePlanId,
+          annualBasePlanId:
+              PremiumProductCatalogConfiguration.approvedAnnualBasePlanId,
+          monthlyTrialOfferId:
+              PremiumProductCatalogConfiguration.approvedMonthlyTrialOfferId,
+          monthlyTrialDurationHours: PremiumProductCatalogConfiguration
+              .approvedMonthlyTrialDurationHours,
           androidPackageName: 'invalid package',
         ),
-        productId: 'premium.monthly',
+        subscriptionId: 'meu_gestor_premium',
       ).queryParameters,
       isEmpty,
     );

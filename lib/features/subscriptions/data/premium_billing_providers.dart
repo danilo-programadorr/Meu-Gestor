@@ -17,12 +17,16 @@ final Provider<PremiumProductCatalogConfiguration>
 premiumProductCatalogConfigurationProvider =
     Provider<PremiumProductCatalogConfiguration>(
       (Ref ref) => const PremiumProductCatalogConfiguration(
-        monthlyProductId: String.fromEnvironment(
-          'GOOGLE_PLAY_PREMIUM_MONTHLY_PRODUCT_ID',
-        ),
-        annualProductId: String.fromEnvironment(
-          'GOOGLE_PLAY_PREMIUM_ANNUAL_PRODUCT_ID',
-        ),
+        subscriptionId:
+            PremiumProductCatalogConfiguration.approvedSubscriptionId,
+        monthlyBasePlanId:
+            PremiumProductCatalogConfiguration.approvedMonthlyBasePlanId,
+        annualBasePlanId:
+            PremiumProductCatalogConfiguration.approvedAnnualBasePlanId,
+        monthlyTrialOfferId:
+            PremiumProductCatalogConfiguration.approvedMonthlyTrialOfferId,
+        monthlyTrialDurationHours: PremiumProductCatalogConfiguration
+            .approvedMonthlyTrialDurationHours,
         androidPackageName: String.fromEnvironment(
           'GOOGLE_PLAY_ANDROID_PACKAGE_NAME',
         ),

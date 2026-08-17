@@ -15,35 +15,32 @@ final class FakePremiumBillingGateway implements PremiumBillingGateway {
   Object? nextError;
   int startCalls = 0;
   int restoreCalls = 0;
-  int completeCalls = 0;
   List<PremiumStoreProduct> products = <PremiumStoreProduct>[
     PremiumStoreProduct(
       plan: PremiumPlan.monthly,
-      productId: 'premium.monthly',
+      subscriptionId: PremiumProductCatalogConfiguration.approvedSubscriptionId,
+      basePlanId: PremiumProductCatalogConfiguration.approvedMonthlyBasePlanId,
+      offerId: PremiumProductCatalogConfiguration.approvedMonthlyTrialOfferId,
+      offerToken: 'synthetic-monthly-trial-offer-token',
       title: 'Premium mensal',
       description: 'Teste',
       localizedPrice: 'R\$ 9,90',
       currencyCode: 'BRL',
-      periodLabel: 'Mensal',
     ),
     PremiumStoreProduct(
       plan: PremiumPlan.annual,
-      productId: 'premium.annual',
+      subscriptionId: PremiumProductCatalogConfiguration.approvedSubscriptionId,
+      basePlanId: PremiumProductCatalogConfiguration.approvedAnnualBasePlanId,
+      offerToken: 'synthetic-annual-base-plan-token',
       title: 'Premium anual',
       description: 'Teste',
       localizedPrice: 'R\$ 99,90',
       currencyCode: 'BRL',
-      periodLabel: 'Anual',
     ),
   ];
 
   @override
   Stream<List<PremiumPurchaseUpdate>> get purchaseUpdates => _updates.stream;
-
-  @override
-  Future<void> completePurchase(PremiumPurchaseUpdate update) async {
-    completeCalls += 1;
-  }
 
   @override
   Future<bool> isStoreAvailable() async => storeAvailable;
@@ -114,7 +111,7 @@ final class FakePremiumPurchaseVerificationGateway
   bool available;
   PremiumPurchaseVerificationResult result;
   int calls = 0;
-  String? lastProductId;
+  PremiumPurchaseVerificationRequest? lastRequest;
   String? receivedPayload;
 
   @override
@@ -122,12 +119,11 @@ final class FakePremiumPurchaseVerificationGateway
 
   @override
   Future<PremiumPurchaseVerificationResult> verify({
-    required String productId,
-    required String verificationPayload,
+    required PremiumPurchaseVerificationRequest request,
   }) async {
     calls += 1;
-    lastProductId = productId;
-    receivedPayload = verificationPayload;
+    lastRequest = request;
+    receivedPayload = request.verificationPayload;
     return result;
   }
 }
@@ -135,11 +131,11 @@ final class FakePremiumPurchaseVerificationGateway
 final class FakePremiumSubscriptionManagement
     implements PremiumSubscriptionManagement {
   bool result = true;
-  String? productId;
+  String? subscriptionId;
 
   @override
-  Future<bool> open({String? productId}) async {
-    this.productId = productId;
+  Future<bool> open({String? subscriptionId}) async {
+    this.subscriptionId = subscriptionId;
     return result;
   }
 }

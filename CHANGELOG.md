@@ -90,8 +90,16 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Perda de Premium preserva dados em modo somente leitura; ausência, `pending`, documento inválido ou confirmação indisponível não carregam dados nem autorizam mutações. Não há compra, preço ou paywall.
 - As regras SUB-1C permanecem não publicadas para não bloquear usuários development sem mecanismo seguro de concessão; nenhum Firebase real foi acessado.
 - SUB-1D adiciona página Premium, catálogo mensal/anual configurável, contratos de Google Play Billing, restauração, verificação falha-fechada, gerenciamento oficial de assinatura e integração UX com Menu, Perfil e gate de investimentos.
-- `in_app_purchase` 3.3.0 e `url_launcher` 6.3.2, ambos mantidos pelo Flutter, são usados somente como adaptadores locais; não existem produtos, preços, cobrança, token persistido, backend Cloud ou entitlement liberado pelo cliente.
+- `in_app_purchase` 3.3.0 e `url_launcher` 6.3.2, ambos mantidos pelo Flutter, são usados somente como adaptadores locais; não existem produtos Play criados, preços autoritativos ou exibíveis da loja, cobrança, token persistido de forma durável, backend Cloud ou entitlement liberado pelo cliente.
 - auditoria sanitizada para grants development no backend local; não há comando ou endpoint público de concessão.
+- SUB-1E-1 remodela localmente o catálogo comercial para o produto único `meu_gestor_premium`, com planos-base `mensal`/`anual` e oferta `teste-3d` exclusiva do mensal; nenhuma configuração Google Play foi criada.
+- Brasil é o país inicial previsto; R$ 19,90 mensal e R$ 209,90 anual são preços aprovados somente para futura configuração no Play Console. O cliente continua a usar somente preço, moeda, elegibilidade e oferta retornados pela loja.
+- contratos/fakes locais passam a preparar verificação por Google Play Developer API e RTDN sem rede, dados reais, token persistido de forma durável, cobrança ou liberação de entitlement; margem líquida permanece dependente de taxa Play, impostos, reembolsos e custos Cloud reais.
+- SUB-1E-2 prepara localmente a concessão backend-only `closedTestGrant`: janela global UTC fixa de 15 dias para o track fechado development, todas as capabilities Premium enquanto ativa e expiração materializada sem popup, compra, preço ou direito de production.
+- SUB-1E-3A prepara localmente a borda Premium compatível com Cloud Functions Gen 2, com contracts estritos para verificação, restauração, leitura, RTDN e administração fechada; nenhum serviço externo, credencial, Function ou compra foi criado.
+- SUB-1E-3B-1 publica exclusivamente em development o bootstrap de três callables Premium Gen 2: leitura própria confirmada e stubs fechados de verificação/restauração. Não houve escrita Firestore, grant, RTDN, Play API, regra, App Check global ou acesso production.
+- A política de limpeza do Artifact Registry das Functions Premium development retém somente artefatos de deploy com até 14 dias na região configurada; nenhuma Function, revisão ou imagem foi excluída manualmente.
+- As três callables Premium foram republicadas exclusivamente em development com Node 22. O artefato de produção omite dependências opcionais, não contém Cloud Storage nem `uuid` transitivo e sua auditoria não encontrou vulnerabilidades; as regras SUB-1E continuam somente locais.
 
 ### Segurança
 

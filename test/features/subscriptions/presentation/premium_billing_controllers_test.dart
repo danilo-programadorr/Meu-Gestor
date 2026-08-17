@@ -33,7 +33,7 @@ void main() {
   });
 
   test(
-    'catálogo mostra dois planos válidos somente quando loja responde',
+    'catálogo mostra dois base plans válidos somente quando loja responde',
     () async {
       final _BillingContext context = await _context();
       addTearDown(context.dispose);
@@ -102,7 +102,6 @@ void main() {
     await _flush();
 
     expect(context.verifier.calls, 0);
-    expect(context.billing.completeCalls, 0);
     expect(
       context.container.read(premiumPurchaseControllerProvider).phase,
       PremiumPurchasePhase.pending,
@@ -116,13 +115,20 @@ void main() {
         entitlement: syntheticPremiumEntitlement(),
       );
       addTearDown(context.dispose);
+      await context.container
+          .read(premiumPurchaseControllerProvider.notifier)
+          .purchase(context.billing.products.first);
       context.billing.emit(_update(PremiumPurchaseUpdateStatus.purchased));
       await _flush();
 
       expect(context.verifier.calls, 1);
-      expect(context.verifier.lastProductId, 'premium.monthly');
+      expect(
+        context.verifier.lastRequest?.subscriptionId,
+        'meu_gestor_premium',
+      );
+      expect(context.verifier.lastRequest?.requestedBasePlanId, 'mensal');
+      expect(context.verifier.lastRequest?.requestedOfferId, 'teste-3d');
       expect(context.verifier.receivedPayload, 'synthetic-token');
-      expect(context.billing.completeCalls, 1);
       expect(
         context.container.read(premiumPurchaseControllerProvider).phase,
         PremiumPurchasePhase.active,
@@ -182,14 +188,48 @@ void main() {
         .restore();
     expect(context.billing.restoreCalls, 1);
   });
+
+  test('perda de conexão na restauração mantém o Premium fechado', () async {
+    final _BillingContext context = await _context();
+    addTearDown(context.dispose);
+    context.billing.nextError = StateError('synthetic-offline');
+
+    await context.container
+        .read(premiumPurchaseControllerProvider.notifier)
+        .restore();
+
+    expect(context.billing.restoreCalls, 1);
+    expect(context.verifier.calls, 0);
+    expect(
+      context.container.read(premiumPurchaseControllerProvider).phase,
+      PremiumPurchasePhase.error,
+    );
+  });
+
+  test(
+    'atualização de outro produto não abre verificação nem acesso',
+    () async {
+      final _BillingContext context = await _context();
+      addTearDown(context.dispose);
+      context.billing.emit(
+        PremiumPurchaseUpdate(
+          subscriptionId: 'other_subscription',
+          status: PremiumPurchaseUpdateStatus.purchased,
+          verificationPayload: 'synthetic-other-payload',
+        ),
+      );
+      await _flush();
+
+      expect(context.verifier.calls, 0);
+    },
+  );
 }
 
 PremiumPurchaseUpdate _update(PremiumPurchaseUpdateStatus status) =>
     PremiumPurchaseUpdate(
-      productId: 'premium.monthly',
+      subscriptionId: 'meu_gestor_premium',
       status: status,
       verificationPayload: 'synthetic-token',
-      pendingCompletePurchase: true,
     );
 
 Future<void> _flush() async {
@@ -260,8 +300,16 @@ Future<_BillingContext> _context({
       premiumBillingAppCheckPreparedProvider.overrideWithValue(true),
       premiumProductCatalogConfigurationProvider.overrideWithValue(
         const PremiumProductCatalogConfiguration(
-          monthlyProductId: 'premium.monthly',
-          annualProductId: 'premium.annual',
+          subscriptionId:
+              PremiumProductCatalogConfiguration.approvedSubscriptionId,
+          monthlyBasePlanId:
+              PremiumProductCatalogConfiguration.approvedMonthlyBasePlanId,
+          annualBasePlanId:
+              PremiumProductCatalogConfiguration.approvedAnnualBasePlanId,
+          monthlyTrialOfferId:
+              PremiumProductCatalogConfiguration.approvedMonthlyTrialOfferId,
+          monthlyTrialDurationHours: PremiumProductCatalogConfiguration
+              .approvedMonthlyTrialDurationHours,
           androidPackageName: 'br.com.example.development',
         ),
       ),

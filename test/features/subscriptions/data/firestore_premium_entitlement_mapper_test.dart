@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meu_gestor_financeiro/features/subscriptions/data/firestore_premium_entitlement_mapper.dart';
 import 'package:meu_gestor_financeiro/features/subscriptions/domain/premium_entitlement_failure.dart';
+import 'package:meu_gestor_financeiro/features/subscriptions/domain/premium_entitlement_source.dart';
 import 'package:meu_gestor_financeiro/features/subscriptions/domain/premium_entitlement_status.dart';
 
 void main() {
@@ -42,6 +43,33 @@ void main() {
     expect(entitlement.status, PremiumEntitlementStatus.active);
     expect(entitlement.revision, 1);
     expect(entitlement.capabilities, hasLength(2));
+  });
+
+  test('decodes closed test only in its active or expired server form', () {
+    final active = FirestorePremiumEntitlementMapper.fromMap(
+      data: valid(
+        changes: <String, dynamic>{
+          'source': 'closedTestGrant',
+          'capabilities': <String>[
+            'investmentsManual',
+            'investmentIncome',
+            'investmentQuotes',
+            'investmentCalculators',
+            'investmentAnalysis',
+          ],
+        },
+      ),
+      expectedOwnerId: 'synthetic-owner',
+    );
+    expect(active.source, PremiumEntitlementSource.closedTestGrant);
+
+    expect(
+      () => FirestorePremiumEntitlementMapper.fromMap(
+        data: valid(changes: <String, dynamic>{'source': 'closedTestGrant'}),
+        expectedOwnerId: 'synthetic-owner',
+      ),
+      throwsA(isA<PremiumEntitlementFailure>()),
+    );
   });
 
   test('rejects extra and missing fields', () {

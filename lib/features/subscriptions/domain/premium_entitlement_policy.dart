@@ -55,6 +55,30 @@ final class PremiumEntitlementPolicy {
         allowRetainedRead: false,
       );
     }
+    // A concessão de teste fechado só é emitida/expirada pelo backend. O
+    // aplicativo não usa o relógio do aparelho para antecipar ou prolongar a
+    // janela; ele confia apenas no documento confirmado pelo servidor.
+    if (entitlement.source == PremiumEntitlementSource.closedTestGrant) {
+      if (entitlement.status != PremiumEntitlementStatus.active) {
+        return _withoutFullAccess(
+          capability: capability,
+          intent: intent,
+          reason: PremiumAccessReason.expired,
+          allowRetainedRead: true,
+        );
+      }
+      return PremiumAccessDecision(
+        mode: PremiumAccessMode.full,
+        reason: PremiumAccessReason.active,
+        capability: capability,
+        intent: intent,
+        validUntil: entitlement.currentPeriodEndsAt,
+        isGracePeriod: false,
+        isCancellationPending: false,
+        requiresServerVerification: false,
+      );
+    }
+
     if (!entitlement.capabilities.contains(capability)) {
       return _withoutFullAccess(
         capability: capability,

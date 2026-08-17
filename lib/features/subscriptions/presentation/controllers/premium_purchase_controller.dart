@@ -44,6 +44,8 @@ premiumPurchaseControllerProvider =
 final class PremiumPurchaseController extends Notifier<PremiumPurchaseState> {
   StreamSubscription<List<PremiumPurchaseUpdate>>? _subscription;
   int _operation = 0;
+  PremiumStoreProduct? _activeSelection;
+  bool _verificationInProgress = false;
 
   @override
   PremiumPurchaseState build() {
@@ -53,6 +55,7 @@ final class PremiumPurchaseController extends Notifier<PremiumPurchaseState> {
         .listen(_handleUpdates, onError: (_) => _setError());
     ref.onDispose(() {
       _operation += 1;
+      _activeSelection = null;
       _subscription?.cancel();
     });
     return const PremiumPurchaseState.idle();
@@ -60,10 +63,15 @@ final class PremiumPurchaseController extends Notifier<PremiumPurchaseState> {
 
   Future<void> purchase(PremiumStoreProduct product) async {
     if (state.isBusy) return;
+    final PremiumProductCatalogConfiguration configuration = ref.read(
+      premiumProductCatalogConfigurationProvider,
+    );
     final PremiumBillingAvailability availability = ref.read(
       premiumBillingAvailabilityProvider,
     );
-    if (!availability.canStartPurchase) {
+    if (!configuration.matchesApprovedCommercialModel ||
+        !configuration.accepts(product) ||
+        !availability.canStartPurchase) {
       state = PremiumPurchaseState(
         phase: PremiumPurchasePhase.error,
         message: availability.safeMessage,
@@ -95,7 +103,9 @@ final class PremiumPurchaseController extends Notifier<PremiumPurchaseState> {
       if (operation != _operation) return;
       if (!started) {
         _setError('A Google Play não pôde iniciar a assinatura.');
+        return;
       }
+      _activeSelection = product;
     } on Object {
       if (operation == _operation) _setError();
     }
@@ -106,7 +116,11 @@ final class PremiumPurchaseController extends Notifier<PremiumPurchaseState> {
     final PremiumBillingAvailability availability = ref.read(
       premiumBillingAvailabilityProvider,
     );
-    if (!availability.backendVerificationAvailable) {
+    final PremiumProductCatalogConfiguration configuration = ref.read(
+      premiumProductCatalogConfigurationProvider,
+    );
+    if (!configuration.matchesApprovedCommercialModel ||
+        !availability.canRestorePurchase) {
       state = PremiumPurchaseState(
         phase: PremiumPurchasePhase.error,
         message: availability.safeMessage,
@@ -114,16 +128,19 @@ final class PremiumPurchaseController extends Notifier<PremiumPurchaseState> {
       return;
     }
     final int operation = ++_operation;
+    _activeSelection = null;
     state = const PremiumPurchaseState(
       phase: PremiumPurchasePhase.verifying,
       message: 'Consultando compras para restaurar sua assinatura.',
     );
     try {
       await ref.read(premiumBillingGatewayProvider).restorePurchases();
-      if (operation == _operation) {
+      if (operation == _operation &&
+          state.phase == PremiumPurchasePhase.verifying) {
         state = const PremiumPurchaseState(
           phase: PremiumPurchasePhase.idle,
-          message: 'Nenhuma assinatura confirmada foi encontrada ainda.',
+          message:
+              'A consulta de restauração terminou. Seu acesso só muda após confirmação do servidor.',
         );
       }
     } on Object {
@@ -133,6 +150,10 @@ final class PremiumPurchaseController extends Notifier<PremiumPurchaseState> {
 
   Future<void> _handleUpdates(List<PremiumPurchaseUpdate> updates) async {
     for (final PremiumPurchaseUpdate update in updates) {
+      final PremiumProductCatalogConfiguration configuration = ref.read(
+        premiumProductCatalogConfigurationProvider,
+      );
+      if (update.subscriptionId != configuration.subscriptionId) continue;
       switch (update.status) {
         case PremiumPurchaseUpdateStatus.pending:
           state = const PremiumPurchaseState(
@@ -141,12 +162,14 @@ final class PremiumPurchaseController extends Notifier<PremiumPurchaseState> {
                 'Pagamento pendente. O Premium será liberado somente após confirmação do servidor.',
           );
         case PremiumPurchaseUpdateStatus.cancelled:
+          _activeSelection = null;
           state = const PremiumPurchaseState(
             phase: PremiumPurchasePhase.cancelled,
             message:
                 'A assinatura não foi concluída. Nenhuma cobrança foi confirmada pelo aplicativo.',
           );
         case PremiumPurchaseUpdateStatus.error:
+          _activeSelection = null;
           _setError('A Google Play informou uma falha na assinatura.');
         case PremiumPurchaseUpdateStatus.purchased ||
             PremiumPurchaseUpdateStatus.restored:
@@ -156,21 +179,43 @@ final class PremiumPurchaseController extends Notifier<PremiumPurchaseState> {
   }
 
   Future<void> _verify(PremiumPurchaseUpdate update) async {
-    if (update.verificationPayload.isEmpty) {
+    if (_verificationInProgress || update.verificationPayload.isEmpty) {
+      if (update.verificationPayload.isEmpty) {
+        _setError('Não foi possível validar a assinatura com segurança.');
+      }
+      return;
+    }
+    final PremiumProductCatalogConfiguration configuration = ref.read(
+      premiumProductCatalogConfigurationProvider,
+    );
+    if (!configuration.matchesApprovedCommercialModel ||
+        update.subscriptionId != configuration.subscriptionId) {
       _setError('Não foi possível validar a assinatura com segurança.');
       return;
     }
+    _verificationInProgress = true;
     final int operation = ++_operation;
     state = const PremiumPurchaseState(
       phase: PremiumPurchasePhase.verifying,
       message: 'Verificando sua assinatura com o servidor.',
     );
     try {
+      final PremiumStoreProduct? selection =
+          update.status == PremiumPurchaseUpdateStatus.purchased
+          ? _activeSelection
+          : null;
       final PremiumPurchaseVerificationResult result = await ref
           .read(premiumPurchaseVerificationGatewayProvider)
           .verify(
-            productId: update.productId,
-            verificationPayload: update.verificationPayload,
+            request: PremiumPurchaseVerificationRequest(
+              subscriptionId: update.subscriptionId,
+              origin: update.status == PremiumPurchaseUpdateStatus.restored
+                  ? PremiumPurchaseVerificationOrigin.restoration
+                  : PremiumPurchaseVerificationOrigin.purchase,
+              verificationPayload: update.verificationPayload,
+              requestedBasePlanId: selection?.basePlanId,
+              requestedOfferId: selection?.offerId,
+            ),
           );
       if (operation != _operation) return;
       if (result != PremiumPurchaseVerificationResult.confirmed) {
@@ -196,9 +241,6 @@ final class PremiumPurchaseController extends Notifier<PremiumPurchaseState> {
         _setError('O Premium ainda aguarda confirmação do servidor.');
         return;
       }
-      if (update.pendingCompletePurchase) {
-        await ref.read(premiumBillingGatewayProvider).completePurchase(update);
-      }
       if (operation != _operation) return;
       ref.invalidate(premiumEntitlementReadProvider(ownerId));
       ref.invalidate(investmentPremiumAccessControllerProvider);
@@ -208,6 +250,9 @@ final class PremiumPurchaseController extends Notifier<PremiumPurchaseState> {
       );
     } on Object {
       if (operation == _operation) _setError();
+    } finally {
+      _verificationInProgress = false;
+      _activeSelection = null;
     }
   }
 

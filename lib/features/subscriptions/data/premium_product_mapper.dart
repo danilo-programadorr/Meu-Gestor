@@ -8,6 +8,10 @@ final class PremiumProductMapper {
   static PremiumStoreProduct map({
     required ProductDetails details,
     required PremiumPlan plan,
+    required String subscriptionId,
+    required String basePlanId,
+    required String offerToken,
+    String? offerId,
   }) {
     if (details.id.trim().isEmpty ||
         details.title.trim().isEmpty ||
@@ -17,13 +21,19 @@ final class PremiumProductMapper {
     }
     return PremiumStoreProduct(
       plan: plan,
-      productId: details.id,
+      subscriptionId: subscriptionId,
+      basePlanId: basePlanId,
+      offerId: offerId,
+      offerToken: offerToken,
       title: details.title,
       description: details.description,
       localizedPrice: details.price,
       currencyCode: details.currencyCode,
-      // A periodicidade é parte do catálogo aprovado, nunca um valor monetário.
-      periodLabel: plan == PremiumPlan.monthly ? 'Mensal' : 'Anual',
+      offerLabel:
+          offerId ==
+              PremiumProductCatalogConfiguration.approvedMonthlyTrialOfferId
+          ? 'Teste gratuito por 3 dias, sujeito à elegibilidade na Google Play.'
+          : null,
     );
   }
 }

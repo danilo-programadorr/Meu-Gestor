@@ -1,4 +1,4 @@
-import { createHmac } from 'node:crypto';
+import { createHmac, randomUUID } from 'node:crypto';
 import { deny, requireText } from './errors.mjs';
 
 export class PurchaseTokenFingerprinter {
@@ -21,6 +21,9 @@ export function createObfuscatedExternalAccountId({ uid, key, keyVersion = 'acco
 }
 
 export class PurchaseTokenVault {
+  // Cada chamada deve retornar uma referência opaca e exclusiva, mesmo para o
+  // mesmo fingerprint. Isso permite descartar somente a tentativa que falhou
+  // enquanto outra tentativa ainda pode estar entre store e commit.
   async store(_fingerprint, _token) {
     throw new Error('PurchaseTokenVault.store must be implemented');
   }
@@ -28,27 +31,56 @@ export class PurchaseTokenVault {
   async retrieve(_reference) {
     throw new Error('PurchaseTokenVault.retrieve must be implemented');
   }
+
+  async discard(_reference) {
+    throw new Error('PurchaseTokenVault.discard must be implemented');
+  }
 }
 
 export class InMemoryPurchaseTokenVault extends PurchaseTokenVault {
-  #tokens = new Map();
+  #entries = new Map();
+  #fingerprintedTokens = new Map();
+  discardFailuresRemaining = 0;
 
   constructor() {
     super();
   }
 
   async store(fingerprint, token) {
-    if (this.#tokens.has(fingerprint) && this.#tokens.get(fingerprint) !== token) {
+    const trustedFingerprint = requireText(fingerprint, 'invalid_purchase_token_fingerprint');
+    const trustedToken = requireText(token, 'invalid_purchase_token', 4096);
+    if (this.#fingerprintedTokens.has(trustedFingerprint) && this.#fingerprintedTokens.get(trustedFingerprint) !== trustedToken) {
       throw deny('purchase_token_fingerprint_collision');
     }
-    this.#tokens.set(fingerprint, token);
-    return `memory-vault:${fingerprint}`;
+    this.#fingerprintedTokens.set(trustedFingerprint, trustedToken);
+    const reference = `memory-vault:${randomUUID()}`;
+    this.#entries.set(reference, Object.freeze({ fingerprint: trustedFingerprint, token: trustedToken }));
+    return reference;
   }
 
   async retrieve(reference) {
-    const fingerprint = requireText(reference, 'invalid_token_reference').replace('memory-vault:', '');
-    const token = this.#tokens.get(fingerprint);
-    if (!token) throw deny('purchase_token_not_available');
-    return token;
+    const entry = this.#entries.get(memoryVaultReference(reference));
+    if (!entry) throw deny('purchase_token_not_available');
+    return entry.token;
   }
+
+  async discard(reference) {
+    if (this.discardFailuresRemaining > 0) {
+      this.discardFailuresRemaining -= 1;
+      throw deny('purchase_token_cleanup_unavailable');
+    }
+    const trustedReference = memoryVaultReference(reference);
+    const entry = this.#entries.get(trustedReference);
+    if (!entry) return;
+    this.#entries.delete(trustedReference);
+    if (![...this.#entries.values()].some((value) => value.fingerprint === entry.fingerprint)) {
+      this.#fingerprintedTokens.delete(entry.fingerprint);
+    }
+  }
+}
+
+function memoryVaultReference(reference) {
+  const text = requireText(reference, 'invalid_token_reference');
+  if (!text.startsWith('memory-vault:')) throw deny('invalid_token_reference');
+  return text;
 }

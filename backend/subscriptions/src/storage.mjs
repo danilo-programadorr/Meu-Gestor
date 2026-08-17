@@ -8,6 +8,10 @@ export class SubscriptionTransactionalStorage {
   async snapshot() {
     throw new Error('SubscriptionTransactionalStorage.snapshot must be implemented');
   }
+
+  async entitlement(_ownerId) {
+    throw new Error('SubscriptionTransactionalStorage.entitlement must be implemented');
+  }
 }
 
 export class InMemorySubscriptionStorage extends SubscriptionTransactionalStorage {

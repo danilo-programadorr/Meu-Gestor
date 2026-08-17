@@ -406,11 +406,38 @@
 
 | ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |
 |---|---|---:|---:|---|---|---|---|---|
-| SUB-001-1D | Catálogo mensal/anual | P0 | SUB-1D | IDs explícitos, distintos, validados; preços somente da loja | local e falha fechado | produtos Play futuros | alto | consulta futura |
+| SUB-001-1D | Catálogo mensal/anual | P0 | SUB-1D | suplantado pelo SUB-1E-1: produto único, planos-base e preços somente da loja | local e falha fechado | produtos Play futuros | alto | consulta futura |
 | SUB-002-1D | Compra segura | P0 | SUB-1D | loja + backend + App Check + ambiente + perfil + operação livre; resposta local não concede | local, fluxo real bloqueado | backend/Play futuros | crítico | cobrança futura |
 | SUB-003-1D | Restauração e gestão | P0 | SUB-1D | restore verifica backend; link oficial sem cancelamento simulado | local e testado | backend/Play futuros | alto | neutro |
 | SUB-004-1D | Token, identidade e acknowledgement | P0 | SUB-1D | token transitório; UID não vai à Play; ack só após backend | contrato local | backend/KMS futuros | crítico | infraestrutura futura |
 | SUB-005-1D | UX e preservação | P0 | SUB-1D | preparação, pendente, leitura, falha, acessibilidade e dados preservados | local e testado | sistema visual | alto | neutro |
+
+## Incremento SUB-1E-1 — Catálogo comercial Google Play local
+
+| ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |
+|---|---|---:|---:|---|---|---|---|---|
+| SUB-001-1E | Modelar produto único e planos-base | P0 | SUB-1E-1 | somente `meu_gestor_premium`, planos `mensal`/`anual` e oferta `teste-3d` apenas no mensal | autorizado para implementação local | catálogo Play futuro | alto | consulta futura |
+| SUB-002-1E | Exibir somente detalhes reais da loja | P0 | SUB-1E-1 | preço, moeda, elegibilidade, plano e oferta chegam da Play; R$ 19,90/R$ 209,90 não autorizam o cliente | autorizado para implementação local | resposta ProductDetails | crítico | consulta futura |
+| SUB-003-1E | Manter compra e restauração falha-fechadas | P0 | SUB-1E-1 | pendente, cancelamento, timeout, perda de conexão, resposta tardia e restauração sem verificação não concedem entitlement | autorizado para testes locais | verificador futuro | crítico | neutro |
+| SUB-004-1E | Preparar verificação e RTDN sem rede | P0 | SUB-1E-1 | contratos estritos, fakes e fixtures sintéticas isolam futura Google Play Developer API/RTDN; token não é persistido de forma durável nem logado, e a fixture o mantém somente de modo transitório até acknowledgement/limpeza | autorizado para implementação local | backend futuro | crítico | zero externo nesta etapa |
+| SUB-005-1E | Informar preço e margem com precisão | P1 | SUB-1E-1 | preços aprovados são parâmetros Play Brasil; margem líquida depende de taxa Play, impostos, reembolsos e custos Cloud | documentado | contabilidade operacional futura | alto | neutro |
+| SUB-006-1E | Preservar escopo gratuito e investimentos | P0 | SUB-1E-1 | investimentos/proventos Premium, núcleo financeiro gratuito, sem B3, corretora, cotação ou dados fictícios | autorizado | SUB-1C e políticas Premium | crítico | neutro |
+
+## Incremento SUB-1E-2 — Concessão segura de teste fechado local
+
+| ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |
+|---|---|---:|---:|---|---|---|---|---|
+| SUB-007-1E | Modelar teste fechado sem cobrança | P0 | SUB-1E-2 | `closedTestGrant` é backend-only, UID próprio, development/track `closed`, janela UTC global fixa de 15 dias e cinco capabilities | local e testado | backend futuro e lista autorizada | crítico | zero externo |
+| SUB-008-1E | Impedir restauração e production | P0 | SUB-1E-2 | app não escreve/restaura/reutiliza; Rules negam escrita cliente; fonte falha fora de development e não é direito de production | local e testado | publicação futura aprovada | crítico | neutro |
+| SUB-009-1E | Expirar sem regressão de UX | P1 | SUB-1E-2 | backend materializa expiração; núcleo gratuito e leitura histórica seguem normais, sem popup modal | local e testado | guard SUB-1C | alto | neutro |
+
+## Incremento SUB-1E-3A — Backend Premium Gen 2 local
+
+| ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |
+|---|---|---:|---:|---|---|---|---|---|
+| SUB-010-1E | Preparar handlers Gen 2 sem rede | P0 | SUB-1E-3A | factories injetáveis delegam verificação, restauração, leitura, RTDN e administração ao núcleo único | local e testado | Functions Gen 2 futura | crítico | zero externo |
+| SUB-011-1E | Manter persistência e fronteiras seguras | P0 | SUB-1E-3A | adapter transacional, eventos/bindings/outbox idempotentes, App Check só nas novas callables e RTDN autoritativa | local e testado | Firestore/Admin SDK, Play API, Pub/Sub | crítico | infraestrutura futura |
+| SUB-012-1E | Isolar teste fechado e production | P0 | SUB-1E-3A | grant administrativo development/closed/15 dias, sem escrita cliente ou production | local e testado | identidade administrativa futura | crítico | neutro |
 
 ## Incrementos futuros de dados, privacidade e armazenamento
 

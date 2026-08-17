@@ -73,6 +73,12 @@
 58. Pendência pode terminar `cancelled`; pagamento ou recebimento posteriormente anulado termina `voided` junto com a invalidação atômica do lançamento vinculado.
 59. Recorrências, parcelamentos, liquidações parciais, juros, multas, descontos e notificações não pertencem a FIN-5A.
 60. A correção do saldo inicial exige proteção no domínio, repositório e Security Rules; bloqueio apenas visual é rejeitado. A proposta técnica permanece pendente de aprovação para implementação.
+61. O catálogo comercial Google Play aprovado usa somente o produto `meu_gestor_premium`, com planos-base `mensal` e `anual`; não há produtos separados por ciclo.
+62. A oferta `teste-3d` é gratuita por três dias/72 horas e existe somente no plano-base mensal; o plano anual não possui teste.
+63. O Brasil é o país comercial inicial; R$ 19,90 mensal e R$ 209,90 anual são valores aprovados para configuração no Play Console, nunca preços autoritativos, entitlement ou cobrança local.
+64. O cliente somente apresenta preço, moeda, elegibilidade e detalhes retornados pela Play Store; status, token, recibo e relógio do aparelho não concedem Premium.
+65. Investimentos manuais e proventos permanecem Premium; núcleo financeiro permanece gratuito. B3 e integrações automáticas com corretoras seguem canceladas, e cotações não pertencem ao SUB-1E-1.
+66. Receita ou margem líquida não será estimada a partir do preço bruto: requer taxa Play, impostos, reembolsos e custos Cloud reais.
 
 ## 3. Estado do ambiente
 
@@ -768,10 +774,49 @@ Situação em 10/08/2026: implementado e validado somente no worktree local com 
 - Regras locais exigem UID próprio, e-mail confirmado, perfil jurídico, entitlement válido, capability e `request.time`; owner não possui bypass. Invariantes financeiras e operações atômicas permanecem intactas.
 - Perda de Premium não grava nem apaga dados. Consulta, filtros, privacidade, temas e navegação permanecem; ações mutáveis desaparecem. Ausência nunca é expiração e não carrega dados Premium.
 - A tela negada não possui preço, compra ou botão funcional de assinatura. Confirmação indisponível falha fechada e oferece retry com texto sanitizado.
-- Publicação depende primeiro de um método backend/administrativo autorizado para emitir entitlements development seguros. SUB-1D cuidará de Google Play, compra e experiência comercial mediante autorização própria.
+- Publicação depende primeiro de um método backend/administrativo autorizado para emitir entitlements development seguros. SUB-1D/SUB-1E-1 cuidam da preparação local de Google Play, compra e experiência comercial; qualquer configuração externa continua a exigir autorização própria.
 
 ## 35. SUB-1D — Interface e preparação Google Play Billing
 
 Concluído localmente: contratos de catálogo, compra, restauração, atualizações, verificação, disponibilidade e gerenciamento; página Premium, rota, entradas de Menu/Perfil, gateway Flutter e testes determinísticos. A cobrança continua bloqueada por ausência de produtos Play, backend seguro, identificação ofuscada emitida pelo servidor, App Check, grant development real e publicação autorizada das regras SUB-1C.
 
-Integração B3/corretoras permanece cancelada. Cotações atrasadas por provedor independente continuam tema separado e não foram iniciadas.
+O modelo inicial de dois produtos distintos foi substituído pelo catálogo único aprovado no SUB-1E-1. Integração B3/corretoras permanece cancelada. Cotações atrasadas por provedor independente continuam tema separado e não foram iniciadas.
+
+## 36. SUB-1E-1 — Preparação local de cobrança Google Play
+
+Situação em 10/08/2026: autorizado exclusivamente para remodelagem e validação locais. Nenhum produto, preço, oferta, teste, testador, AAB, backend Cloud, Function, App Check, regra, recurso Firebase ou recurso Google Play foi criado ou alterado.
+
+- O catálogo local passa a representar um único produto, `meu_gestor_premium`, com planos-base `mensal` e `anual`; a oferta `teste-3d` é exclusiva do mensal e dura três dias/72 horas. Brasil é o país inicial previsto.
+- R$ 19,90 mensal e R$ 209,90 anual são preços aprovados somente para futura configuração no Play Console. O aplicativo não usa preço fixo como autoridade e só apresenta detalhes localizados retornados pela loja.
+- Contratos de catálogo, compra, restauração, verificação, gerenciamento e disponibilidade distinguem produto, plano-base e oferta. Resposta da loja, cache, relógio do aparelho, falha de rede, compra pendente, cancelamento ou timeout nunca concedem entitlement.
+- O cliente permanece abstrato e testável. O backend local usa fakes/fixtures sintéticas para a futura verificação por Google Play Developer API e RTDN; token continua transitório e nenhum backend Cloud, segredo, endpoint ou chamada externa existe.
+- Investimentos manuais e proventos permanecem Premium; contas, saldo, receitas, despesas, compromissos e resumo mensal continuam gratuitos e inalterados. Não há B3, corretora, cotação, dados fictícios ou integração financeira.
+- A margem líquida é indeterminada até a operação real: depende de taxa Play, tributos, reembolsos e custos Cloud. Não há projeção ou promessa de margem de 16–20%.
+
+## 37. SUB-1E-2 — Concessão segura de teste fechado
+
+Situação: preparada e validada somente localmente. Nenhuma concessão foi emitida, nenhum testador foi cadastrado e nenhum recurso Firebase, Google Cloud ou Google Play foi acessado.
+
+- `closedTestGrant` representa apenas a janela operacional fixa de quinze dias do teste fechado, em UTC, `development` e track `closed`; não é assinatura, compra, preço, oferta Play ou direito de production.
+- Backend futuro, e somente ele, recebe lista autorizada e janela fixa, emite por UID próprio, registra auditoria sanitizada e materializa a expiração com relógio confiável. Não há primeiro login, relógio do aparelho, escrita direta do app, restauração ou reutilização.
+- Enquanto ativa, a concessão entrega exatamente todas as capabilities Premium atuais. Expirada, não conserva capability Premium, não abre popup modal e preserva núcleo gratuito e leitura histórica conforme o guard comercial normal.
+- Production nunca aceitará `closedTestGrant`; após lançamento oficial, somente entitlement verificado da Google Play libera Premium em production.
+
+## 38. SUB-1E-3A — Backend Premium Gen 2 preparado localmente
+
+Situação: borda testável localmente, sem Function, Firebase Admin, App Check, IAM, segredo, Pub/Sub, RTDN real ou acesso externo.
+
+- Factories compatíveis com Functions Gen 2 delegam aos contratos e à persistência transacional já existentes: verificar/restaurar compra futura, consultar entitlement confirmado, receber RTDN como sinal e administrar teste fechado por caminho server-side separado.
+- App Check é preparado apenas para as três callables Premium novas. Não há enforcement global nem bloqueio de usuário development atual.
+- Firestore, Play Developer API, Pub/Sub, Secret Manager e IAM são adaptadores futuros injetados. A identidade de runtime deverá obedecer menor privilégio e ser separada por development/production; nenhuma chave JSON será usada.
+- A recuperação futura faz rollback de rota/código sem apagar entitlement, evento, binding, outbox ou auditoria. Purchase, restauração e grant real continuam bloqueados até autorizações próprias e SUB-1E-3B.
+
+## 39. SUB-1E-3B-1 — Bootstrap Functions Premium development
+
+Situação: publicado exclusivamente em development e republicado com Node 22. O codebase contém três callables Gen 2 em `southamerica-east1`, memória de 256 MiB, timeout de 15 segundos, concorrência 1 e no máximo uma instância. Cada callable usa a identidade runtime Premium já aprovisionada, exige autenticação, token com e-mail confirmado, App Check individual e perfil jurídico atual.
+
+- `getConfirmedEntitlement` devolve apenas o entitlement próprio sanitizado, diretamente de leitura confirmada do servidor.
+- `verifyGooglePlayPurchase` e `restoreGooglePlayPurchase` existem apenas como bootstrap e falham fechadas antes de receber token, criar dado ou liberar capability; a implementação comercial permanece no incremento posterior autorizado.
+- RTDN, Pub/Sub operacional, Secret Manager, Google Play Developer API, grants administrativos e emissão do teste fechado continuam ausentes. As regras SUB-1E não foram publicadas nem alteradas remotamente.
+- O primeiro deploy habilitou apenas APIs de infraestrutura necessárias ao Gen 2. A política de limpeza do Artifact Registry foi posteriormente configurada, por autorização própria, para remover automaticamente apenas imagens de deploy com mais de 14 dias na região das Functions; não foi usado `--force` nem houve exclusão manual.
+- O artefato de produção das Functions Premium usa Node 22, `firebase-admin` 14.2.0 e `firebase-functions` 7.3.2. `@google-cloud/firestore` 8.7.1 é dependência direta necessária à leitura Admin; dependências opcionais, incluindo Cloud Storage e `uuid`, são omitidas na instalação de produção. A auditoria da árvore efetivamente instalada com opcionais omitidas não encontrou vulnerabilidades. O lockfile conserva a resolução opcional completa apenas para reprodutibilidade e sua auditoria é informativa.
