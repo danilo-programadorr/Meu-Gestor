@@ -35,6 +35,7 @@ final class InvestmentPremiumAccessState {
     required this.incomeMutation,
     required this.isServerConfirmed,
     required this.safeMessage,
+    this.additionalRead = const <PremiumCapability, PremiumAccessDecision>{},
   });
 
   factory InvestmentPremiumAccessState.denied({
@@ -78,6 +79,7 @@ final class InvestmentPremiumAccessState {
   final PremiumAccessDecision? incomeMutation;
   final bool isServerConfirmed;
   final String safeMessage;
+  final Map<PremiumCapability, PremiumAccessDecision> additionalRead;
 
   bool get canReadManual => isServerConfirmed && manualRead?.isAllowed == true;
   bool get canMutateManual =>
@@ -90,7 +92,7 @@ final class InvestmentPremiumAccessState {
   bool canRead(PremiumCapability capability) => switch (capability) {
     PremiumCapability.investmentsManual => canReadManual,
     PremiumCapability.investmentIncome => canReadIncome,
-    _ => false,
+    _ => isServerConfirmed && additionalRead[capability]?.isAllowed == true,
   };
 
   bool canMutate(PremiumCapability capability) => switch (capability) {
@@ -245,6 +247,19 @@ final class InvestmentPremiumAccessController
       PremiumCapability.investmentIncome,
       PremiumAccessIntent.mutate,
     );
+    final PremiumAccessDecision calculatorsRead = decision(
+      PremiumCapability.investmentCalculators,
+      PremiumAccessIntent.read,
+    );
+    final PremiumAccessDecision analysisRead = decision(
+      PremiumCapability.investmentAnalysis,
+      PremiumAccessIntent.read,
+    );
+    final Map<PremiumCapability, PremiumAccessDecision> additionalRead =
+        <PremiumCapability, PremiumAccessDecision>{
+          PremiumCapability.investmentCalculators: calculatorsRead,
+          PremiumCapability.investmentAnalysis: analysisRead,
+        };
 
     if (!manualRead.isAllowed) {
       return InvestmentPremiumAccessState.denied(
@@ -266,6 +281,7 @@ final class InvestmentPremiumAccessController
       manualMutation: manualMutation,
       incomeRead: incomeRead,
       incomeMutation: incomeMutation,
+      additionalRead: additionalRead,
       isServerConfirmed: true,
       safeMessage: full
           ? 'Acesso Premium confirmado.'

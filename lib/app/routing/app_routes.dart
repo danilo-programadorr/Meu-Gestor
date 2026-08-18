@@ -27,6 +27,7 @@ abstract final class AppRoutes {
   static const String receivables = '/contas-a-receber';
   static const String newReceivable = '/contas-a-receber/nova';
   static const String investments = '/investimentos';
+  static const String investmentTools = '/investimentos/ferramentas';
   static const String newInvestmentPortfolio = '/investimentos/carteira/nova';
   static const String profileSetup = '/configurar-perfil';
   static const String legalUpdate = '/atualizar-documentos';

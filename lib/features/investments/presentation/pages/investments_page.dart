@@ -75,6 +75,11 @@ class _InvestmentsPageState extends ConsumerState<InvestmentsPage>
           leading: const SafeBackButton(fallbackLocation: AppRoutes.home),
           title: const Text('Investimentos'),
           actions: <Widget>[
+            IconButton(
+              tooltip: 'Calculadoras e análises',
+              onPressed: () => context.push(AppRoutes.investmentTools),
+              icon: const Icon(Icons.calculate_outlined),
+            ),
             InvestmentPrivacyButton(
               valuesVisible: valuesVisible,
               onPressed: () => ref

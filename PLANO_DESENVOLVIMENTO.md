@@ -834,3 +834,11 @@ Situação: implementada e validada somente localmente. Não houve deploy, publi
 - `activateClosedTestPremium` é preparada como callable development que exige autenticação, e-mail verificado, App Check e perfil jurídico atual. O payload é vazio e a ativação só pode tratar o próprio UID, nunca conceder ou consultar dados de outro usuário.
 - A primeira ativação autorizada cria `closedTestGrant` de quinze dias individuais no relógio de servidor. A transação é idempotente e concorrente; expiração materializa estado `expired`, remove capabilities sem apagar dados e bloqueia restauração/reutilização.
 - Não há compra, cobrança, preço, teste Play de quinze dias, trial comercial de 72 horas, API Play, RTDN, Secret Manager ou produção. O catálogo futuro continua com `meu_gestor_premium`, planos `mensal`/`anual` e `teste-3d` somente mensal.
+
+## 41. INV-2A — Calculadoras e análises manuais
+
+Situação: implementação local em andamento, sem API, cotação, Firebase ou escrita na carteira.
+
+- As calculadoras usam somente entradas manuais: primeiro milhão, juros simples e compostos, porcentagem, Graham e Bazin. Valores monetários permanecem em centavos inteiros; percentuais usam pontos-base e as fórmulas/arredondamentos são determinísticos.
+- Análises de ações e FIIs, checklist Buy and Hold e comparação exibem somente pontos positivos, atenção ou dados insuficientes conforme marcações manuais. Não há cotação, indicador inventado nem recomendação de compra, venda ou manutenção.
+- O módulo é protegido pelas capabilities Premium `investmentCalculators` e `investmentAnalysis`, não salva entradas e nunca altera carteira, posição, provento, conta, saldo, lançamento ou resumo mensal.

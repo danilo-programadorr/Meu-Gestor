@@ -447,6 +447,14 @@
 | SUB-014-1F | Ativar somente o próprio testador validado | P0 | SUB-1F-1 | callable com payload vazio exige Auth, e-mail, App Check e perfil jurídico; UID, prazo e capabilities não vêm do app | local e testado | publicação futura autorizada | crítico | uma transação |
 | SUB-015-1F | Conceder/expiar individualmente sem restauração | P0 | SUB-1F-1 | início confiável, 15 dias por UID, idempotência, concorrência, expiração materializada, dados preservados e reativação negada | local e testado | relógio/worker server-side futuro | crítico | uma transação |
 
+## Incremento INV-2A — Calculadoras e análises manuais
+
+| ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |
+|---|---|---:|---:|---|---|---|---|---|
+| INV-201 | Calcular com entradas manuais determinísticas | P0 | INV-2A | primeiro milhão, juros, porcentagem, Graham e Bazin usam inteiros/pontos-base, validam incompatibilidades e documentam fórmula | local em andamento | capability Premium | alto: não recebe dados externos | zero externo |
+| INV-202 | Analisar sem recomendação ou dado fictício | P0 | INV-2A | ações/FIIs, checklist e comparação declaram positivo, atenção ou dados insuficientes; nenhuma ordem de compra/venda/manutenção | local em andamento | capability Premium | alto: evita indução financeira | zero externo |
+| INV-203 | Preservar isolamento financeiro | P0 | INV-2A | não persiste entrada nem altera carteira, saldo, conta, lançamento, provento ou resumo | local em andamento | domínio isolado | crítico | zero externo |
+
 ## Incrementos futuros de dados, privacidade e armazenamento
 
 | ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |
