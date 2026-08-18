@@ -45,6 +45,13 @@
 - Regras SUB-1E, Authentication, dados Firestore, App Check global e production não foram alterados. A limpeza automática do Artifact Registry foi configurada separadamente para reter somente artefatos de deploy de até 14 dias na região das Functions, sem remoção manual de imagens, revisões ou Functions.
 - A configuração local de entrega das Functions Premium usa Node 22 e omite dependências opcionais. Firestore permanece dependência direta necessária; Cloud Storage, `uuid`, `gaxios`, `teeny-request` e `retry-request` não podem ser importados pelo runtime Premium e a árvore efetiva de produção auditada sem opcionais não possui vulnerabilidades. O lockfile com opcionais não é prova de conteúdo publicado.
 
+## INV-2C — Cotações atrasadas globais locais
+
+- `marketQuoteSnapshots` não contém dados de usuário. As Rules locais permitem somente `get` de um ticker conhecido para usuário autenticado, e-mail confirmado, perfil jurídico atual e capability `investmentQuotes` com Premium integral vigente; `list`, toda escrita, subcoleções e owner cruzado são negados.
+- `_marketQuoteLeases`, `_marketQuoteRefreshRequests` e `_marketQuoteCircuitBreakers` são internos e negados integralmente ao cliente. Não persistem UID, carteira, posição, preço médio, token do provedor ou resposta bruta.
+- A borda Gen 2 futura usa segredo de Scheduler e token de provedor exclusivamente por parâmetro Secret Manager. Sem ambos, ela responde indisponível antes de chamar gateway ou alterar Firestore. Segredo, URL autenticada, payload bruto e valor de cotação não entram nos logs; a observabilidade registra somente evento, requestId sanitizado, contagem e código seguro.
+- Nenhuma Rule ou Function foi publicada nesta etapa. BRAPI é adaptador local provider-neutral, não contrato comercial aprovado, e B3/corretoras permanecem canceladas como integração.
+
 ## Versões suportadas
 
 O projeto está em desenvolvimento e ainda não possui versão de produção. Somente o código mais recente da branch `main` recebe correções de segurança neste momento.

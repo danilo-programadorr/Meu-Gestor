@@ -419,6 +419,19 @@ Alterar ou perder entitlement não escreve em documentos patrimoniais. Retomar a
 
 As coleções internas conceituais `_premiumBillingEvents`, `_premiumPurchaseBindings`, `_premiumRtdnInbox`, `_premiumAcknowledgementOutbox` e `_premiumAdministrativeGrants` são inacessíveis ao cliente e não foram criadas externamente. A borda Gen 2 local prevê adaptador transacional para essas projeções, sem SDK ou credencial nesta etapa. Purchase token nunca integra a projeção; somente impressão digital versionada e referência abstrata de cofre pertencem ao backend futuro.
 
+### marketQuoteSnapshots/{ticker} — snapshot global de cotação atrasada (INV-2C local)
+
+O documento não pertence a UID, carteira, ativo salvo, posição ou operação. O ID é o ticker normalizado; o caminho contém somente informação pública de mercado processada pelo backend. Campos exatos: `ticker`, `assetType`, `currencyCode`, `market`, `source`, `priceScaled`, `variationBasisPoints`, `observedAt`, `capturedAt`, `declaredDelaySeconds`, `staleAfter`, `status` e `schemaVersion`.
+
+- `currencyCode` é sempre `BRL`; `market` é `B3`; preço é inteiro escalado 6 e estritamente positivo quando o estado possui preço; variação usa pontos-base inteiros.
+- `observedAt`, `capturedAt` e `staleAfter` são timestamps do servidor/fonte; atraso é declarado em segundos e ausência não é preço zero.
+- Estados são `available`, `delayed`, `marketClosed`, `unavailable`, `invalid` e `corporateActionPossible`. Estados sem preço exigem preço zero e variação nula no contrato interno.
+- Apenas o backend futuro escreve. O app faz somente `get` por ticker conhecido, com entitlement `investmentQuotes` integral, e não pode listar, criar, editar, excluir ou acessar subcoleções.
+
+As projeções internas `_marketQuoteLeases`, `_marketQuoteRefreshRequests` e `_marketQuoteCircuitBreakers` guardam lease, idempotência e retry do backend. São totalmente negadas ao cliente e não carregam UID, carteira, posição, valores pessoais ou token do provedor.
+
+Não há índice composto: a leitura implementada é direta por ID. Um índice só será versionado se uma futura consulta aprovada o tornar necessário.
+
 ## 7. Conversores Dart
 
 Cada coleção terá modelo Dart imutável e conversor tipado:

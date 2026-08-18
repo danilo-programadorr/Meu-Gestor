@@ -12,12 +12,25 @@ enum InvestmentQuoteAvailability {
   corporateActionPossible,
 }
 
+/// Mercado da fonte de preço. Esta primeira versão aceita apenas B3 em BRL.
+enum InvestmentQuoteMarket {
+  b3;
+
+  static InvestmentQuoteMarket fromStorage(String value) => switch (value) {
+    'B3' => InvestmentQuoteMarket.b3,
+    _ => throw ArgumentError.value(value, 'value', 'Mercado não suportado.'),
+  };
+
+  String get storageValue => 'B3';
+}
+
 /// Um snapshot global, em BRL, que nunca pertence a uma pessoa ou carteira.
 final class InvestmentQuote {
   InvestmentQuote({
     required String ticker,
     required this.assetType,
     required this.currencyCode,
+    required this.market,
     required this.unitPriceScaled,
     required this.variationBasisPoints,
     required this.observedAt,
@@ -33,6 +46,7 @@ final class InvestmentQuote {
   final String ticker;
   final TrackedInvestmentAssetType assetType;
   final String currencyCode;
+  final InvestmentQuoteMarket market;
   final int unitPriceScaled;
   final int? variationBasisPoints;
   final DateTime observedAt;

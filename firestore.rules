@@ -1815,6 +1815,19 @@ service cloud.firestore {
         && isPremiumFullAccess(entitlement.data);
     }
 
+    // Cotações são serviço recorrente: não são histórico do usuário. Assim,
+    // a leitura global exige acesso Premium integral vigente e nunca concede
+    // bypass a owner, estado expirado ou cache local.
+    function hasPremiumQuoteServiceAccess(userId) {
+      let entitlementPath = premiumEntitlementPath(userId);
+      let entitlement = get(entitlementPath);
+      return hasFinancialAccess(userId)
+        && exists(entitlementPath)
+        && isValidPremiumEntitlementData(entitlement.data, userId)
+        && 'investmentQuotes' in entitlement.data.capabilities
+        && isPremiumFullAccess(entitlement.data);
+    }
+
     function isActiveOwnerDocument(owner) {
       return owner.data.keys().hasAll([
           'role',
@@ -2086,6 +2099,30 @@ service cloud.firestore {
     }
 
     match /_premiumClosedTestGrants/{document=**} {
+      allow read, write: if false;
+    }
+
+    // Snapshots são globais e não pertencem a uma carteira, UID ou posição.
+    // O aplicativo lê somente documentos conhecidos por ticker; toda escrita,
+    // listagem e subcoleção são exclusivamente server-side.
+    match /marketQuoteSnapshots/{ticker} {
+      allow get: if hasPremiumQuoteServiceAccess(request.auth.uid);
+      allow list, create, update, delete: if false;
+
+      match /{document=**} {
+        allow read, write: if false;
+      }
+    }
+
+    match /_marketQuoteLeases/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /_marketQuoteRefreshRequests/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /_marketQuoteCircuitBreakers/{document=**} {
       allow read, write: if false;
     }
 

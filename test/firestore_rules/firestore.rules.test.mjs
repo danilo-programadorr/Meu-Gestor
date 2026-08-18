@@ -516,6 +516,34 @@ async function seedPremium(uid = ownerId, overrides = {}) {
   });
 }
 
+function marketQuoteSnapshot(overrides = {}) {
+  return {
+    ticker: 'PETR4',
+    assetType: 'stock',
+    currencyCode: 'BRL',
+    market: 'B3',
+    source: 'brapi',
+    priceScaled: 31450000,
+    variationBasisPoints: -123,
+    observedAt: past,
+    capturedAt: past,
+    declaredDelaySeconds: 900,
+    staleAfter: Timestamp.fromDate(new Date('2026-09-01T00:00:00Z')),
+    status: 'delayed',
+    schemaVersion: 1,
+    ...overrides,
+  };
+}
+
+async function seedMarketQuote(overrides = {}) {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(
+      doc(context.firestore(), 'marketQuoteSnapshots/PETR4'),
+      marketQuoteSnapshot(overrides),
+    );
+  });
+}
+
 async function settle(db, { type = 'payable', id, transactionId, commitmentOverrides = {}, transactionOverrides = {} }) {
   const batch = writeBatch(db);
   const settledStatus = type === 'payable' ? 'paid' : 'received';
@@ -1851,6 +1879,60 @@ describe('SUB-1F-1 diretório interno do teste fechado', () => {
     await assertFails(getDocs(collection(db, '_premiumClosedTestGrants')));
     await assertFails(setDoc(grantRef, { status: 'active' }));
     await assertFails(getDoc(doc(verifiedDb(otherId), '_premiumClosedTestTesters/synthetic-tester')));
+  });
+});
+
+describe('INV-2C snapshots globais de cotações atrasadas', () => {
+  test('Premium vigente com capability lê somente snapshot conhecido por ticker', async () => {
+    await seedMarketQuote();
+    await seedPremium(ownerId, { capabilities: ['investmentQuotes'] });
+    const db = verifiedDb();
+    await assertSucceeds(getDoc(doc(db, 'marketQuoteSnapshots/PETR4')));
+    await assertFails(getDocs(collection(db, 'marketQuoteSnapshots')));
+    // Um get de ID inexistente é uma leitura vazia, não uma enumeração. A
+    // aplicação só solicita tickers vindos dos próprios ativos confirmados.
+    await assertSucceeds(getDoc(doc(db, 'marketQuoteSnapshots/HGLG11')));
+  });
+
+  test('nega anônimo, e-mail não confirmado, perfil inválido, capability ausente e Premium expirado', async () => {
+    await seedMarketQuote();
+    const reference = doc(verifiedDb(), 'marketQuoteSnapshots/PETR4');
+    await assertFails(getDoc(reference));
+    await seedPremium(ownerId, { capabilities: ['investmentQuotes'] });
+    await assertFails(getDoc(doc(testEnv.unauthenticatedContext().firestore(), 'marketQuoteSnapshots/PETR4')));
+    await assertFails(getDoc(doc(unverifiedDb(), 'marketQuoteSnapshots/PETR4')));
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await updateDoc(doc(context.firestore(), `users/${ownerId}`), { termsVersionAccepted: 'invalid' });
+    });
+    await assertFails(getDoc(doc(verifiedDb(), 'marketQuoteSnapshots/PETR4')));
+    await testEnv.clearFirestore();
+    await seedBase();
+    await seedMarketQuote();
+    await seedPremium(ownerId, {
+      capabilities: ['investmentQuotes'],
+      status: 'expired',
+      currentPeriodEnd: Timestamp.fromDate(new Date('2026-08-01T00:00:00Z')),
+      expiredAt: Timestamp.fromDate(new Date('2026-08-01T00:00:00Z')),
+      lastVerifiedAt: past,
+      updatedAt: past,
+    });
+    await assertFails(getDoc(doc(verifiedDb(), 'marketQuoteSnapshots/PETR4')));
+  });
+
+  test('cliente e owner não escrevem snapshots, leases, requests ou circuit breakers', async () => {
+    await seedMarketQuote();
+    await seedPremium(ownerId, { capabilities: ['investmentQuotes'] });
+    const db = verifiedDb();
+    await assertFails(setDoc(doc(db, 'marketQuoteSnapshots/PETR4'), marketQuoteSnapshot()));
+    await assertFails(deleteDoc(doc(db, 'marketQuoteSnapshots/PETR4')));
+    for (const path of [
+      '_marketQuoteLeases/PETR4',
+      '_marketQuoteRefreshRequests/synthetic-request',
+      '_marketQuoteCircuitBreakers/PETR4',
+    ]) {
+      await assertFails(getDoc(doc(db, path)));
+      await assertFails(setDoc(doc(db, path), { synthetic: true }));
+    }
   });
 });
 

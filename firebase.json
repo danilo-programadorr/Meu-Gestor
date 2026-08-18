@@ -21,6 +21,17 @@
         ".codex-tmp",
         "test"
       ]
+    },
+    {
+      "source": "backend/functions/quotes",
+      "codebase": "quotes",
+      "runtime": "nodejs22",
+      "ignore": [
+        "node_modules",
+        ".git",
+        ".codex-tmp",
+        "test"
+      ]
     }
   ],
   "firestore": {

@@ -348,6 +348,17 @@
 | INV-2B-004 | Não inventar histórico | P0 | INV-2B | cobertura parcial e ausência mostram indisponibilidade; evolução exige snapshot real | implementado localmente | persistência futura | crítico | baixo |
 | INV-2B-005 | Proteger serviço Premium | P0 | INV-2B | rota usa `investmentQuotes` e confirmação server-side; cache não concede acesso | implementado localmente | entitlement confirmado | alto | evita consumo indevido |
 
+## Incremento INV-2C-A + INV-2C-B — Cotações atrasadas globais
+
+| ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |
+|---|---|---:|---:|---|---|---|---|---|
+| INV-2C-001 | Isolar provedor | P0 | INV-2C-A | adaptador BRAPI fica atrás do gateway provider-neutral, sem token/versionamento de chave ou consulta por usuário | implementado localmente | aprovação comercial futura | crítico | chamada futura por lote |
+| INV-2C-002 | Persistir snapshot global estrito | P0 | INV-2C-A | `marketQuoteSnapshots/{ticker}` usa preço escalado, BRL, B3, tempos, atraso, estado e campos exatos | implementado localmente | Firestore backend futuro | crítico | uma escrita global por ticker atualizado |
+| INV-2C-003 | Proteger atualização | P0 | INV-2C-A | lote deduplicado, lease, requestId, resposta monotônica e circuit breaker impedem repetição/concorrência/retrocesso | implementado localmente e coberto | Function/Scheduler futuros | crítico | leituras transacionais globais |
+| INV-2C-004 | Expor somente serviço Premium vigente | P0 | INV-2C-B | Rules permitem `get` por ticker e negam list, escrita, internos, expirado e owner especial | local e coberto pelo Emulator | publicação separada de Rules | crítico | leitura direta por ticker |
+| INV-2C-005 | Preservar estimativas honestas | P0 | INV-2C-B | stale, indisponível, fechado e cobertura parcial não geram patrimônio/total/histórico fictício | implementado e coberto | snapshots confirmados | alto | neutro |
+| INV-2C-006 | Preparar operação sem recurso externo | P0 | INV-2C-B | Gen 2 Node 22, segredo/agenda parametrizados e logs sanitizados falham fechados sem Secret Manager/Scheduler/deploy | implementado localmente | autorização externa própria | crítico | mínimo 0; máximo 1 instância |
+
 ## Incremento UI-INV-1B — Redesign visual de investimentos
 
 | ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |

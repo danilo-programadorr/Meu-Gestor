@@ -852,3 +852,14 @@ Situação: implementação local preparada, sem provedor escolhido, API, chave,
 - Valor estimado, não realizado, realizado e proventos recebidos aparecem separados. Total econômico somente é calculado quando todas as posições abertas têm snapshot compatível; cobertura parcial não simula total nem evolução histórica.
 - A experiência usa rota Premium própria e estados honestos de indisponibilidade. Preços, operações, quantidade, preço médio, proventos, contas e saldo nunca são modificados.
 - A ativação externa depende de aprovação comercial e técnica separada de provedor de dados atrasados, licença, orçamento/limites, segredo server-side, persistência global de snapshots e job backend. B3 e corretoras permanecem canceladas.
+
+## 43. INV-2C-A + INV-2C-B — Implementação local de cotações atrasadas
+
+Situação: preparada localmente, sem deploy, publicação de Rules, Function, Scheduler, Secret Manager, API, IAM, provedor contratado ou chamada real.
+
+- `backend/quotes` mantém o contrato provider-neutral, o gateway BRAPI opcional e o processador de lote global. O adaptador usa somente `fetch` nativo Node 22, converte preço/variação para inteiros escalados e falha fechada sem token de runtime.
+- `backend/functions/quotes` prepara uma Function Gen 2 interna com região `southamerica-east1`, Node 22, 256 MiB, timeout de 30 segundos, concorrência 1, mínimo 0 e máximo 1 instância. A identidade runtime e os segredos são parâmetros não versionados; o endpoint não é chamado pelo aplicativo.
+- Os documentos globais `marketQuoteSnapshots/{ticker}` e internos de lease/request/circuit não incluem usuário, carteira, posição, operação, custo, preço médio ou token. Requisições internas usam lote máximo de 50, idempotência, lease e monotonicidade por horário observado.
+- Rules locais permitem somente `get` por ticker a usuário verificado, perfil jurídico atual e `investmentQuotes` integral; listagem, escrita e acesso a internos são negados, inclusive para owner. Não há índice composto porque a consulta atual é por ID; qualquer índice futuro será guiado por consulta aprovada.
+- A tela recebe somente snapshots server-only já confirmados e preserva estados atrasado, fechado, indisponível, inválido, possível evento corporativo e cobertura parcial. Patrimônio/resultado estimados não substituem custo, operação, provento, conta, saldo ou resumo mensal.
+- Antes de ativar: aprovar licença/cobertura e limite do provedor, criar segredo no cofre, configurar identidade runtime e Scheduler interno, revisar custos, publicar Function/Rules em autorização independente e validar com dados não pessoais. B3 e corretoras seguem canceladas como integração.
