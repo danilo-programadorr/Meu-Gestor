@@ -1,5 +1,14 @@
 # Política de segurança
 
+## DATA-1A/PRIV-1A — Reset financeiro e exclusão de conta locais
+
+- O aplicativo não possui exclusão direta de documentos ou Firebase Authentication. As Security Rules continuam negando exclusões. O backend ESM local modela a execução server-side idempotente, com lock de novas escritas, lote conservador e cursor persistido; ele não acessa Firebase Admin nem dados reais.
+- Reset financeiro preservará Authentication, perfil, consentimentos, aparência, entitlement/assinatura Premium e owner; removerá somente o manifesto financeiro fechado. Exclusão de conta removerá também perfil, entitlement, referências Premium, diretório/grant de teste fechado e `system_admins/{uid}`, antes da exclusão final do Auth.
+- A autorização futura exigirá UID próprio autenticado, App Check, e-mail confirmado, perfil jurídico, frase exata e `auth_time` validado pelo servidor em até cinco minutos. Owner não obtém acesso cruzado e o cliente não informa UID, relógio, cursor ou caminho a apagar.
+- A experiência local exige reautenticação por senha ou Google, força token novo e permanece falha-fechada enquanto não existe Function. As Rules locais negam cliente em `privacyOperations`, `privacyLocks` e `privacyReceipts`; lock financeiro nega mutações financeiras e lock de exclusão nega toda mutação do perfil/financeira. Nenhuma dessas Rules foi publicada.
+- PRIV-1E-A adiciona apenas a borda local Node 22 das três callables de privacidade. Ela exige Auth, e-mail verificado, App Check, perfil jurídico e UID próprio; `prepare` e `confirm` validam `auth_time` de até cinco minutos no relógio do servidor. A frase de confirmação é comparada e descartada, jamais registrada. A conta runtime é parâmetro não versionado; não há deploy, credencial, Function ativa, Firestore Admin conectado, deleção real ou bypass owner.
+- Não há cancelamento de assinatura Google Play. A futura experiência avisará isso e oferecerá o gerenciamento oficial. Após conclusão ficará somente recibo anônimo (ID aleatório, tipo, resultado e instante), planejado para 30 dias; sem UID, e-mail, dados financeiros, cópia permanente ou retenção antifraude antes de cobrança real. Backups continuam bloqueio de auditoria antes de produção.
+
 ## SUB-1D/SUB-1E-1 — Google Play Billing local
 
 - Resposta local de compra, debug, owner, e-mail, UID ou `dart-define` nunca concede Premium.

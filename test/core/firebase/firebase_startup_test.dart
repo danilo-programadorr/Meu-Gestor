@@ -9,8 +9,9 @@ void main() {
 
       final FirebaseStartupState result =
           await initializeFirebaseForEnvironment(
-            environment: AppEnvironment.development,
-            initializer: initializer,
+          environment: AppEnvironment.development,
+          initializer: initializer,
+          appCheckInitializer: _FakeAppCheckInitializer(),
           );
 
       expect(result, isA<FirebaseStartupAvailable>());
@@ -22,8 +23,9 @@ void main() {
 
       final FirebaseStartupState result =
           await initializeFirebaseForEnvironment(
-            environment: AppEnvironment.development,
-            initializer: initializer,
+          environment: AppEnvironment.development,
+          initializer: initializer,
+          appCheckInitializer: _FakeAppCheckInitializer(),
           );
 
       expect(result, isA<FirebaseStartupFailure>());
@@ -37,8 +39,9 @@ void main() {
 
         final FirebaseStartupState result =
             await initializeFirebaseForEnvironment(
-              environment: AppEnvironment.production,
-              initializer: initializer,
+            environment: AppEnvironment.production,
+            initializer: initializer,
+            appCheckInitializer: _FakeAppCheckInitializer(),
             );
 
         expect(result, isA<FirebaseStartupProductionBlocked>());
@@ -61,4 +64,9 @@ final class _FakeInitializer implements FirebaseInitializer {
       throw StateError('detalhe técnico não deve chegar à interface');
     }
   }
+}
+
+final class _FakeAppCheckInitializer implements AppCheckInitializer {
+  @override
+  Future<void> activate(AppEnvironment environment) async {}
 }

@@ -30,6 +30,10 @@ final class FakeAuthRepository implements AuthRepository {
   int signOutCalls = 0;
   int refreshIdentityCalls = 0;
   int updateDisplayNameCalls = 0;
+  int reauthenticatePasswordCalls = 0;
+  int reauthenticateGoogleCalls = 0;
+  AuthReauthenticationOutcome reauthenticationOutcome =
+      AuthReauthenticationOutcome.success;
 
   @override
   Stream<AuthUser?> authStateChanges() async* {
@@ -94,6 +98,28 @@ final class FakeAuthRepository implements AuthRepository {
       user: _user,
       tokenEmailVerified: tokenEmailVerified,
     );
+  }
+
+  @override
+  Future<AuthReauthenticationOutcome> reauthenticateWithPassword(
+    String password,
+  ) async {
+    reauthenticatePasswordCalls += 1;
+    _throwIfNeeded();
+    if (password.isEmpty) {
+      throw const AuthFailure(
+        kind: AuthFailureKind.invalidCredentials,
+        safeMessage: 'A senha informada não está correta.',
+      );
+    }
+    return reauthenticationOutcome;
+  }
+
+  @override
+  Future<AuthReauthenticationOutcome> reauthenticateWithGoogle() async {
+    reauthenticateGoogleCalls += 1;
+    _throwIfNeeded();
+    return reauthenticationOutcome;
   }
 
   @override

@@ -91,6 +91,55 @@ final class FirebaseAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<AuthReauthenticationOutcome> reauthenticateWithPassword(
+    String password,
+  ) async {
+    try {
+      final User? user = _firebaseAuth.currentUser;
+      final String? email = user?.email;
+      if (user == null || email == null || password.isEmpty) {
+        throw const AuthFailure(
+          kind: AuthFailureKind.missingCredential,
+          safeMessage: 'Confirme sua identidade novamente para continuar.',
+        );
+      }
+      await user.reauthenticateWithCredential(
+        EmailAuthProvider.credential(email: email, password: password),
+      );
+      return AuthReauthenticationOutcome.success;
+    } on FirebaseAuthException catch (error) {
+      throw _mapFirebaseFailure(error);
+    }
+  }
+
+  @override
+  Future<AuthReauthenticationOutcome> reauthenticateWithGoogle() async {
+    try {
+      await _googleInitializer.ensureInitialized();
+      final GoogleSignInAccount account = await _googleSignIn.authenticate();
+      final String? idToken = account.authentication.idToken;
+      final User? user = _firebaseAuth.currentUser;
+      if (user == null || idToken == null || idToken.isEmpty) {
+        throw const AuthFailure(
+          kind: AuthFailureKind.missingCredential,
+          safeMessage: 'Confirme sua identidade novamente para continuar.',
+        );
+      }
+      await user.reauthenticateWithCredential(
+        GoogleAuthProvider.credential(idToken: idToken),
+      );
+      return AuthReauthenticationOutcome.success;
+    } on GoogleSignInException catch (error) {
+      if (GoogleAuthFailureMapper.isCancellation(error)) {
+        return AuthReauthenticationOutcome.cancelled;
+      }
+      throw GoogleAuthFailureMapper.fromGoogleSignIn(error);
+    } on FirebaseAuthException catch (error) {
+      throw _mapFirebaseFailure(error);
+    }
+  }
+
+  @override
   Future<void> sendEmailVerification() async {
     try {
       final User? user = _firebaseAuth.currentUser;

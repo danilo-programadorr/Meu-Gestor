@@ -1853,3 +1853,30 @@ describe('SUB-1F-1 diretório interno do teste fechado', () => {
     await assertFails(getDoc(doc(verifiedDb(otherId), '_premiumClosedTestTesters/synthetic-tester')));
   });
 });
+
+describe('PRIV-1C/PRIV-1D locks privados', () => {
+  test('cliente não lê/escreve operação, lock ou recibo e reset bloqueia mutação financeira', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), `users/${ownerId}/privacyLocks/current`), {
+        scope: 'financialReset', ownerId, createdAt: past, schemaVersion: 1,
+      });
+    });
+    const db = verifiedDb();
+    await assertFails(getDoc(doc(db, `users/${ownerId}/privacyLocks/current`)));
+    await assertFails(getDoc(doc(db, `users/${ownerId}/privacyOperations/operation-1`)));
+    await assertFails(setDoc(doc(db, `users/${ownerId}/privacyReceipts/receipt-1`), { status: 'completed' }));
+    await assertFails(setDoc(transactionRef(db, 'locked-financial-write'), manualTransaction(ownerId)));
+    await assertFails(setDoc(doc(verifiedDb(otherId), `users/${ownerId}/privacyLocks/current`), { scope: 'accountDeletion' }));
+  });
+
+  test('lock de exclusão bloqueia atualização do perfil e delete direto segue negado sem bypass owner', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), `users/${ownerId}/privacyLocks/current`), {
+        scope: 'accountDeletion', ownerId, createdAt: past, schemaVersion: 1,
+      });
+    });
+    const db = verifiedDb();
+    await assertFails(updateDoc(doc(db, `users/${ownerId}`), { displayName: 'Pessoa Alterada', updatedAt: serverTimestamp() }));
+    await assertFails(deleteDoc(doc(db, `users/${ownerId}/accounts/account-1`)));
+  });
+});

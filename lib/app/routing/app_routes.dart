@@ -34,6 +34,7 @@ abstract final class AppRoutes {
   static const String premium = '/premium';
   static const String ownerArea = '/proprietario';
   static const String privacyConsents = '/privacidade-e-consentimentos';
+  static const String dataAndPrivacy = '/dados-e-privacidade';
   static const String profileUnavailable = '/perfil-indisponivel';
   static const String terms = '/termos-de-uso';
   static const String privacy = '/politica-de-privacidade';

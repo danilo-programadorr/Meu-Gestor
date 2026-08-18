@@ -34,6 +34,7 @@ import 'package:meu_gestor_financeiro/features/owner_access/presentation/control
 import 'package:meu_gestor_financeiro/features/owner_access/presentation/pages/owner_area_page.dart';
 import 'package:meu_gestor_financeiro/features/owner_access/presentation/widgets/master_access_gate.dart';
 import 'package:meu_gestor_financeiro/features/privacy/presentation/legal_document_page.dart';
+import 'package:meu_gestor_financeiro/features/privacy/presentation/pages/data_and_privacy_page.dart';
 import 'package:meu_gestor_financeiro/features/profile/data/profile_diagnostics.dart';
 import 'package:meu_gestor_financeiro/features/profile/data/user_profile_providers.dart';
 import 'package:meu_gestor_financeiro/features/profile/presentation/controllers/profile_gate_controller.dart';
@@ -414,6 +415,10 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((Ref ref) {
       GoRoute(
         path: AppRoutes.privacyConsents,
         builder: (context, state) => const PrivacyConsentsPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.dataAndPrivacy,
+        builder: (context, state) => const DataAndPrivacyPage(),
       ),
       GoRoute(
         path: AppRoutes.profileUnavailable,

@@ -196,6 +196,14 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         ),
         const SizedBox(height: AppSpacing.sm),
         OutlinedButton.icon(
+          onPressed: loading
+              ? null
+              : () => context.push(AppRoutes.dataAndPrivacy),
+          icon: const Icon(Icons.manage_accounts_outlined),
+          label: const Text('Dados e privacidade'),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        OutlinedButton.icon(
           onPressed: loading ? null : () => context.go(AppRoutes.home),
           icon: const Icon(Icons.home_outlined),
           label: const Text('Voltar ao início'),

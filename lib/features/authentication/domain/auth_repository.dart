@@ -27,10 +27,18 @@ abstract interface class AuthRepository {
 
   Future<AuthVerificationSnapshot> forceRefreshIdentityToken();
 
+  Future<AuthReauthenticationOutcome> reauthenticateWithPassword(
+    String password,
+  );
+
+  Future<AuthReauthenticationOutcome> reauthenticateWithGoogle();
+
   Future<void> updateDisplayName(String displayName);
 
   Future<void> signOut();
 }
+
+enum AuthReauthenticationOutcome { success, cancelled }
 
 final class AuthVerificationSnapshot {
   const AuthVerificationSnapshot({
