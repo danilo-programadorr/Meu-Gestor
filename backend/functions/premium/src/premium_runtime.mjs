@@ -1,5 +1,9 @@
 import { deny, requireExactObject, requireText } from '../../../subscriptions/src/errors.mjs';
-import { issueClosedTestGrant, expireClosedTestGrants } from '../../../subscriptions/src/closed_test_grants.mjs';
+import {
+  createClosedTestGrantId,
+  expireClosedTestGrants,
+  issueClosedTestGrant,
+} from '../../../subscriptions/src/closed_test_grants.mjs';
 import { processRtdn } from '../../../subscriptions/src/rtdn.mjs';
 
 const PURCHASE_FIELDS = Object.freeze(['purchaseToken']);
@@ -13,34 +17,39 @@ export function createPremiumFunctionsRuntime({
   processor,
   storage,
   fingerprinter,
-  closedTestWindow,
-  authorizedClosedTestOwnerIds,
   clock,
   assertAdministrativeIdentity,
+  assertCurrentLegalProfile,
 }) {
-  for (const value of [processor, storage, fingerprinter, clock, assertAdministrativeIdentity]) {
+  for (const value of [processor, storage, fingerprinter, clock, assertAdministrativeIdentity, assertCurrentLegalProfile]) {
     if (value === null || value === undefined) throw deny('invalid_premium_functions_dependency');
   }
   if (typeof assertAdministrativeIdentity !== 'function') {
     throw deny('invalid_premium_administrative_identity_checker');
+  }
+  if (typeof assertCurrentLegalProfile !== 'function') {
+    throw deny('invalid_premium_legal_profile_checker');
   }
 
   return Object.freeze({
     verifyGooglePlayPurchase: (call) => verifyPurchase({ call, processor }),
     restoreGooglePlayPurchase: (call) => verifyPurchase({ call, processor }),
     getConfirmedEntitlement: (call) => getEntitlement({ call, storage }),
+    activateClosedTestPremium: (call) => activateClosedTestPremium({
+      call,
+      storage,
+      clock,
+      assertCurrentLegalProfile,
+    }),
     processRtdnSignal: (request) => handleRtdn({ request, processor, storage, fingerprinter }),
     issueClosedTestGrant: (request) => issueGrant({
       request,
-      closedTestWindow,
-      authorizedClosedTestOwnerIds,
       storage,
       clock,
       assertAdministrativeIdentity,
     }),
     expireClosedTestWindow: (request) => expireGrantWindow({
       request,
-      closedTestWindow,
       storage,
       clock,
       assertAdministrativeIdentity,
@@ -69,8 +78,6 @@ async function handleRtdn({ request, processor, storage, fingerprinter }) {
 
 async function issueGrant({
   request,
-  closedTestWindow,
-  authorizedClosedTestOwnerIds,
   storage,
   clock,
   assertAdministrativeIdentity,
@@ -80,25 +87,40 @@ async function issueGrant({
   requireExactObject(request.data, CLOSED_TEST_FIELDS, 'invalid_closed_test_grant_request');
   return issueClosedTestGrant({
     request: request.data,
-    window: closedTestWindow,
-    authorizedOwnerIds: authorizedClosedTestOwnerIds,
     storage,
     clock,
   });
 }
 
-async function expireGrantWindow({ request, closedTestWindow, storage, clock, assertAdministrativeIdentity }) {
+async function expireGrantWindow({ request, storage, clock, assertAdministrativeIdentity }) {
   requireExactObject(request, ['administrativeIdentity'], 'invalid_closed_test_expiration_request');
   await assertAdministrativeIdentity(request.administrativeIdentity);
-  return expireClosedTestGrants({ window: closedTestWindow, storage, clock });
+  return expireClosedTestGrants({ storage, clock });
+}
+
+async function activateClosedTestPremium({ call, storage, clock, assertCurrentLegalProfile }) {
+  const actor = requireTrustedCallable(call, EMPTY_FIELDS, 'invalid_closed_test_activation_callable');
+  await assertCurrentLegalProfile(actor.uid);
+  return issueClosedTestGrant({
+    request: {
+      grantId: createClosedTestGrantId(actor.uid),
+      ownerId: actor.uid,
+      track: 'closed',
+    },
+    storage,
+    clock,
+  });
 }
 
 function requireTrustedCallable(call, fields, code) {
   requireExactObject(call, ['appCheckVerified', 'auth', 'data'], code);
   if (call.appCheckVerified !== true) throw deny('untrusted_premium_callable');
-  requireExactObject(call.auth, ['uid'], 'invalid_premium_callable_auth');
+  requireExactObject(call.auth, ['emailVerified', 'uid'], 'invalid_premium_callable_auth');
   const uid = requireText(call.auth.uid, 'invalid_premium_callable_uid');
   requireExactObject(call.data, fields, code);
+  if (call.auth.emailVerified !== true) throw deny('unverified_premium_callable_email');
+  // O processador de assinaturas possui contrato próprio e deliberadamente
+  // recebe somente a identidade mínima já verificada no perímetro.
   return Object.freeze({ uid, authenticated: true, appCheckVerified: true });
 }
 

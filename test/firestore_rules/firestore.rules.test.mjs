@@ -1835,3 +1835,21 @@ describe('SUB-1C enforcement Premium em investimentos', () => {
     )));
   });
 });
+
+describe('SUB-1F-1 diretório interno do teste fechado', () => {
+  test('nega leitura, listagem e escrita do diretório e das concessões para qualquer UID', async () => {
+    const db = verifiedDb();
+    const testerRef = doc(db, '_premiumClosedTestTesters/synthetic-tester');
+    const grantRef = doc(db, '_premiumClosedTestGrants/synthetic-grant');
+    await assertFails(getDoc(testerRef));
+    await assertFails(getDocs(collection(db, '_premiumClosedTestTesters')));
+    await assertFails(setDoc(testerRef, {
+      environment: 'development', track: 'closed', status: 'active', schemaVersion: 1,
+      authorizedAt: serverTimestamp(), revision: 1,
+    }));
+    await assertFails(getDoc(grantRef));
+    await assertFails(getDocs(collection(db, '_premiumClosedTestGrants')));
+    await assertFails(setDoc(grantRef, { status: 'active' }));
+    await assertFails(getDoc(doc(verifiedDb(otherId), '_premiumClosedTestTesters/synthetic-tester')));
+  });
+});

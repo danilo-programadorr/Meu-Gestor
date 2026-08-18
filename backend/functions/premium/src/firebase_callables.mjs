@@ -32,11 +32,11 @@ export const PREMIUM_FUNCTION_OPTIONS = Object.freeze({
 /// Bootstrap executável em Functions Gen 2. Não conhece compra, token da
 /// Play, RTDN nem grant: estes fluxos continuam indisponíveis e falham antes
 /// de qualquer escrita até o incremento explicitamente autorizado.
-export function createFirebasePremiumCallables({ onCall, HttpsError, firestore }) {
+export function createFirebasePremiumCallables({ onCall, HttpsError, firestore, closedTestActivation = null }) {
   if (typeof onCall !== 'function' || typeof HttpsError !== 'function' || !firestore) {
     throw new TypeError('Invalid Firebase Premium callable dependencies.');
   }
-  return Object.freeze({
+  const callables = {
     getConfirmedEntitlement: onCall(PREMIUM_FUNCTION_OPTIONS, async (request) => {
       const uid = await requireFinancialCaller({ request, HttpsError, firestore });
       requireEmptyData(request.data, HttpsError);
@@ -62,7 +62,18 @@ export function createFirebasePremiumCallables({ onCall, HttpsError, firestore }
         'A restauração de compra Premium ainda não está disponível.',
       );
     }),
-  });
+  };
+  if (closedTestActivation !== null) {
+    if (typeof closedTestActivation.activate !== 'function') {
+      throw new TypeError('Invalid closed test activation dependency.');
+    }
+    callables.activateClosedTestPremium = onCall(PREMIUM_FUNCTION_OPTIONS, async (request) => {
+      const uid = await requireFinancialCaller({ request, HttpsError, firestore });
+      requireEmptyData(request.data, HttpsError);
+      return closedTestActivation.activate({ ownerId: uid });
+    });
+  }
+  return Object.freeze(callables);
 }
 
 async function requireFinancialCaller({ request, HttpsError, firestore }) {

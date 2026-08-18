@@ -1,6 +1,6 @@
-# Matriz de testes Firestore — SUB-1B/SUB-1C Premium
+# Matriz de testes Firestore — SUB-1B/SUB-1C/SUB-1F Premium
 
-Escopo: `users/{uid}/entitlements/premium` é somente leitura própria; coleções operacionais de billing são totalmente privadas. O SUB-1C acrescenta enforcement local às quatro coleções de investimentos. A base SUB-1B de 57 casos foi preservada e ampliada para 69/69; as novas regras não foram publicadas, nenhum documento real foi criado e nenhum Firebase real foi acessado.
+Escopo: `users/{uid}/entitlements/premium` é somente leitura própria; coleções operacionais de billing e o diretório de teste fechado são totalmente privados. O SUB-1C acrescenta enforcement local às quatro coleções de investimentos. O SUB-1F-1 amplia a suíte para 70/70 no Emulator isolado: as novas regras permanecem somente locais, nenhum documento real foi criado e nenhum Firebase real foi acessado.
 
 | ID | Caso | Resultado esperado | Estado local |
 |---|---|---|---|
@@ -30,7 +30,9 @@ Escopo: `users/{uid}/entitlements/premium` é somente leitura própria; coleçõ
 | SUB-R-024 | operações atômicas existentes com entitlement | permitir sem atingir limites | automatizado |
 | SUB-R-025 | delete, subcoleção e path desconhecido | negar | automatizado |
 | SUB-R-026 | batch cliente tenta criar entitlement e editar investimento | negar integralmente | automatizado |
+| SUB-R-027 | ler ou listar `_premiumClosedTestTesters` e `_premiumClosedTestGrants`, inclusive com UID diferente ou owner | negar | automatizado |
+| SUB-R-028 | criar, editar ou excluir o diretório ou concessão interna de teste fechado pelo cliente | negar | automatizado |
 
 A suíte também preserva todos os casos anteriores de perfil, owner, contas, categorias, lançamentos, compromissos, investimentos e proventos. O log integral deve permanecer sem limite de 1.000 expressões, excesso de leituras, avaliação interrompida, valor nulo ou falha interna.
 
-SUB-1D não adiciona escrita cliente de entitlement nem chamada Google Play no Emulator. A matriz mantém a negação de todas as escritas de `premium` e caminhos internos; a confirmação comercial permanece fora do cliente e depende de backend futuro.
+SUB-1F-1 não adiciona escrita cliente de entitlement, chamada Google Play ou concessão real no Emulator. A matriz mantém a negação de todas as escritas de `premium`, da lista autorizada e dos caminhos internos; a autorização de testadores é um fluxo administrativo futuro e a ativação somente pode ocorrer pelo backend server-side após publicação explicitamente aprovada.

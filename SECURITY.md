@@ -13,10 +13,13 @@
 
 ## SUB-1E-2 — Teste fechado local
 
-- `closedTestGrant` não é assinatura, compra, preço, oferta Play nem direito de production. É uma concessão backend-only para o teste fechado em `development`, track `closed` e janela global UTC fixa de quinze dias.
-- Lista de testadores, UID, início, expiração e revisão são tratados somente pelo backend futuro. O app não possui escrita, restauração ou reutilização; owner continua sem acesso cruzado.
+- `closedTestGrant` não é assinatura, compra, preço, oferta Play nem direito de production. É uma concessão backend-only para o teste fechado em `development`, track `closed` e validade individual de quinze dias calculada pelo servidor.
+- A borda de ativação exige que o ambiente runtime seja declarado explicitamente como `development`; ausência, valor divergente ou `production` falham fechados antes de qualquer leitura ou escrita.
+- A borda de ativação exige que o ambiente runtime seja declarado explicitamente como `development`; ausência, valor divergente ou `production` falham fechados antes de qualquer leitura ou escrita.
+- A lista privada não armazena e-mail e só pode ser autorizada/revogada por serviço administrativo futuro. A callable de ativação aceita payload vazio do próprio usuário autenticado, com e-mail verificado, App Check e perfil jurídico atual; o app não possui escrita, restauração ou reutilização, e owner continua sem acesso cruzado.
 - A concessão ativa tem exatamente as cinco capabilities Premium; a expiração é materializada por relógio confiável do backend e remove capabilities. Não há cálculo pelo relógio do aparelho, primeiro login, popup modal de expiração ou alteração do núcleo gratuito.
 - Regras locais mantêm escrita cliente negada e rejeitam a fonte fora da forma ativa/expirada prevista. Production não aceitará essa fonte; entitlement verificado da Google Play será obrigatório depois do lançamento.
+- `_premiumClosedTestTesters` e `_premiumClosedTestGrants` são explicitamente negadas nas Rules locais para get, list e todas as escritas. A lista e a auditoria não podem ser usadas pelo aplicativo para enumerar testadores ou obter dados de outro UID.
 
 ## SUB-1E-3A — Borda Premium Gen 2 local
 

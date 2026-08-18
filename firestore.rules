@@ -2037,6 +2037,17 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Diretório interno do teste fechado e concessões individuais são
+    // exclusivamente server-side. Nem o próprio testador nem owner podem
+    // descobrir a lista, conceder, restaurar ou alterar esses documentos.
+    match /_premiumClosedTestTesters/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /_premiumClosedTestGrants/{document=**} {
+      allow read, write: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

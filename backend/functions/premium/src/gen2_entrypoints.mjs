@@ -34,6 +34,7 @@ export function createPremiumGen2Entrypoints({
     verifyGooglePlayPurchase: onCall(callableOptions, runtime.verifyGooglePlayPurchase),
     restoreGooglePlayPurchase: onCall(callableOptions, runtime.restoreGooglePlayPurchase),
     getConfirmedEntitlement: onCall(callableOptions, runtime.getConfirmedEntitlement),
+    activateClosedTestPremium: onCall(callableOptions, runtime.activateClosedTestPremium),
     receiveGooglePlayRtdn: onRequest(requestOptions, async (request) => {
       const notification = await verifyRtdnRequest(request);
       return runtime.processRtdnSignal({ notification, rtdnVerified: true });

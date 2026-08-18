@@ -10,8 +10,11 @@ import {
   SubscriptionProcessor,
   assertSubscriptionTransition,
   applyAdministrativeGrant,
+  authorizeClosedTestTester,
+  createClosedTestGrantId,
   issueClosedTestGrant,
   expireClosedTestGrants,
+  revokeClosedTestTester,
   createObfuscatedExternalAccountId,
   mapGooglePlaySubscription,
   processAcknowledgementOutbox,
@@ -1114,49 +1117,63 @@ function grant(overrides = {}) {
   };
 }
 
-function closedTestWindow() {
-  return {
-    environment: 'development',
-    track: 'closed',
-    startsAt: '2026-08-06T00:00:00.000Z',
-    expiresAt: '2026-08-21T00:00:00.000Z',
-  };
-}
-
-test('closed test grant uses the fixed server window and full fixed capabilities', async () => {
+test('closed test grant is individually issued by server time with full fixed capabilities', async () => {
   const h = harness();
+  await authorizeClosedTestTester({
+    request: { ownerId: 'synthetic-user-1', track: 'closed' }, storage: h.storage, clock: fixedNow,
+  });
+  const grantId = createClosedTestGrantId('synthetic-user-1');
   const confirmation = await issueClosedTestGrant({
-    request: { grantId: 'closed-test-1', ownerId: 'synthetic-user-1', track: 'closed' },
-    window: closedTestWindow(),
-    authorizedOwnerIds: new Set(['synthetic-user-1']),
-    storage: h.storage,
-    clock: fixedNow,
+    request: { grantId, ownerId: 'synthetic-user-1', track: 'closed' }, storage: h.storage, clock: fixedNow,
   });
   const entitlement = await h.storage.entitlement('synthetic-user-1');
   assert.equal(confirmation.status, 'active');
   assert.equal(entitlement.source, 'closedTestGrant');
   assert.equal(entitlement.capabilities.length, 5);
-  assert.equal(entitlement.currentPeriodStart, closedTestWindow().startsAt);
-  assert.equal(entitlement.currentPeriodEnd, closedTestWindow().expiresAt);
+  assert.equal(entitlement.currentPeriodStart, '2026-08-20T12:00:00.000Z');
+  assert.equal(entitlement.currentPeriodEnd, '2026-09-04T12:00:00.000Z');
+  assert.notEqual(grantId.includes('synthetic-user-1'), true);
   assert.equal(JSON.stringify(await h.storage.audits()).includes('synthetic-user-1'), false);
 });
 
-test('closed test grant denies unauthorized, production, reuse and expires only by server clock', async () => {
+test('closed test grant denies unauthorized activation, is idempotent and never restores after expiry', async () => {
   const h = harness();
-  const requestValue = { grantId: 'closed-test-1', ownerId: 'synthetic-user-1', track: 'closed' };
-  await rejectsCode(() => issueClosedTestGrant({ request: requestValue, window: closedTestWindow(), authorizedOwnerIds: new Set(), storage: h.storage, clock: fixedNow }), 'closed_test_tester_not_authorized');
-  await rejectsCode(() => issueClosedTestGrant({ request: requestValue, window: { ...closedTestWindow(), environment: 'production' }, authorizedOwnerIds: new Set(['synthetic-user-1']), storage: h.storage, clock: fixedNow }), 'closed_test_production_denied');
-  await issueClosedTestGrant({ request: requestValue, window: closedTestWindow(), authorizedOwnerIds: new Set(['synthetic-user-1']), storage: h.storage, clock: fixedNow });
+  const requestValue = { grantId: createClosedTestGrantId('synthetic-user-1'), ownerId: 'synthetic-user-1', track: 'closed' };
+  await rejectsCode(() => issueClosedTestGrant({ request: requestValue, storage: h.storage, clock: fixedNow }), 'closed_test_tester_not_authorized');
+  await authorizeClosedTestTester({ request: { ownerId: 'synthetic-user-1', track: 'closed' }, storage: h.storage, clock: fixedNow });
+  await issueClosedTestGrant({ request: requestValue, storage: h.storage, clock: fixedNow });
   assert.deepEqual(
-    await issueClosedTestGrant({ request: requestValue, window: closedTestWindow(), authorizedOwnerIds: new Set(['synthetic-user-1']), storage: h.storage, clock: fixedNow }),
+    await issueClosedTestGrant({ request: requestValue, storage: h.storage, clock: fixedNow }),
     { status: 'active', revision: 1, requiresServerRefresh: true },
   );
-  await rejectsCode(() => issueClosedTestGrant({ request: { ...requestValue, ownerId: 'synthetic-user-2' }, window: closedTestWindow(), authorizedOwnerIds: new Set(['synthetic-user-1', 'synthetic-user-2']), storage: h.storage, clock: fixedNow }), 'closed_test_grant_id_conflict');
-  await rejectsCode(() => issueClosedTestGrant({ request: { ...requestValue, grantId: 'closed-test-2', track: 'internal' }, window: closedTestWindow(), authorizedOwnerIds: new Set(['synthetic-user-1']), storage: h.storage, clock: fixedNow }), 'closed_test_track_mismatch');
-  assert.deepEqual(await expireClosedTestGrants({ window: closedTestWindow(), storage: h.storage, clock: fixedNow }), { expired: 0 });
-  const afterWindow = () => new Date('2026-08-21T00:00:00.000Z');
-  assert.deepEqual(await expireClosedTestGrants({ window: closedTestWindow(), storage: h.storage, clock: afterWindow }), { expired: 1 });
+  await rejectsCode(() => issueClosedTestGrant({ request: { ...requestValue, ownerId: 'synthetic-user-2' }, storage: h.storage, clock: fixedNow }), 'closed_test_tester_not_authorized');
+  await rejectsCode(() => issueClosedTestGrant({ request: { ...requestValue, track: 'internal' }, storage: h.storage, clock: fixedNow }), 'invalid_closed_test_track');
+  assert.deepEqual(await expireClosedTestGrants({ storage: h.storage, clock: fixedNow }), { expired: 0 });
+  const afterIndividualDuration = () => new Date('2026-09-04T12:00:00.000Z');
+  assert.deepEqual(await expireClosedTestGrants({ storage: h.storage, clock: afterIndividualDuration }), { expired: 1 });
   assert.equal((await h.storage.entitlement('synthetic-user-1')).status, 'expired');
+  assert.deepEqual(
+    await issueClosedTestGrant({ request: { ...requestValue, grantId: 'attempt-to-restore' }, storage: h.storage, clock: afterIndividualDuration }),
+    { status: 'expired', revision: 2, requiresServerRefresh: true },
+  );
+});
+
+test('closed test authorization remains server-only, revocable and never grants production', async () => {
+  const h = harness();
+  await rejectsCode(
+    () => authorizeClosedTestTester({ request: { ownerId: 'synthetic-user-1', track: 'internal' }, storage: h.storage, clock: fixedNow }),
+    'invalid_closed_test_track',
+  );
+  await authorizeClosedTestTester({ request: { ownerId: 'synthetic-user-1', track: 'closed' }, storage: h.storage, clock: fixedNow });
+  await revokeClosedTestTester({ request: { ownerId: 'synthetic-user-1', track: 'closed' }, storage: h.storage, clock: fixedNow });
+  await rejectsCode(
+    () => issueClosedTestGrant({
+      request: { grantId: createClosedTestGrantId('synthetic-user-1'), ownerId: 'synthetic-user-1', track: 'closed' },
+      storage: h.storage,
+      clock: fixedNow,
+    }),
+    'closed_test_tester_not_authorized',
+  );
 });
 
 test('development grant is scoped, audited and idempotent', async () => {

@@ -427,7 +427,7 @@
 
 | ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |
 |---|---|---:|---:|---|---|---|---|---|
-| SUB-007-1E | Modelar teste fechado sem cobrança | P0 | SUB-1E-2 | `closedTestGrant` é backend-only, UID próprio, development/track `closed`, janela UTC global fixa de 15 dias e cinco capabilities | local e testado | backend futuro e lista autorizada | crítico | zero externo |
+| SUB-007-1E | Modelar teste fechado sem cobrança | P0 | SUB-1E-2 | `closedTestGrant` é backend-only, UID próprio, development/track `closed`, validade individual de 15 dias e cinco capabilities | local e testado | backend futuro e lista autorizada | crítico | zero externo |
 | SUB-008-1E | Impedir restauração e production | P0 | SUB-1E-2 | app não escreve/restaura/reutiliza; Rules negam escrita cliente; fonte falha fora de development e não é direito de production | local e testado | publicação futura aprovada | crítico | neutro |
 | SUB-009-1E | Expirar sem regressão de UX | P1 | SUB-1E-2 | backend materializa expiração; núcleo gratuito e leitura histórica seguem normais, sem popup modal | local e testado | guard SUB-1C | alto | neutro |
 
@@ -438,6 +438,14 @@
 | SUB-010-1E | Preparar handlers Gen 2 sem rede | P0 | SUB-1E-3A | factories injetáveis delegam verificação, restauração, leitura, RTDN e administração ao núcleo único | local e testado | Functions Gen 2 futura | crítico | zero externo |
 | SUB-011-1E | Manter persistência e fronteiras seguras | P0 | SUB-1E-3A | adapter transacional, eventos/bindings/outbox idempotentes, App Check só nas novas callables e RTDN autoritativa | local e testado | Firestore/Admin SDK, Play API, Pub/Sub | crítico | infraestrutura futura |
 | SUB-012-1E | Isolar teste fechado e production | P0 | SUB-1E-3A | grant administrativo development/closed/15 dias, sem escrita cliente ou production | local e testado | identidade administrativa futura | crítico | neutro |
+
+## Incremento SUB-1F-1 — Ativação segura de teste fechado local
+
+| ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |
+|---|---|---:|---:|---|---|---|---|---|
+| SUB-013-1F | Manter diretório privado de testadores | P0 | SUB-1F-1 | registro sem e-mail, UID indexado internamente, development/closed, autorização/revogação server-side e Rules sem leitura/escrita cliente | local e testado | caminho administrativo futuro | crítico | uma leitura/escrita server-side |
+| SUB-014-1F | Ativar somente o próprio testador validado | P0 | SUB-1F-1 | callable com payload vazio exige Auth, e-mail, App Check e perfil jurídico; UID, prazo e capabilities não vêm do app | local e testado | publicação futura autorizada | crítico | uma transação |
+| SUB-015-1F | Conceder/expiar individualmente sem restauração | P0 | SUB-1F-1 | início confiável, 15 dias por UID, idempotência, concorrência, expiração materializada, dados preservados e reativação negada | local e testado | relógio/worker server-side futuro | crítico | uma transação |
 
 ## Incrementos futuros de dados, privacidade e armazenamento
 

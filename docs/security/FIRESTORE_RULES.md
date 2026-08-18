@@ -38,6 +38,7 @@ O arquivo público `firestore.rules` protege o perfil `users/{uid}`, as subcole�
 - entitlement Premium permite somente `get` do documento fixo próprio, com autenticação, e-mail confirmado e perfil jurídico atual;
 - listagem, escrita, entitlement desconhecido, subcoleções e acesso owner cruzado são negados;
 - eventos, vínculos, inbox RTDN, outbox de acknowledgement e grants internos Premium são totalmente inacessíveis ao cliente;
+- `_premiumClosedTestTesters/{uid}` e `_premiumClosedTestGrants/{grantId}` são diretório e auditoria internos do teste fechado: negam `get`, `list` e toda escrita ao cliente, inclusive owner; não armazenam e-mail;
 - o SUB-1C local exige entitlement estruturalmente válido e capability própria para ler investimentos; acesso histórico é somente leitura;
 - mutações exigem acesso integral no `request.time` e preservam contratos, referências, revisões, atomicidade e exclusões negadas;
 - `investmentsManual` não concede proventos e `investmentIncome` não concede carteira, ativo ou operação; owner não possui bypass.

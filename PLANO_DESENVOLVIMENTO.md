@@ -797,8 +797,8 @@ Situação em 10/08/2026: autorizado exclusivamente para remodelagem e validaç�
 
 Situação: preparada e validada somente localmente. Nenhuma concessão foi emitida, nenhum testador foi cadastrado e nenhum recurso Firebase, Google Cloud ou Google Play foi acessado.
 
-- `closedTestGrant` representa apenas a janela operacional fixa de quinze dias do teste fechado, em UTC, `development` e track `closed`; não é assinatura, compra, preço, oferta Play ou direito de production.
-- Backend futuro, e somente ele, recebe lista autorizada e janela fixa, emite por UID próprio, registra auditoria sanitizada e materializa a expiração com relógio confiável. Não há primeiro login, relógio do aparelho, escrita direta do app, restauração ou reutilização.
+- `closedTestGrant` representa validade individual de quinze dias do teste fechado, iniciada pelo relógio UTC confiável do servidor em `development` e track `closed`; não é assinatura, compra, preço, oferta Play ou direito de production.
+- O diretório privado de testadores é autorizado e revogado somente por caminho administrativo server-side, sem e-mail no registro. A callable de ativação aceita somente o próprio UID autenticado, e-mail verificado, App Check e perfil jurídico atual; ela não recebe prazo, capability, track ou UID alvo. Não há relógio do aparelho, escrita direta, restauração ou reutilização depois da expiração.
 - Enquanto ativa, a concessão entrega exatamente todas as capabilities Premium atuais. Expirada, não conserva capability Premium, não abre popup modal e preserva núcleo gratuito e leitura histórica conforme o guard comercial normal.
 - Production nunca aceitará `closedTestGrant`; após lançamento oficial, somente entitlement verificado da Google Play libera Premium em production.
 
@@ -820,3 +820,12 @@ Situação: publicado exclusivamente em development e republicado com Node 22. O
 - RTDN, Pub/Sub operacional, Secret Manager, Google Play Developer API, grants administrativos e emissão do teste fechado continuam ausentes. As regras SUB-1E não foram publicadas nem alteradas remotamente.
 - O primeiro deploy habilitou apenas APIs de infraestrutura necessárias ao Gen 2. A política de limpeza do Artifact Registry foi posteriormente configurada, por autorização própria, para remover automaticamente apenas imagens de deploy com mais de 14 dias na região das Functions; não foi usado `--force` nem houve exclusão manual.
 - O artefato de produção das Functions Premium usa Node 22, `firebase-admin` 14.2.0 e `firebase-functions` 7.3.2. `@google-cloud/firestore` 8.7.1 é dependência direta necessária à leitura Admin; dependências opcionais, incluindo Cloud Storage e `uuid`, são omitidas na instalação de produção. A auditoria da árvore efetivamente instalada com opcionais omitidas não encontrou vulnerabilidades. O lockfile conserva a resolução opcional completa apenas para reprodutibilidade e sua auditoria é informativa.
+
+## 40. SUB-1F-1 — Ativação segura para testadores fechados
+
+Situação: implementada e validada somente localmente. Não houve deploy, publicação de Rules, lista real, concessão real, Firebase, Google Cloud, Play Console, APK, commit ou push.
+
+- `_premiumClosedTestTesters/{uid}` é diretório interno sem e-mail, acessível apenas a serviço administrativo futuro; `_premiumClosedTestGrants` guarda somente a projeção/auditoria sanitizada. As Rules locais negam integralmente leitura, listagem e escrita cliente, inclusive owner cruzado.
+- `activateClosedTestPremium` é preparada como callable development que exige autenticação, e-mail verificado, App Check e perfil jurídico atual. O payload é vazio e a ativação só pode tratar o próprio UID, nunca conceder ou consultar dados de outro usuário.
+- A primeira ativação autorizada cria `closedTestGrant` de quinze dias individuais no relógio de servidor. A transação é idempotente e concorrente; expiração materializa estado `expired`, remove capabilities sem apagar dados e bloqueia restauração/reutilização.
+- Não há compra, cobrança, preço, teste Play de quinze dias, trial comercial de 72 horas, API Play, RTDN, Secret Manager ou produção. O catálogo futuro continua com `meu_gestor_premium`, planos `mensal`/`anual` e `teste-3d` somente mensal.

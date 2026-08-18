@@ -60,7 +60,7 @@ function entitlement(uid = 'synthetic-user') {
   };
 }
 
-function harness({ profileData = profile(), entitlementData = entitlement() } = {}) {
+function harness({ profileData = profile(), entitlementData = entitlement(), closedTestActivation = null } = {}) {
   const documents = new Map([
     ['users/synthetic-user', profileData],
     ['users/synthetic-user/entitlements/premium', entitlementData],
@@ -78,6 +78,7 @@ function harness({ profileData = profile(), entitlementData = entitlement() } = 
     onCall: (options, handler) => { calls.push({ options, handler }); return handler; },
     HttpsError: FakeHttpsError,
     firestore,
+    closedTestActivation,
   });
   return { callables, calls };
 }
@@ -95,7 +96,7 @@ async function rejectsCode(action, code) {
   await assert.rejects(action, (error) => error instanceof FakeHttpsError && error.code === code);
 }
 
-test('exports three constrained Gen 2 callables in southamerica-east1', () => {
+test('exports the three published bootstrap callables when closed-test activation is unavailable', () => {
   const h = harness();
   assert.equal(h.calls.length, 3);
   for (const call of h.calls) {
@@ -136,6 +137,32 @@ test('purchase and restore reject before any write while E-3B is unavailable', a
   await rejectsCode(() => h.callables.restoreGooglePlayPurchase(request()), 'failed-precondition');
   await rejectsCode(
     () => h.callables.verifyGooglePlayPurchase(request({ data: { purchaseToken: 'synthetic' } })),
+    'invalid-argument',
+  );
+});
+
+test('closed test activation is callable only for the authenticated, verified and legal own UID', async () => {
+  const activations = [];
+  const h = harness({
+    closedTestActivation: {
+      activate: async ({ ownerId }) => {
+        activations.push(ownerId);
+        return { status: 'active', revision: 1, requiresServerRefresh: true };
+      },
+    },
+  });
+  assert.equal(h.calls.length, 4);
+  assert.deepEqual(
+    await h.callables.activateClosedTestPremium(request()),
+    { status: 'active', revision: 1, requiresServerRefresh: true },
+  );
+  assert.deepEqual(activations, ['synthetic-user']);
+  await rejectsCode(
+    () => h.callables.activateClosedTestPremium(request({ app: null })),
+    'failed-precondition',
+  );
+  await rejectsCode(
+    () => h.callables.activateClosedTestPremium(request({ data: { ownerId: 'another-user' } })),
     'invalid-argument',
   );
 });

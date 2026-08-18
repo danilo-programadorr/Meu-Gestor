@@ -7,6 +7,7 @@ import {
   PurchaseTokenFingerprinter,
   SubscriptionError,
   SubscriptionProcessor,
+  authorizeClosedTestTester,
 } from '../../../subscriptions/src/index.mjs';
 import { createPremiumGen2Entrypoints } from '../src/gen2_entrypoints.mjs';
 import { createPremiumFunctionsRuntime } from '../src/premium_runtime.mjs';
@@ -20,13 +21,6 @@ import {
 } from '../../../subscriptions/test/fixtures/google_play_subscription.mjs';
 
 const fixedNow = () => new Date(instant(20, 12));
-const closedTestWindow = Object.freeze({
-  environment: 'development',
-  track: 'closed',
-  startsAt: instant(6),
-  expiresAt: instant(21),
-});
-
 function harness() {
   const storage = new InMemorySubscriptionStorage();
   const gateway = new DeterministicFakeGooglePlayDeveloperApiGateway();
@@ -52,18 +46,19 @@ function harness() {
     processor,
     storage,
     fingerprinter,
-    closedTestWindow,
-    authorizedClosedTestOwnerIds: new Set(['synthetic-user-1']),
     clock: fixedNow,
     assertAdministrativeIdentity: async (identity) => {
       if (identity !== 'synthetic-administrator') throw new SubscriptionError('administrative_identity_denied', 'Negado.');
+    },
+    assertCurrentLegalProfile: async (uid) => {
+      if (uid !== 'synthetic-user-1') throw new SubscriptionError('premium_legal_profile_denied', 'Negado.');
     },
   });
   return { gateway, storage, runtime };
 }
 
 function callable(data = {}) {
-  return { auth: { uid: 'synthetic-user-1' }, appCheckVerified: true, data };
+  return { auth: { uid: 'synthetic-user-1', emailVerified: true }, appCheckVerified: true, data };
 }
 
 async function rejectsCode(action, code) {
@@ -109,6 +104,9 @@ test('RTDN accepts only trusted perimeter signal and reuses authoritative query'
 
 test('closed test administration is not callable and denies production-shaped input', async () => {
   const h = harness();
+  await authorizeClosedTestTester({
+    request: { ownerId: 'synthetic-user-1', track: 'closed' }, storage: h.storage, clock: fixedNow,
+  });
   await rejectsCode(
     () => h.runtime.issueClosedTestGrant({ administrativeIdentity: 'untrusted', data: { grantId: 'closed-1', ownerId: 'synthetic-user-1', track: 'closed' } }),
     'administrative_identity_denied',
@@ -119,6 +117,26 @@ test('closed test administration is not callable and denies production-shaped in
   });
   assert.equal(confirmation.status, 'active');
   assert.equal((await h.storage.entitlement('synthetic-user-1')).environment, 'development');
+});
+
+test('closed test activation is own-only and requires App Check and profile validation', async () => {
+  const h = harness();
+  await authorizeClosedTestTester({
+    request: { ownerId: 'synthetic-user-1', track: 'closed' }, storage: h.storage, clock: fixedNow,
+  });
+  assert.equal((await h.runtime.activateClosedTestPremium(callable())).status, 'active');
+  await rejectsCode(
+    () => h.runtime.activateClosedTestPremium({ ...callable(), appCheckVerified: false }),
+    'untrusted_premium_callable',
+  );
+  await rejectsCode(
+    () => h.runtime.activateClosedTestPremium({ ...callable(), auth: { uid: 'synthetic-user-1', emailVerified: false } }),
+    'unverified_premium_callable_email',
+  );
+  assert.deepEqual(
+    await h.runtime.activateClosedTestPremium(callable()),
+    { status: 'active', revision: 1, requiresServerRefresh: true },
+  );
 });
 
 test('Gen 2 factories scope App Check to new callables only', () => {
@@ -134,14 +152,18 @@ test('Gen 2 factories scope App Check to new callables only', () => {
       data: { grantId: 'closed-entrypoint', ownerId: 'synthetic-user-1', track: 'closed' },
     }),
   });
-  assert.equal(calls.filter((call) => call.kind === 'call').length, 3);
+  assert.equal(calls.filter((call) => call.kind === 'call').length, 4);
   assert.equal(calls.filter((call) => call.kind === 'request').length, 3);
   assert.equal(entries.verifyGooglePlayPurchase.options.enforceAppCheck, true);
+  assert.equal(entries.activateClosedTestPremium.options.enforceAppCheck, true);
   assert.equal(Object.hasOwn(entries.receiveGooglePlayRtdn.options, 'enforceAppCheck'), false);
 });
 
 test('Gen 2 HTTP handlers accept only identities produced by perimeter verifiers', async () => {
   const h = harness();
+  await authorizeClosedTestTester({
+    request: { ownerId: 'synthetic-user-1', track: 'closed' }, storage: h.storage, clock: fixedNow,
+  });
   h.gateway.add('synthetic-purchase-token-1', googlePlaySubscriptionResponse());
   await h.runtime.verifyGooglePlayPurchase(callable({ purchaseToken: 'synthetic-purchase-token-1' }));
   const entries = createPremiumGen2Entrypoints({
@@ -155,5 +177,8 @@ test('Gen 2 HTTP handlers accept only identities produced by perimeter verifiers
     }),
   });
   assert.equal((await entries.receiveGooglePlayRtdn({ body: { rtdnVerified: false } })).status, 'active');
-  assert.equal((await entries.administerClosedTestGrant({ body: {} })).status, 'active');
+  await rejectsCode(
+    () => entries.administerClosedTestGrant({ body: {} }),
+    'closed_test_entitlement_conflict',
+  );
 });

@@ -17,7 +17,8 @@ export class SubscriptionTransactionalStorage {
 export class InMemorySubscriptionStorage extends SubscriptionTransactionalStorage {
   #state = {
     entitlements: new Map(), bindings: new Map(), events: new Map(),
-    rtdnInbox: new Map(), acknowledgementOutbox: new Map(), grants: new Map(), audits: [],
+    rtdnInbox: new Map(), acknowledgementOutbox: new Map(), grants: new Map(),
+    closedTestTesters: new Map(), audits: [],
   };
   #queue = Promise.resolve();
   failBeforeCommit = false;
