@@ -338,6 +338,16 @@
 | INV-011-1A | Preservar experiência acessível | P1 | INV-1A | Menu > Patrimônio, privacidade global, temas, vazio/erro/retry, 320 px e fonte 180% funcionam sem overflow | implementado e coberto por widgets | sistema visual | médio | neutro |
 | INV-012-1A | Validar Security Rules localmente | P0 | INV-1A | casos válidos/negados e regressões passam em projeto `demo-*`; log não possui diagnósticos proibidos | implementado localmente; 40 testes totais de regras após INV-1A | Java existente e CLI local | crítico | somente execução local |
 
+## Incremento INV-2B — Cotações atrasadas e rentabilidade estimada
+
+| ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |
+|---|---|---:|---:|---|---|---|---|---|
+| INV-2B-001 | Modelar snapshot global estrito | P0 | INV-2B | ticker, tipo, BRL, preço escalado positivo, horários, atraso e validade são validados; zero/negativo/timestamp ausente são negados | implementado localmente | provedor futuro autorizado | crítico | neutro |
+| INV-2B-002 | Não consultar por usuário | P0 | INV-2B | gateway recebe somente lotes de tickers; cache, lease e circuit breaker são globais | implementado localmente | job backend futuro | crítico | reduz chamadas |
+| INV-2B-003 | Separar rentabilidade | P0 | INV-2B | valor estimado, não realizado, realizado e proventos são decompostos; total exige cobertura completa | implementado localmente | snapshots confirmados | alto | CPU local |
+| INV-2B-004 | Não inventar histórico | P0 | INV-2B | cobertura parcial e ausência mostram indisponibilidade; evolução exige snapshot real | implementado localmente | persistência futura | crítico | baixo |
+| INV-2B-005 | Proteger serviço Premium | P0 | INV-2B | rota usa `investmentQuotes` e confirmação server-side; cache não concede acesso | implementado localmente | entitlement confirmado | alto | evita consumo indevido |
+
 ## Incremento UI-INV-1B — Redesign visual de investimentos
 
 | ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |

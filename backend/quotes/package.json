@@ -1,0 +1,10 @@
+{
+  "name": "meu-gestor-market-quotes-local",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "check": "node --check src/index.mjs && node --check src/quote_mapper.mjs && node --check src/quote_service.mjs",
+    "test": "node --test test/*.test.mjs"
+  }
+}

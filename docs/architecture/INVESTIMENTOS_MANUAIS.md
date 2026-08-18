@@ -56,7 +56,7 @@ Quando um entitlement antes válido perde vigência, a área permanece consultá
 
 O redesign UI-INV-1B permanece integralmente na apresentação. A área usa seletor de carteira e abas Resumo, Ativos, Lançamentos e Proventos. Evolução de compras/vendas é agregada das operações ativas; alocação usa o custo canônico das posições abertas. Busca, filtros e ordenação não gravam estado remoto.
 
-A prévia do formulário não cria uma segunda regra financeira: quantidade e preço continuam escalados, valor bruto e possível média usam `InvestmentArithmetic`, e a confirmação persiste o mesmo `InvestmentOperationDraft` validado pelo fluxo original. Métricas sem fonte real — cotação, patrimônio de mercado, valorização e rentabilidade não realizada — não possuem campos substitutos.
+A prévia do formulário não cria uma segunda regra financeira: quantidade e preço continuam escalados, valor bruto e possível média usam `InvestmentArithmetic`, e a confirmação persiste o mesmo `InvestmentOperationDraft` validado pelo fluxo original. O INV-2B acrescenta somente o contrato local de snapshots globais atrasados: cada snapshot futuro terá ticker, tipo, BRL, preço escalado positivo, horário observado, captura, atraso e validade. Até um provedor independente ser autorizado e gerar snapshots reais, a área mostra indisponibilidade, sem campos substitutos. Valor estimado, resultado não realizado, realizado e proventos são decompostos; total e evolução não aparecem com cobertura parcial ou histórico inexistente. Cotações não alteram nenhuma operação ou dado financeiro.
 
 ## INV-PROV-1 — proventos manuais
 

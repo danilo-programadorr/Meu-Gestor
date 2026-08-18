@@ -842,3 +842,13 @@ Situação: implementação local em andamento, sem API, cotação, Firebase ou 
 - As calculadoras usam somente entradas manuais: primeiro milhão, juros simples e compostos, porcentagem, Graham e Bazin. Valores monetários permanecem em centavos inteiros; percentuais usam pontos-base e as fórmulas/arredondamentos são determinísticos.
 - Análises de ações e FIIs, checklist Buy and Hold e comparação exibem somente pontos positivos, atenção ou dados insuficientes conforme marcações manuais. Não há cotação, indicador inventado nem recomendação de compra, venda ou manutenção.
 - O módulo é protegido pelas capabilities Premium `investmentCalculators` e `investmentAnalysis`, não salva entradas e nunca altera carteira, posição, provento, conta, saldo, lançamento ou resumo mensal.
+
+## 42. INV-2B — Cotações atrasadas e rentabilidade estimada
+
+Situação: implementação local preparada, sem provedor escolhido, API, chave, Firebase, Scheduler, Function, coleção ou cotação real.
+
+- Cotações são snapshots globais de ação/FII em BRL por ticker, com preço escalado, horário da fonte, captura, atraso e validade declarados. Estados indisponível, inválido, mercado fechado, atrasado e possível evento corporativo são explícitos; resposta sem horário, preço não positivo ou mais antiga é recusada.
+- O gateway local é independente de provedor e trabalha em lotes deduplicados, cache global, lease, retry idempotente e circuit breaker. Não há consulta por usuário, chamada de API nem dado fictício no aplicativo.
+- Valor estimado, não realizado, realizado e proventos recebidos aparecem separados. Total econômico somente é calculado quando todas as posições abertas têm snapshot compatível; cobertura parcial não simula total nem evolução histórica.
+- A experiência usa rota Premium própria e estados honestos de indisponibilidade. Preços, operações, quantidade, preço médio, proventos, contas e saldo nunca são modificados.
+- A ativação externa depende de aprovação comercial e técnica separada de provedor de dados atrasados, licença, orçamento/limites, segredo server-side, persistência global de snapshots e job backend. B3 e corretoras permanecem canceladas.

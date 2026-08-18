@@ -255,10 +255,15 @@ final class InvestmentPremiumAccessController
       PremiumCapability.investmentAnalysis,
       PremiumAccessIntent.read,
     );
+    final PremiumAccessDecision quotesRead = decision(
+      PremiumCapability.investmentQuotes,
+      PremiumAccessIntent.read,
+    );
     final Map<PremiumCapability, PremiumAccessDecision> additionalRead =
         <PremiumCapability, PremiumAccessDecision>{
           PremiumCapability.investmentCalculators: calculatorsRead,
           PremiumCapability.investmentAnalysis: analysisRead,
+          PremiumCapability.investmentQuotes: quotesRead,
         };
 
     if (!manualRead.isAllowed) {

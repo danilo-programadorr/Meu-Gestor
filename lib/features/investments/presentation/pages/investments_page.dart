@@ -76,6 +76,11 @@ class _InvestmentsPageState extends ConsumerState<InvestmentsPage>
           title: const Text('Investimentos'),
           actions: <Widget>[
             IconButton(
+              tooltip: 'Cotações e rentabilidade',
+              onPressed: () => context.push(AppRoutes.investmentQuotes),
+              icon: const Icon(Icons.show_chart_rounded),
+            ),
+            IconButton(
               tooltip: 'Calculadoras e análises',
               onPressed: () => context.push(AppRoutes.investmentTools),
               icon: const Icon(Icons.calculate_outlined),

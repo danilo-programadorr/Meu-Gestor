@@ -28,6 +28,7 @@ import 'package:meu_gestor_financeiro/features/investments/presentation/pages/in
 import 'package:meu_gestor_financeiro/features/investments/presentation/pages/investment_income_form_page.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/pages/investment_operation_form_page.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/pages/investment_portfolio_form_page.dart';
+import 'package:meu_gestor_financeiro/features/investments/presentation/pages/investment_quotes_page.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/pages/investment_tools_page.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/pages/investments_page.dart';
 import 'package:meu_gestor_financeiro/features/owner_access/presentation/controllers/master_access_controller.dart';
@@ -319,6 +320,14 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((Ref ref) {
           intent: PremiumAccessIntent.read,
           fallbackLocation: AppRoutes.home,
           child: InvestmentsPage(),
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.investmentQuotes,
+        builder: (context, state) => const InvestmentPremiumRouteGate(
+          capability: PremiumCapability.investmentQuotes,
+          intent: PremiumAccessIntent.read,
+          child: InvestmentQuotesPage(),
         ),
       ),
       GoRoute(
