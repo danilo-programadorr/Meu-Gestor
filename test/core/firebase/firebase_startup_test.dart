@@ -9,9 +9,9 @@ void main() {
 
       final FirebaseStartupState result =
           await initializeFirebaseForEnvironment(
-          environment: AppEnvironment.development,
-          initializer: initializer,
-          appCheckInitializer: _FakeAppCheckInitializer(),
+            environment: AppEnvironment.development,
+            initializer: initializer,
+            appCheckInitializer: _FakeAppCheckInitializer(),
           );
 
       expect(result, isA<FirebaseStartupAvailable>());
@@ -23,9 +23,9 @@ void main() {
 
       final FirebaseStartupState result =
           await initializeFirebaseForEnvironment(
-          environment: AppEnvironment.development,
-          initializer: initializer,
-          appCheckInitializer: _FakeAppCheckInitializer(),
+            environment: AppEnvironment.development,
+            initializer: initializer,
+            appCheckInitializer: _FakeAppCheckInitializer(),
           );
 
       expect(result, isA<FirebaseStartupFailure>());
@@ -39,9 +39,9 @@ void main() {
 
         final FirebaseStartupState result =
             await initializeFirebaseForEnvironment(
-            environment: AppEnvironment.production,
-            initializer: initializer,
-            appCheckInitializer: _FakeAppCheckInitializer(),
+              environment: AppEnvironment.production,
+              initializer: initializer,
+              appCheckInitializer: _FakeAppCheckInitializer(),
             );
 
         expect(result, isA<FirebaseStartupProductionBlocked>());

@@ -86,10 +86,12 @@ final class FirebasePrivacyOperationRepository
     final int? revision = data['revision'] as int?;
     final DateTime? createdAt = _serverDate(data['createdAt']);
     final DateTime? updatedAt = _serverDate(data['updatedAt']);
-    if (
-      id == null || type == null || state == null || revision == null ||
-      createdAt == null || updatedAt == null
-    ) {
+    if (id == null ||
+        type == null ||
+        state == null ||
+        revision == null ||
+        createdAt == null ||
+        updatedAt == null) {
       throw const PrivacyOperationFailure(
         PrivacyOperationFailureKind.inconsistentState,
       );
@@ -116,7 +118,8 @@ final class FirebasePrivacyOperationRepository
     'confirmed' => PrivacyOperationState.confirmed,
     'locked' => PrivacyOperationState.writeLocked,
     'deleting' => PrivacyOperationState.deletingFinancialData,
-    'authDeletionPending' => PrivacyOperationState.authenticationDeletionPending,
+    'authDeletionPending' =>
+      PrivacyOperationState.authenticationDeletionPending,
     'failed' => PrivacyOperationState.retryableFailure,
     _ => throw const PrivacyOperationFailure(
       PrivacyOperationFailureKind.inconsistentState,
