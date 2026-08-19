@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
 import { createQuoteRefreshHttp } from '../src/quote_refresh_http.mjs';
+import { QUOTE_FUNCTION_OPTIONS } from '../src/function_options.mjs';
 
 function invoke(handler, { method = 'POST', secret = null, body = null } = {}) {
   const sent = { status: null, body: null };
@@ -28,6 +29,19 @@ function handler({ refresh = async () => [] } = {}) {
 }
 
 describe('Quote refresh Gen 2 HTTP boundary', () => {
+  test('bootstrap é privado, mínimo e limitado a uma instância', () => {
+    assert.deepEqual(QUOTE_FUNCTION_OPTIONS, {
+      region: 'southamerica-east1',
+      serviceAccount: QUOTE_FUNCTION_OPTIONS.serviceAccount,
+      memory: '256MiB',
+      timeoutSeconds: 30,
+      maxInstances: 1,
+      minInstances: 0,
+      concurrency: 1,
+      invoker: 'private',
+    });
+  });
+
   test('falha fechada sem segredo ou método POST', async () => {
     assert.deepEqual(await invoke(handler(), { method: 'GET' }), {
       status: 405, body: { error: 'method_not_allowed' },
