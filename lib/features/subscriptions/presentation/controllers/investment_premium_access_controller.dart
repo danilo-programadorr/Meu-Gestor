@@ -3,7 +3,9 @@ import 'package:meu_gestor_financeiro/core/environment/app_environment.dart';
 import 'package:meu_gestor_financeiro/core/security/financial_access.dart';
 import 'package:meu_gestor_financeiro/features/authentication/data/auth_providers.dart';
 import 'package:meu_gestor_financeiro/features/profile/presentation/controllers/profile_gate_controller.dart';
+import 'package:meu_gestor_financeiro/features/subscriptions/data/closed_test_activation_providers.dart';
 import 'package:meu_gestor_financeiro/features/subscriptions/data/premium_entitlement_providers.dart';
+import 'package:meu_gestor_financeiro/features/subscriptions/domain/closed_test_activation_repository.dart';
 import 'package:meu_gestor_financeiro/features/subscriptions/domain/premium_access_decision.dart';
 import 'package:meu_gestor_financeiro/features/subscriptions/domain/premium_capability.dart';
 import 'package:meu_gestor_financeiro/features/subscriptions/domain/premium_entitlement.dart';
@@ -121,6 +123,7 @@ investmentPremiumAccessControllerProvider =
 final class InvestmentPremiumAccessController
     extends AsyncNotifier<InvestmentPremiumAccessState> {
   int _requestVersion = 0;
+  bool _retryInProgress = false;
 
   @override
   Future<InvestmentPremiumAccessState> build() {
@@ -131,8 +134,14 @@ final class InvestmentPremiumAccessController
   }
 
   Future<void> retry() async {
-    state = const AsyncLoading<InvestmentPremiumAccessState>();
-    state = AsyncData<InvestmentPremiumAccessState>(await _load());
+    if (_retryInProgress || state.isLoading) return;
+    _retryInProgress = true;
+    try {
+      state = const AsyncLoading<InvestmentPremiumAccessState>();
+      state = AsyncData<InvestmentPremiumAccessState>(await _load());
+    } finally {
+      _retryInProgress = false;
+    }
   }
 
   Future<InvestmentPremiumAccessState> _load() async {
@@ -148,11 +157,13 @@ final class InvestmentPremiumAccessController
     }
 
     try {
-      final PremiumEntitlementReadResult result = await ref
+      PremiumEntitlementReadResult result = await ref
           .read(premiumEntitlementRepositoryProvider)
           .refreshFromServer(ownerId: ownerId);
-      if (requestVersion != _requestVersion ||
-          verifiedFinancialOwner(ref) != ownerId) {
+      if (!_isCurrentRequest(
+        requestVersion: requestVersion,
+        ownerId: ownerId,
+      )) {
         return InvestmentPremiumAccessState.confirmationError(
           problem: InvestmentPremiumAccessProblem.confirmationUnavailable,
           safeMessage: 'Sua sessão mudou. Confirme novamente o acesso Premium.',
@@ -165,6 +176,56 @@ final class InvestmentPremiumAccessController
         );
       }
       if (result.presence == PremiumEntitlementPresence.absent) {
+        if (ref.read(appEnvironmentProvider) == AppEnvironment.development) {
+          await ref
+              .read(closedTestActivationCoordinatorProvider)
+              .activateOnce(ownerId: ownerId);
+          if (!_isCurrentRequest(
+            requestVersion: requestVersion,
+            ownerId: ownerId,
+          )) {
+            return InvestmentPremiumAccessState.confirmationError(
+              problem: InvestmentPremiumAccessProblem.confirmationUnavailable,
+              safeMessage:
+                  'Sua sessão mudou. Confirme novamente o acesso Premium.',
+            );
+          }
+          result = await ref
+              .read(premiumEntitlementRepositoryProvider)
+              .refreshFromServer(ownerId: ownerId);
+          if (!_isCurrentRequest(
+            requestVersion: requestVersion,
+            ownerId: ownerId,
+          )) {
+            return InvestmentPremiumAccessState.confirmationError(
+              problem: InvestmentPremiumAccessProblem.confirmationUnavailable,
+              safeMessage:
+                  'Sua sessão mudou. Confirme novamente o acesso Premium.',
+            );
+          }
+          if (!result.isFromServer || result.hasPendingWrites) {
+            return InvestmentPremiumAccessState.confirmationError(
+              problem: InvestmentPremiumAccessProblem.confirmationUnavailable,
+              safeMessage:
+                  'Não foi possível confirmar o Premium com o servidor.',
+            );
+          }
+          if (result.presence == PremiumEntitlementPresence.absent) {
+            return InvestmentPremiumAccessState.confirmationError(
+              problem: InvestmentPremiumAccessProblem.confirmationUnavailable,
+              safeMessage:
+                  'A ativação ainda não foi confirmada pelo servidor. Tente novamente mais tarde.',
+            );
+          }
+        } else {
+          return InvestmentPremiumAccessState.denied(
+            problem: InvestmentPremiumAccessProblem.missing,
+            safeMessage:
+                'Investimentos é um recurso Premium. A assinatura será disponibilizada futuramente.',
+          );
+        }
+      }
+      if (result.presence == PremiumEntitlementPresence.absent) {
         return InvestmentPremiumAccessState.denied(
           problem: InvestmentPremiumAccessProblem.missing,
           safeMessage:
@@ -172,6 +233,17 @@ final class InvestmentPremiumAccessController
         );
       }
       return _decide(ownerId: ownerId, entitlement: result.entitlement!);
+    } on ClosedTestActivationFailure catch (failure) {
+      if (failure.kind == ClosedTestActivationFailureKind.notAuthorized) {
+        return InvestmentPremiumAccessState.denied(
+          problem: InvestmentPremiumAccessProblem.missing,
+          safeMessage: failure.safeMessage,
+        );
+      }
+      return InvestmentPremiumAccessState.confirmationError(
+        problem: InvestmentPremiumAccessProblem.confirmationUnavailable,
+        safeMessage: failure.safeMessage,
+      );
     } on PremiumEntitlementFailure catch (failure) {
       final bool invalid =
           failure.kind == PremiumEntitlementFailureKind.incompatibleSchema ||
@@ -197,6 +269,13 @@ final class InvestmentPremiumAccessController
       );
     }
   }
+
+  bool _isCurrentRequest({
+    required int requestVersion,
+    required String ownerId,
+  }) =>
+      requestVersion == _requestVersion &&
+      verifiedFinancialOwner(ref) == ownerId;
 
   InvestmentPremiumAccessState _decide({
     required String ownerId,

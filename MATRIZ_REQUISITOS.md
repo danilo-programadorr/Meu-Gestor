@@ -468,6 +468,14 @@
 | SUB-014-1F | Ativar somente o próprio testador validado | P0 | SUB-1F-1 | callable com payload vazio exige Auth, e-mail, App Check e perfil jurídico; UID, prazo e capabilities não vêm do app | local e testado | publicação futura autorizada | crítico | uma transação |
 | SUB-015-1F | Conceder/expiar individualmente sem restauração | P0 | SUB-1F-1 | início confiável, 15 dias por UID, idempotência, concorrência, expiração materializada, dados preservados e reativação negada | local e testado | relógio/worker server-side futuro | crítico | uma transação |
 
+## Incremento ACCESS-INV-DEV-1 — Integração Flutter da concessão fechada
+
+| ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |
+|---|---|---:|---:|---|---|---|---|---|
+| SUB-016-ACCESS | Ativar somente após ausência server-only | P0 | ACCESS-INV-DEV-1 | development chama a callable com payload vazio somente após ausência confirmada; production nunca chama | local e testado | callable development ainda não publicada | crítico | no máximo uma callable por UID/processo |
+| SUB-017-ACCESS | Impedir loops e respostas tardias | P0 | ACCESS-INV-DEV-1 | tentativa única compartilhada, retries concorrentes não duplicam chamada e mudança de sessão descarta resposta | local e testado | Auth/App Check | crítico | reduz invocações repetidas |
+| SUB-018-ACCESS | Exigir entitlement confirmado após ativação | P0 | ACCESS-INV-DEV-1 | somente releitura server-only presente, sem pending writes e validada pela política libera Investimentos | local e testado | Rules e diretório privado ainda não publicados | crítico | uma releitura adicional após sucesso |
+
 ## Incremento INV-2A — Calculadoras e análises manuais
 
 | ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |

@@ -100,6 +100,7 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - SUB-1E-3B-1 publica exclusivamente em development o bootstrap de três callables Premium Gen 2: leitura própria confirmada e stubs fechados de verificação/restauração. Não houve escrita Firestore, grant, RTDN, Play API, regra, App Check global ou acesso production.
 - A política de limpeza do Artifact Registry das Functions Premium development retém somente artefatos de deploy com até 14 dias na região configurada; nenhuma Function, revisão ou imagem foi excluída manualmente.
 - As três callables Premium foram republicadas exclusivamente em development com Node 22. O artefato de produção omite dependências opcionais, não contém Cloud Storage nem `uuid` transitivo e sua auditoria não encontrou vulnerabilidades; as regras SUB-1E continuam somente locais.
+- ACCESS-INV-DEV-1 conecta o APK development à ativação fechada com payload vazio somente após ausência server-only do entitlement; uma tentativa por UID/processo evita loops e múltiplos toques, e Investimentos só é liberado depois de nova releitura confirmada do servidor. Production não executa ativação automática; callable, Rules, testadores e grants reais permanecem sem alteração nesta etapa.
 
 ### Segurança
 

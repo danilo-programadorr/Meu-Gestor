@@ -1,6 +1,6 @@
 # ADR-026 — SUB-1F-1: ativação segura de Premium no teste fechado
 
-**Status:** implementado e validado somente localmente; não publicado, sem lista real, concessão real, Rules publicadas, APK, commit ou push.
+**Status:** backend e integração Flutter implementados localmente; callable e Rules não publicadas, sem lista, concessão ou entitlement real.
 
 ## Contexto
 
@@ -14,8 +14,10 @@ O requisito de participação contínua do teste fechado é atendido por uma con
 - A composição de Functions só ativa esse caminho quando o ambiente runtime explícito resolve para `development`; ausência, divergência ou `production` são negados antes de persistir qualquer dado.
 - A transação preserva idempotência e concorrência. Após expiração, a mesma identidade retorna o estado expirado, sem restaurar capabilities ou apagar dados. Uma concessão não substitui entitlement existente de outra origem.
 - A fonte permanece inválida em production. Não representa compra, assinatura, preço, cobrança, oferta Play de quinze dias ou o teste comercial `teste-3d`.
+- ACCESS-INV-DEV-1 integra o cliente somente em `development`: após ausência confirmada do entitlement no servidor, uma tentativa por UID/processo chama a callable com payload vazio. A resposta não concede acesso; uma segunda leitura server-only do entitlement é obrigatória e respostas tardias são descartadas.
 
 ## Consequências
 
 - A próxima publicação autorizada deverá incluir a nova callable e as Rules locais, criar o diretório privado por procedimento administrativo aprovado e observar App Check antes de conceder qualquer acesso.
 - Não há e-mail, UID, token, App ID, credencial ou lista de testadores no repositório. Fixtures usam somente identificadores sintéticos.
+- Production não referencia a ativação automática. Usuário não autorizado, App Check inválido, timeout, múltiplos toques e confirmação ainda ausente permanecem bloqueados sem criar bypass de depuração.

@@ -835,6 +835,15 @@ Situação: implementada e validada somente localmente. Não houve deploy, publi
 - A primeira ativação autorizada cria `closedTestGrant` de quinze dias individuais no relógio de servidor. A transação é idempotente e concorrente; expiração materializa estado `expired`, remove capabilities sem apagar dados e bloqueia restauração/reutilização.
 - Não há compra, cobrança, preço, teste Play de quinze dias, trial comercial de 72 horas, API Play, RTDN, Secret Manager ou produção. O catálogo futuro continua com `meu_gestor_premium`, planos `mensal`/`anual` e `teste-3d` somente mensal.
 
+### ACCESS-INV-DEV-1 — Integração Flutter da concessão fechada
+
+Situação: integração Flutter implementada localmente. A callable e as Rules continuam sem publicação, e nenhum testador, grant ou entitlement real foi criado.
+
+- Quando uma releitura server-only confirma ausência de entitlement, somente em `development`, o aplicativo chama `activateClosedTestPremium` uma vez por UID e por processo, com payload estritamente vazio. Production nunca executa essa ativação.
+- O cliente não envia UID, ambiente, duração, track, capabilities ou identificador de grant. Auth, e-mail confirmado, App Check, perfil jurídico, autorização privada e relógio permanecem responsabilidades do backend.
+- Sucesso da callable não concede acesso local: o entitlement precisa ser relido novamente do servidor, sem cache ou escrita pendente, e passar pela política Premium antes de liberar qualquer rota ou repositório de investimentos.
+- A tentativa única é compartilhada no processo para evitar loops, recriações do controller e múltiplos toques. Timeout, App Check inválido, usuário não autorizado, resposta tardia ou entitlement ainda ausente falham fechados e não liberam dados.
+
 ## 41. INV-2A — Calculadoras e análises manuais
 
 Situação: implementação local em andamento, sem API, cotação, Firebase ou escrita na carteira.
