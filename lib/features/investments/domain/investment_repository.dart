@@ -53,6 +53,14 @@ abstract interface class InvestmentRepository {
     required bool archived,
   });
 
+  /// Exclui permanentemente uma carteira somente quando não existe ativo,
+  /// operação ou provento vinculado a ela.
+  Future<void> deleteEmptyPortfolio({
+    required String ownerId,
+    required String portfolioId,
+    required int expectedRevision,
+  });
+
   Future<TrackedInvestmentAsset> createAsset({
     required String ownerId,
     required TrackedInvestmentAssetDraft draft,

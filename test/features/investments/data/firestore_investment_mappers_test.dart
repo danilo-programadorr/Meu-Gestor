@@ -20,18 +20,49 @@ void main() {
       'schemaVersion': 1,
       'revision': 1,
     };
-    expect(
-      FirestoreInvestmentPortfolioMapper.fromMap(
-        data: data,
-        documentId: 'portfolio-1',
-        expectedOwnerId: 'owner',
-      ).name,
-      'Longo prazo',
-    );
+    final InvestmentPortfolio legacy =
+        FirestoreInvestmentPortfolioMapper.fromMap(
+          data: data,
+          documentId: 'portfolio-1',
+          expectedOwnerId: 'owner',
+        );
+    expect(legacy.name, 'Longo prazo');
+    expect(legacy.hasHistory, isTrue);
     expect(
       () => FirestoreInvestmentPortfolioMapper.fromMap(
         data: <String, dynamic>{...data, 'extra': true},
         documentId: 'portfolio-1',
+        expectedOwnerId: 'owner',
+      ),
+      throwsException,
+    );
+  });
+
+  test('mapper de carteira schema 2 exige marcador de histórico estrito', () {
+    final Map<String, dynamic> data = <String, dynamic>{
+      'ownerId': 'owner',
+      'name': 'Sem histórico',
+      'description': '',
+      'isArchived': false,
+      'archivedAt': null,
+      'hasHistory': false,
+      'createdAt': time,
+      'updatedAt': time,
+      'schemaVersion': InvestmentPortfolio.currentSchemaVersion,
+      'revision': 1,
+    };
+    expect(
+      FirestoreInvestmentPortfolioMapper.fromMap(
+        data: data,
+        documentId: 'portfolio-2',
+        expectedOwnerId: 'owner',
+      ).hasHistory,
+      isFalse,
+    );
+    expect(
+      () => FirestoreInvestmentPortfolioMapper.fromMap(
+        data: <String, dynamic>{...data}..remove('hasHistory'),
+        documentId: 'portfolio-2',
         expectedOwnerId: 'owner',
       ),
       throwsException,
@@ -135,15 +166,19 @@ void main() {
   });
 
   test('rascunhos normalizam carteira, ticker e nome', () {
+    final Map<String, Object?> portfolioMap =
+        FirestoreInvestmentPortfolioMapper.creationMap(
+          ownerId: 'owner',
+          draft: const InvestmentPortfolioDraft(
+            name: '  Longo   prazo ',
+            description: '  Manual ',
+          ),
+        );
+    expect(portfolioMap['name'], 'Longo prazo');
+    expect(portfolioMap['hasHistory'], isFalse);
     expect(
-      FirestoreInvestmentPortfolioMapper.creationMap(
-        ownerId: 'owner',
-        draft: const InvestmentPortfolioDraft(
-          name: '  Longo   prazo ',
-          description: '  Manual ',
-        ),
-      )['name'],
-      'Longo prazo',
+      portfolioMap['schemaVersion'],
+      InvestmentPortfolio.currentSchemaVersion,
     );
     expect(
       FirestoreTrackedInvestmentAssetMapper.creationMap(

@@ -25,7 +25,7 @@ O arquivo público `firestore.rules` protege o perfil `users/{uid}`, as subcole�
 - edição de lançamento limitada a descrição, categoria compatível, data e notas;
 - cancelamento irreversível sem exclusão e sem participação no saldo.
 - compromissos pendentes não alteram saldo; confirmação e anulação exigem vínculo bidirecional e atualização atômica do lançamento esquema 2;
-- carteiras e ativos de acompanhamento pertencem ao próprio UID, usam campos exatos e não admitem exclusão;
+- carteiras e ativos de acompanhamento pertencem ao próprio UID e usam campos exatos; somente carteira schema 2 arquivada e marcada como nunca utilizada admite exclusão;
 - operações de investimento são imutáveis, encadeadas cronologicamente e só podem ser criadas ou anuladas junto da projeção do ativo;
 - vendas não excedem a posição nem aceitam taxa superior ao valor bruto; concorrência e repetição preservam uma única ponta válida da cadeia;
 - investimentos não criam lançamentos, não referenciam contas e não alteram o saldo real;
@@ -39,13 +39,13 @@ O arquivo público `firestore.rules` protege o perfil `users/{uid}`, as subcole�
 - listagem, escrita, entitlement desconhecido, subcoleções e acesso owner cruzado são negados;
 - eventos, vínculos, inbox RTDN, outbox de acknowledgement e grants internos Premium são totalmente inacessíveis ao cliente;
 - `_premiumClosedTestTesters/{uid}` e `_premiumClosedTestGrants/{grantId}` são diretório e auditoria internos do teste fechado: negam `get`, `list` e toda escrita ao cliente, inclusive owner; não armazenam e-mail;
-- o SUB-1C local exige entitlement estruturalmente válido e capability própria para ler investimentos; acesso histórico é somente leitura;
-- mutações exigem acesso integral no `request.time` e preservam contratos, referências, revisões, atomicidade e exclusões negadas;
-- `investmentsManual` não concede proventos e `investmentIncome` não concede carteira, ativo ou operação; owner não possui bypass.
+- FREE-1 remove entitlement e capability das decisões ativas de investimentos e cotações; Auth, e-mail confirmado, perfil jurídico e UID próprio continuam obrigatórios;
+- mutações preservam contratos, referências, revisões e atomicidade; o marcador `hasHistory` só transita de falso para verdadeiro e impede exclusão de histórico;
+- owner não possui bypass e a infraestrutura Premium interna continua integralmente inacessível ao cliente.
 
 ## Validação local e publicação
 
-As regras são exercitadas no Emulator Suite com projeto isolado `demo-*`, incluindo acessos negados, transições, concorrência, regressões do núcleo financeiro e auditoria do log. O conjunto SUB-1B foi publicado anteriormente somente em development com SHA-256 `F01E52545F2CE88896A48B28B957BF45F8AE79B0173DF2E20449929FF21532B4`. O enforcement SUB-1C alterou o arquivo apenas localmente: não houve deploy, Firebase real ou bloqueio de usuário development. A publicação futura depende de entitlements development emitidos com segurança por backend autorizado.
+As regras são exercitadas no Emulator Suite com projeto isolado `demo-*`, incluindo acessos negados, transições, concorrência, regressões do núcleo financeiro e auditoria do log. O conjunto SUB-1B foi publicado anteriormente somente em development com SHA-256 `F01E52545F2CE88896A48B28B957BF45F8AE79B0173DF2E20449929FF21532B4`. As alterações FREE-1 e INV-UX-3 permanecem exclusivamente locais: não houve deploy nem acesso Firebase neste checkpoint.
 
 Para manter operações complexas abaixo de 1.000 expressões, leituras validam o contrato completo do entitlement; mutações validam o conjunto exato de campos e os atributos determinantes de autorização. Validações duplicadas em transições de proventos foram eliminadas sem mudar campos, estados ou transições aceitos. A matriz local cobre também excesso de leituras, avaliação interrompida e erros internos.
 

@@ -1061,16 +1061,28 @@ service cloud.firestore {
             : false;
     }
 
-    function investmentPortfolioFields() {
+    function investmentPortfolioFieldsV1() {
       return [
         'ownerId', 'name', 'description', 'isArchived', 'archivedAt',
         'createdAt', 'updatedAt', 'schemaVersion', 'revision'
       ];
     }
 
+    function investmentPortfolioFieldsV2() {
+      return investmentPortfolioFieldsV1().concat(['hasHistory']);
+    }
+
+    function hasExactInvestmentPortfolioFields(data) {
+      return data.schemaVersion == 1
+        ? data.keys().hasAll(investmentPortfolioFieldsV1())
+          && data.keys().hasOnly(investmentPortfolioFieldsV1())
+        : data.schemaVersion == 2
+          && data.keys().hasAll(investmentPortfolioFieldsV2())
+          && data.keys().hasOnly(investmentPortfolioFieldsV2());
+    }
+
     function isValidInvestmentPortfolio(data, userId) {
-      return data.keys().hasAll(investmentPortfolioFields())
-        && data.keys().hasOnly(investmentPortfolioFields())
+      return hasExactInvestmentPortfolioFields(data)
         && data.ownerId == userId
         && data.name is string
         && data.name.size() >= 1
@@ -1087,7 +1099,8 @@ service cloud.firestore {
         && data.isArchived == (data.archivedAt != null)
         && data.createdAt is timestamp
         && data.updatedAt is timestamp
-        && data.schemaVersion == 1
+        && data.schemaVersion in [1, 2]
+        && (data.schemaVersion == 1 || data.hasHistory is bool)
         && data.revision is int
         && data.revision >= 1;
     }
@@ -1095,6 +1108,8 @@ service cloud.firestore {
     function isValidInvestmentPortfolioCreate(userId) {
       let data = request.resource.data;
       return isValidInvestmentPortfolio(data, userId)
+        && data.schemaVersion == 2
+        && data.hasHistory == false
         && data.isArchived == false
         && data.archivedAt == null
         && data.createdAt == request.time
@@ -1111,11 +1126,18 @@ service cloud.firestore {
         && data.schemaVersion == resource.data.schemaVersion
         && data.updatedAt == request.time
         && data.revision == resource.data.revision + 1
-        && changed.hasAny(['name', 'description', 'isArchived'])
+        && changed.hasAny([
+          'name', 'description', 'isArchived', 'hasHistory'
+        ])
         && changed.hasOnly([
           'name', 'description', 'isArchived', 'archivedAt', 'updatedAt',
-          'revision'
+          'revision', 'hasHistory'
         ])
+        && (
+          data.schemaVersion == 1
+          || data.hasHistory == resource.data.hasHistory
+          || resource.data.hasHistory == false && data.hasHistory == true
+        )
         && (
           data.isArchived == resource.data.isArchived
             ? data.archivedAt == resource.data.archivedAt
@@ -1181,7 +1203,11 @@ service cloud.firestore {
       let path = investmentPortfolioPath(userId, portfolioId);
       return existsAfter(path)
         && getAfter(path).data.ownerId == userId
-        && getAfter(path).data.isArchived == false;
+        && getAfter(path).data.isArchived == false
+        && (
+          getAfter(path).data.schemaVersion == 1
+          || getAfter(path).data.hasHistory == true
+        );
     }
 
     function isValidInvestmentAssetCreate(userId, assetId) {
@@ -1957,21 +1983,16 @@ service cloud.firestore {
       }
 
       match /investmentPortfolios/{portfolioId} {
-        allow get, list: if hasPremiumReadAccess(
-          userId,
-          'investmentsManual'
-        );
-        allow create: if hasPremiumMutationAccess(
-            userId,
-            'investmentsManual'
-          )
+        allow get, list: if hasFinancialAccess(userId);
+        allow create: if hasFinancialMutationAccess(userId)
           && isValidInvestmentPortfolioCreate(userId);
-        allow update: if hasPremiumMutationAccess(
-            userId,
-            'investmentsManual'
-          )
+        allow update: if hasFinancialMutationAccess(userId)
           && isValidInvestmentPortfolioUpdate(userId);
-        allow delete: if false;
+        allow delete: if hasFinancialMutationAccess(userId)
+          && isValidInvestmentPortfolio(resource.data, userId)
+          && resource.data.schemaVersion == 2
+          && resource.data.hasHistory == false
+          && resource.data.isArchived == true;
 
         match /{document=**} {
           allow read, write: if false;
@@ -1979,19 +2000,10 @@ service cloud.firestore {
       }
 
       match /investmentAssets/{assetId} {
-        allow get, list: if hasPremiumReadAccess(
-          userId,
-          'investmentsManual'
-        );
-        allow create: if hasPremiumMutationAccess(
-            userId,
-            'investmentsManual'
-          )
+        allow get, list: if hasFinancialAccess(userId);
+        allow create: if hasFinancialMutationAccess(userId)
           && isValidInvestmentAssetCreate(userId, assetId);
-        allow update: if hasPremiumMutationAccess(
-            userId,
-            'investmentsManual'
-          )
+        allow update: if hasFinancialMutationAccess(userId)
           && isValidInvestmentAssetUpdate(userId, assetId);
         allow delete: if false;
 
@@ -2001,19 +2013,10 @@ service cloud.firestore {
       }
 
       match /investmentOperations/{operationId} {
-        allow get, list: if hasPremiumReadAccess(
-          userId,
-          'investmentsManual'
-        );
-        allow create: if hasPremiumMutationAccess(
-            userId,
-            'investmentsManual'
-          )
+        allow get, list: if hasFinancialAccess(userId);
+        allow create: if hasFinancialMutationAccess(userId)
           && isValidInvestmentOperationCreate(userId, operationId);
-        allow update: if hasPremiumMutationAccess(
-            userId,
-            'investmentsManual'
-          )
+        allow update: if hasFinancialMutationAccess(userId)
           && isValidInvestmentOperationVoid(userId, operationId);
         allow delete: if false;
 
@@ -2023,19 +2026,10 @@ service cloud.firestore {
       }
 
       match /investmentIncomeEvents/{eventId} {
-        allow get, list: if hasPremiumReadAccess(
-          userId,
-          'investmentIncome'
-        );
-        allow create: if hasPremiumMutationAccess(
-            userId,
-            'investmentIncome'
-          )
+        allow get, list: if hasFinancialAccess(userId);
+        allow create: if hasFinancialMutationAccess(userId)
           && isValidInvestmentIncomeCreate(userId, eventId);
-        allow update: if hasPremiumMutationAccess(
-            userId,
-            'investmentIncome'
-          )
+        allow update: if hasFinancialMutationAccess(userId)
           && isValidInvestmentIncomeUpdate(userId);
         allow delete: if false;
 
@@ -2106,7 +2100,8 @@ service cloud.firestore {
     // O aplicativo lê somente documentos conhecidos por ticker; toda escrita,
     // listagem e subcoleção são exclusivamente server-side.
     match /marketQuoteSnapshots/{ticker} {
-      allow get: if hasPremiumQuoteServiceAccess(request.auth.uid);
+      allow get: if request.auth != null
+        && hasFinancialAccess(request.auth.uid);
       allow list, create, update, delete: if false;
 
       match /{document=**} {

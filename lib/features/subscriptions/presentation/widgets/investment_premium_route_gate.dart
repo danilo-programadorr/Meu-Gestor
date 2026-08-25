@@ -189,14 +189,6 @@ class _PremiumAccessScaffold extends StatelessWidget {
                                 : 'Voltar',
                           ),
                         ),
-                        if (title == 'Recurso Premium') ...<Widget>[
-                          const SizedBox(height: AppSpacing.xs),
-                          FilledButton.tonalIcon(
-                            onPressed: () => context.push(AppRoutes.premium),
-                            icon: const Icon(Icons.workspace_premium_outlined),
-                            label: const Text('Conhecer Premium'),
-                          ),
-                        ],
                       ],
                     ),
                   ),

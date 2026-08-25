@@ -15,14 +15,9 @@ import 'package:meu_gestor_financeiro/features/investments/presentation/controll
 import 'package:meu_gestor_financeiro/features/investments/presentation/controllers/investments_controller.dart';
 import 'package:meu_gestor_financeiro/features/profile/data/user_profile_providers.dart';
 import 'package:meu_gestor_financeiro/features/profile/presentation/controllers/profile_gate_controller.dart';
-import 'package:meu_gestor_financeiro/features/subscriptions/data/premium_entitlement_providers.dart';
-import 'package:meu_gestor_financeiro/features/subscriptions/domain/premium_entitlement.dart';
-import 'package:meu_gestor_financeiro/features/subscriptions/domain/premium_entitlement_status.dart';
-import 'package:meu_gestor_financeiro/features/subscriptions/presentation/controllers/investment_premium_access_controller.dart';
 
 import '../../../support/fake_auth_repository.dart';
 import '../../../support/fake_investment_repository.dart';
-import '../../../support/fake_premium_entitlement_repository.dart';
 import '../../../support/fake_user_profile_repository.dart';
 import '../../../support/profile_fixtures.dart';
 
@@ -570,13 +565,9 @@ void main() {
   );
 
   test(
-    'nega antes de gerar ID ou chamar repositório sem acesso integral',
+    'entitlement encerrado não participa do fluxo gratuito de investimentos',
     () async {
-      final _Context context = await _context(
-        premiumEntitlement: syntheticPremiumEntitlement(
-          status: PremiumEntitlementStatus.expired,
-        ),
-      );
+      final _Context context = await _context();
       addTearDown(context.dispose);
 
       final bool success = await context.container
@@ -585,11 +576,43 @@ void main() {
             const InvestmentPortfolioDraft(name: 'Bloqueada', description: ''),
           );
 
-      expect(success, isFalse);
-      expect(context.repository.generatedIdCount, 0);
-      expect(context.repository.createPortfolioCalls, 0);
+      expect(success, isTrue);
+      expect(context.repository.generatedIdCount, 1);
+      expect(context.repository.createPortfolioCalls, 1);
     },
   );
+
+  test('exclui somente carteira vazia e confirmada', () async {
+    final _Context context = await _context();
+    addTearDown(context.dispose);
+    final InvestmentActionController controller = context.container.read(
+      investmentActionControllerProvider.notifier,
+    );
+    expect(
+      await controller.createPortfolio(
+        const InvestmentPortfolioDraft(name: 'Temporária', description: ''),
+      ),
+      isTrue,
+    );
+    final InvestmentPortfolio portfolio = context.repository.portfolios.single;
+    expect(await controller.deleteEmptyPortfolio(portfolio), isTrue);
+    expect(context.repository.portfolios, isEmpty);
+  });
+
+  test('recusa exclusão de carteira com histórico', () async {
+    final _Context context = await _context(withAsset: true);
+    addTearDown(context.dispose);
+    final InvestmentPortfolio portfolio = context.repository.portfolios.single;
+    final bool success = await context.container
+        .read(investmentActionControllerProvider.notifier)
+        .deleteEmptyPortfolio(portfolio);
+    expect(success, isFalse);
+    expect(context.repository.portfolios, hasLength(1));
+    expect(
+      context.container.read(investmentActionControllerProvider).message,
+      contains('possui histórico'),
+    );
+  });
 }
 
 InvestmentIncomeDraft _incomeDraft({int grossCents = 1000}) =>
@@ -633,10 +656,7 @@ final class _Context {
   }
 }
 
-Future<_Context> _context({
-  bool withAsset = false,
-  PremiumEntitlement? premiumEntitlement,
-}) async {
+Future<_Context> _context({bool withAsset = false}) async {
   final FakeAuthRepository auth = FakeAuthRepository(
     initialUser: const AuthUser(
       id: 'owner',
@@ -645,10 +665,6 @@ Future<_Context> _context({
     ),
   );
   final FakeInvestmentRepository repository = FakeInvestmentRepository();
-  final FakePremiumEntitlementRepository premiumRepository =
-      FakePremiumEntitlementRepository(
-        entitlement: premiumEntitlement ?? syntheticPremiumEntitlement(),
-      );
   if (withAsset) {
     final DateTime now = DateTime.utc(2026, 8, 4, 12);
     repository.portfolios.add(
@@ -694,10 +710,6 @@ Future<_Context> _context({
         ),
       ),
       investmentRepositoryProvider.overrideWithValue(repository),
-      premiumEntitlementRepositoryProvider.overrideWithValue(premiumRepository),
-      premiumAccessReferenceClockProvider.overrideWithValue(
-        () => DateTime.utc(2026, 8, 10, 12),
-      ),
     ],
   );
   final Completer<void> gateReady = Completer<void>();

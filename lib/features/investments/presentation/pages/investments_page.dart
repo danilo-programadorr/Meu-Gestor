@@ -17,7 +17,6 @@ import 'package:meu_gestor_financeiro/features/investments/presentation/controll
 import 'package:meu_gestor_financeiro/features/investments/presentation/widgets/investment_analytics.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/widgets/investment_income_tab.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/widgets/investment_view_support.dart';
-import 'package:meu_gestor_financeiro/features/subscriptions/presentation/controllers/investment_premium_access_controller.dart';
 
 class InvestmentsPage extends ConsumerStatefulWidget {
   const InvestmentsPage({super.key});
@@ -62,12 +61,6 @@ class _InvestmentsPageState extends ConsumerState<InvestmentsPage>
     final InvestmentActionState action = ref.watch(
       investmentActionControllerProvider,
     );
-    final InvestmentPremiumAccessState? premiumAccess = ref
-        .watch(investmentPremiumAccessControllerProvider)
-        .value;
-    final bool canMutateManual = premiumAccess?.canMutateManual == true;
-    final bool canReadIncome = premiumAccess?.canReadIncome == true;
-    final bool canMutateIncome = premiumAccess?.canMutateIncome == true;
     return SafeBackScope(
       fallbackLocation: AppRoutes.home,
       child: Scaffold(
@@ -91,21 +84,18 @@ class _InvestmentsPageState extends ConsumerState<InvestmentsPage>
                   .read(financialPrivacyControllerProvider.notifier)
                   .toggle(),
             ),
-            if (canMutateManual)
-              IconButton(
-                tooltip: 'Criar carteira',
-                onPressed: action.isLoading
-                    ? null
-                    : () => context.push(AppRoutes.newInvestmentPortfolio),
-                icon: const Icon(Icons.add_rounded),
-              ),
+            IconButton(
+              tooltip: 'Criar carteira',
+              onPressed: action.isLoading
+                  ? null
+                  : () => context.push(AppRoutes.newInvestmentPortfolio),
+              icon: const Icon(Icons.add_rounded),
+            ),
           ],
         ),
         body: SafeArea(
           child: Column(
             children: <Widget>[
-              if (premiumAccess?.isReadOnly == true)
-                const _PremiumReadOnlyNotice(),
               Expanded(
                 child: workspace.when(
                   loading: () => const Center(
@@ -124,9 +114,6 @@ class _InvestmentsPageState extends ConsumerState<InvestmentsPage>
                     data,
                     valuesVisible: valuesVisible,
                     action: action,
-                    canMutateManual: canMutateManual,
-                    canReadIncome: canReadIncome,
-                    canMutateIncome: canMutateIncome,
                   ),
                 ),
               ),
@@ -141,9 +128,6 @@ class _InvestmentsPageState extends ConsumerState<InvestmentsPage>
     InvestmentsState data, {
     required bool valuesVisible,
     required InvestmentActionState action,
-    required bool canMutateManual,
-    required bool canReadIncome,
-    required bool canMutateIncome,
   }) {
     if (data.activePortfolios.isEmpty) {
       return RefreshIndicator(
@@ -158,10 +142,9 @@ class _InvestmentsPageState extends ConsumerState<InvestmentsPage>
             const SizedBox(height: AppSpacing.lg),
             _EmptyInvestments(
               hasArchived: data.archivedPortfolios.isNotEmpty,
-              canMutate: canMutateManual,
+              canMutate: true,
               onCreate: () => context.push(AppRoutes.newInvestmentPortfolio),
-              onArchived: () =>
-                  _showPortfolioManager(data, canMutateManual: canMutateManual),
+              onArchived: () => _showPortfolioManager(data),
             ),
           ],
         ),
@@ -189,7 +172,7 @@ class _InvestmentsPageState extends ConsumerState<InvestmentsPage>
           child: _PortfolioSelector(
             portfolios: data.activePortfolios,
             selected: selected,
-            canMutate: canMutateManual,
+            canMutate: true,
             onChanged: (InvestmentPortfolio value) => setState(() {
               _selectedPortfolioId = value.id;
               _operationAssetId = null;
@@ -197,8 +180,7 @@ class _InvestmentsPageState extends ConsumerState<InvestmentsPage>
               _assetSearchController.clear();
               _assetFilter = InvestmentAssetFilter.all;
             }),
-            onManage: () =>
-                _showPortfolioManager(data, canMutateManual: canMutateManual),
+            onManage: () => _showPortfolioManager(data),
           ),
         ),
         TabBar(
@@ -244,7 +226,7 @@ class _InvestmentsPageState extends ConsumerState<InvestmentsPage>
                 filter: _assetFilter,
                 sort: _assetSort,
                 actionLoading: action.isLoading,
-                canMutate: canMutateManual,
+                canMutate: true,
                 onQueryChanged: (String value) =>
                     setState(() => _assetQuery = value),
                 onFilterChanged: (InvestmentAssetFilter value) =>
@@ -273,7 +255,7 @@ class _InvestmentsPageState extends ConsumerState<InvestmentsPage>
                 assetId: _operationAssetId,
                 period: _operationPeriod,
                 actionLoading: action.isLoading,
-                canMutate: canMutateManual,
+                canMutate: true,
                 onKindChanged: (InvestmentOperationKind? value) =>
                     setState(() => _operationKind = value),
                 onAssetChanged: (String? value) =>
@@ -293,8 +275,6 @@ class _InvestmentsPageState extends ConsumerState<InvestmentsPage>
                 events: data.incomeEventsForPortfolio(selected.id),
                 valuesVisible: valuesVisible,
                 now: now,
-                canRead: canReadIncome,
-                canMutate: canMutateIncome,
                 onRefresh: () =>
                     ref.read(investmentsControllerProvider.notifier).refresh(),
               ),
@@ -352,10 +332,7 @@ class _InvestmentsPageState extends ConsumerState<InvestmentsPage>
     }
   }
 
-  Future<void> _showPortfolioManager(
-    InvestmentsState data, {
-    required bool canMutateManual,
-  }) async {
+  Future<void> _showPortfolioManager(InvestmentsState data) async {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -380,9 +357,7 @@ class _InvestmentsPageState extends ConsumerState<InvestmentsPage>
                   children: <Widget>[
                     Expanded(
                       child: Text(
-                        canMutateManual
-                            ? 'Gerenciar carteiras'
-                            : 'Consultar carteiras',
+                        'Gerenciar carteiras',
                         style: Theme.of(sheetContext).textTheme.titleLarge,
                       ),
                     ),
@@ -394,20 +369,17 @@ class _InvestmentsPageState extends ConsumerState<InvestmentsPage>
                   ],
                 ),
               ),
-              if (canMutateManual)
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.md,
-                  ),
-                  child: FilledButton.icon(
-                    onPressed: () {
-                      Navigator.of(sheetContext).pop();
-                      context.push(AppRoutes.newInvestmentPortfolio);
-                    },
-                    icon: const Icon(Icons.add_rounded),
-                    label: const Text('Criar carteira'),
-                  ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                child: FilledButton.icon(
+                  onPressed: () {
+                    Navigator.of(sheetContext).pop();
+                    context.push(AppRoutes.newInvestmentPortfolio);
+                  },
+                  icon: const Icon(Icons.add_rounded),
+                  label: const Text('Criar carteira'),
                 ),
+              ),
               const SizedBox(height: AppSpacing.sm),
               Expanded(
                 child: ListView(
@@ -428,30 +400,69 @@ class _InvestmentsPageState extends ConsumerState<InvestmentsPage>
                         Padding(
                           padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                           child: Card(
-                            child: ListTile(
-                              minTileHeight: 64,
-                              leading: Icon(
-                                portfolio.isArchived
-                                    ? Icons.inventory_2_outlined
-                                    : Icons.account_balance_wallet_outlined,
-                              ),
-                              title: Text(portfolio.name),
-                              subtitle: Text(
-                                portfolio.isArchived ? 'Arquivada' : 'Ativa',
-                              ),
-                              trailing: canMutateManual
-                                  ? PopupMenuButton<String>(
-                                      tooltip: 'Ações de ${portfolio.name}',
-                                      onSelected: (String action) async {
-                                        if (action == 'edit') {
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: <Widget>[
+                                ListTile(
+                                  minTileHeight: 64,
+                                  leading: Icon(
+                                    portfolio.isArchived
+                                        ? Icons.inventory_2_outlined
+                                        : Icons.account_balance_wallet_outlined,
+                                  ),
+                                  title: Text(portfolio.name),
+                                  subtitle: Text(
+                                    portfolio.isArchived
+                                        ? 'Arquivada'
+                                        : 'Ativa',
+                                  ),
+                                  trailing: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: <Widget>[
+                                      IconButton(
+                                        tooltip: 'Editar ${portfolio.name}',
+                                        onPressed: () async {
                                           Navigator.of(sheetContext).pop();
                                           await context.push(
                                             AppRoutes.editInvestmentPortfolio(
                                               portfolio.id,
                                             ),
                                           );
-                                          return;
-                                        }
+                                        },
+                                        icon: const Icon(Icons.edit_outlined),
+                                      ),
+                                      IconButton(
+                                        key: ValueKey<String>(
+                                          'delete-investment-portfolio-${portfolio.id}',
+                                        ),
+                                        tooltip: 'Excluir ${portfolio.name}',
+                                        onPressed: () async {
+                                          Navigator.of(sheetContext).pop();
+                                          await _confirmDeletePortfolio(
+                                            portfolio,
+                                          );
+                                        },
+                                        icon: Icon(
+                                          Icons.delete_outline_rounded,
+                                          color: Theme.of(
+                                            sheetContext,
+                                          ).colorScheme.error,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    AppSpacing.md,
+                                    0,
+                                    AppSpacing.md,
+                                    AppSpacing.xs,
+                                  ),
+                                  child: Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: TextButton.icon(
+                                      onPressed: () async {
                                         if (portfolio.isArchived) {
                                           final bool success = await ref
                                               .read(
@@ -470,23 +481,20 @@ class _InvestmentsPageState extends ConsumerState<InvestmentsPage>
                                         Navigator.of(sheetContext).pop();
                                         await _confirmArchive(portfolio);
                                       },
-                                      itemBuilder: (BuildContext context) =>
-                                          <PopupMenuEntry<String>>[
-                                            const PopupMenuItem<String>(
-                                              value: 'edit',
-                                              child: Text('Editar'),
-                                            ),
-                                            PopupMenuItem<String>(
-                                              value: 'archive',
-                                              child: Text(
-                                                portfolio.isArchived
-                                                    ? 'Restaurar'
-                                                    : 'Arquivar',
-                                              ),
-                                            ),
-                                          ],
-                                    )
-                                  : const Icon(Icons.visibility_outlined),
+                                      icon: Icon(
+                                        portfolio.isArchived
+                                            ? Icons.unarchive_outlined
+                                            : Icons.archive_outlined,
+                                      ),
+                                      label: Text(
+                                        portfolio.isArchived
+                                            ? 'Restaurar carteira'
+                                            : 'Arquivar sem apagar histórico',
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -495,6 +503,84 @@ class _InvestmentsPageState extends ConsumerState<InvestmentsPage>
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmDeletePortfolio(InvestmentPortfolio portfolio) async {
+    var confirmation = '';
+    final bool confirmed =
+        await showDialog<bool>(
+          context: context,
+          builder: (BuildContext dialogContext) => StatefulBuilder(
+            builder: (BuildContext context, StateSetter setDialogState) =>
+                AlertDialog(
+                  title: const Text('Excluir carteira vazia?'),
+                  content: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        Text(
+                          'A carteira “${portfolio.name}” será excluída permanentemente. A operação só continua se o servidor confirmar que ela não possui ativos, operações ou proventos.',
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        const Text('Digite EXCLUIR para confirmar.'),
+                        const SizedBox(height: AppSpacing.xs),
+                        TextField(
+                          key: const ValueKey<String>(
+                            'delete-investment-portfolio-confirmation',
+                          ),
+                          autocorrect: false,
+                          textCapitalization: TextCapitalization.characters,
+                          decoration: const InputDecoration(
+                            labelText: 'Confirmação',
+                          ),
+                          onChanged: (String value) =>
+                              setDialogState(() => confirmation = value),
+                        ),
+                      ],
+                    ),
+                  ),
+                  actions: <Widget>[
+                    TextButton(
+                      onPressed: () => Navigator.of(dialogContext).pop(false),
+                      child: const Text('Cancelar'),
+                    ),
+                    FilledButton(
+                      onPressed: confirmation.trim() == 'EXCLUIR'
+                          ? () => Navigator.of(dialogContext).pop(true)
+                          : null,
+                      child: const Text('Excluir permanentemente'),
+                    ),
+                  ],
+                ),
+          ),
+        ) ??
+        false;
+    if (!confirmed || !mounted) {
+      return;
+    }
+    final bool success = await ref
+        .read(investmentActionControllerProvider.notifier)
+        .deleteEmptyPortfolio(portfolio);
+    if (!mounted) {
+      return;
+    }
+    final InvestmentActionState result = ref.read(
+      investmentActionControllerProvider,
+    );
+    if (success) {
+      setState(() => _selectedPortfolioId = null);
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          result.message ??
+              (success
+                  ? 'Carteira vazia excluída permanentemente.'
+                  : 'Não foi possível excluir a carteira.'),
         ),
       ),
     );
@@ -1738,42 +1824,6 @@ class _EmptyInvestments extends StatelessWidget {
               label: const Text('Ver carteiras arquivadas'),
             ),
           ],
-        ],
-      ),
-    ),
-  );
-}
-
-class _PremiumReadOnlyNotice extends StatelessWidget {
-  const _PremiumReadOnlyNotice();
-
-  @override
-  Widget build(BuildContext context) => Semantics(
-    container: true,
-    label: 'Carteira de investimentos disponível somente para consulta',
-    child: Container(
-      width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(
-        AppSpacing.compactPageHorizontal,
-        AppSpacing.xs,
-        AppSpacing.compactPageHorizontal,
-        AppSpacing.xs,
-      ),
-      padding: const EdgeInsets.all(AppSpacing.sm),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.secondaryContainer,
-        borderRadius: AppRadius.medium,
-      ),
-      child: const Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Icon(Icons.lock_clock_outlined),
-          SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              'Seu acesso Premium terminou. Seus dados continuam preservados e a carteira está disponível somente para consulta.',
-            ),
-          ),
         ],
       ),
     ),

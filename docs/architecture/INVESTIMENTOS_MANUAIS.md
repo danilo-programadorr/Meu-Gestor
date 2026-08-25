@@ -13,7 +13,7 @@ Não há cotações, APIs externas, corretoras, Open Finance, agenda automática
 - `presentation`: controllers Riverpod, formulários, lista de carteiras/posições e detalhe com histórico;
 - `firestore.rules`: autorização por UID, perfil jurídico, contratos fechados e vínculo atômico entre ativo e operação.
 
-O SUB-1C acrescenta `PremiumGuardedInvestmentRepository`, um coordenador de entitlement confirmado pelo servidor e gates nas rotas. `investmentsManual` protege carteira, ativo e operação; `investmentIncome` protege proventos. Nenhuma camada confia exclusivamente nos widgets e owner não possui bypass.
+O FREE-1 conecta o provider ativo diretamente ao `FirebaseInvestmentRepository`: autenticação, e-mail confirmado, perfil jurídico, UID próprio e invariantes financeiras continuam obrigatórios, mas entitlement, cobrança e período de teste não participam mais da autorização. O antigo `PremiumGuardedInvestmentRepository` e os contratos comerciais permanecem isolados como infraestrutura inativa e reversível, sem referência pelo fluxo ativo.
 
 Tipos Firebase não entram no domínio e widgets não acessam Firestore diretamente.
 
@@ -42,6 +42,8 @@ Custo, preço médio e resultado são reconstruídos de operações imutáveis. 
 
 Criação de operação e atualização do ativo ocorrem na mesma transação Firestore. A operação referencia o topo anterior; o ativo passa a referenciar a nova operação e incrementa `revision`. Venda somente é aceita quando a quantidade disponível é suficiente.
 
+Carteiras novas usam esquema 2 e o marcador monotônico `hasHistory=false`. A criação do primeiro ativo eleva o marcador para `true` atomicamente. A exclusão permanente só é oferecida para uma carteira do esquema 2 que nunca teve histórico: o repositório confirma no servidor a ausência de ativos, operações e proventos, arquiva a carteira como trava, confirma novamente e então exclui sob revisão. Carteiras do esquema 1 ou com `hasHistory=true` continuam compatíveis para uso, mas só podem ser arquivadas.
+
 Anulação exige que a operação seja o topo atual. Operação e ativo mudam atomicamente: a operação se torna `isVoided=true` e o ativo restaura quantidade, ID e data anteriores. Repetição, revisão obsoleta ou duas gravações concorrentes têm no máximo um vencedor.
 
 Leituras e alterações relevantes exigem confirmação do servidor. Timeout, indisponibilidade e aborto são tratados como resultado incerto e preservam o mesmo ID de tentativa para reconciliação sem duplicação.
@@ -52,7 +54,7 @@ Investimentos são acessados pelo grupo Patrimônio no Menu da Home e não ocupa
 
 Valores e quantidades seguem a privacidade global compartilhada com a Home. Layouts cobrem temas claro/escuro, 320 px, fonte ampliada, rolagem, alvos de toque, tooltips e texto equivalente a indicadores visuais.
 
-Quando um entitlement antes válido perde vigência, a área permanece consultável e exibe aviso discreto de preservação. Criar, editar, arquivar, restaurar, comprar, vender, anular e alterar proventos desaparecem; “Gerenciar carteiras” passa a “Consultar carteiras”. Ausência, `pending`, documento inválido, capability ausente ou falha de confirmação não carregam o workspace. O fluxo negado não mostra preço, compra ou botão funcional de assinatura.
+Investimentos, proventos, calculadoras e análises são gratuitos. Não há tela, popup, rota ou verificação comercial no fluxo ativo. O gerenciador de carteiras mantém edição e lixeira lado a lado; a exclusão exige explicação, frase exata e confirmação do servidor. Resultados das ferramentas aparecem em modal acessível, detalhado, rolável e fechado explicitamente pelo `X`.
 
 O redesign UI-INV-1B permanece integralmente na apresentação. A área usa seletor de carteira e abas Resumo, Ativos, Lançamentos e Proventos. Evolução de compras/vendas é agregada das operações ativas; alocação usa o custo canônico das posições abertas. Busca, filtros e ordenação não gravam estado remoto.
 
@@ -74,4 +76,4 @@ Proventos são acompanhamento patrimonial. Não existe referência a conta, cate
 
 Security Rules não recalculam custo médio nem percorrem todo o histórico. Por isso operações devem ser cadastradas da mais antiga para a mais recente e correções antigas exigem anular primeiro as posteriores. O cliente não promete edição histórica arbitrária nem enfraquece regras para simulá-la.
 
-O enforcement SUB-1C e suas regras estão somente locais e não bloqueiam usuários do Firebase development. A publicação exige primeiro concessão development segura por backend autorizado. Google Play, compra e experiência comercial pertencem ao SUB-1D/SUB-1E-1.
+As alterações de Security Rules do FREE-1 permanecem somente locais neste checkpoint. A infraestrutura SUB-1 permanece preservada como histórico inativo e não autoriza chamada, bloqueio ou experiência comercial no runtime.

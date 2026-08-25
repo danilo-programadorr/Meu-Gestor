@@ -8,6 +8,10 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 ### Adicionado
 
+- INV-UX-3 adiciona lixeira ao lado da edição para excluir exclusivamente carteiras schema 2 nunca utilizadas, com frase exata, trava por arquivamento, confirmação server-only e marcador monotônico de histórico;
+- resultados rápidos de todas as calculadoras e análises passam a modal acessível e rolável, com entradas, premissas, resultado, aviso financeiro e fechamento explícito por `X`;
+- FREE-1 torna investimentos, proventos, calculadoras e análises gratuitos, removendo do fluxo ativo telas, rotas, popups e verificações comerciais; a infraestrutura anterior permanece isolada como histórico inativo e reversível.
+
 - fundação Flutter Android com arquitetura modular;
 - temas claro e escuro e sistema visual acessível;
 - objetos de valor para dinheiro em centavos e moeda BRL;

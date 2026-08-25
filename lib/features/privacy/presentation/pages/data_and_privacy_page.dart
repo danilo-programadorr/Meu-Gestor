@@ -24,7 +24,7 @@ class DataAndPrivacyPage extends ConsumerWidget {
           icon: Icons.restart_alt_outlined,
           title: 'Resetar dados financeiros',
           description:
-              'Remove contas, categorias, lançamentos, compromissos e investimentos. Mantém perfil, consentimentos, aparência, Premium e acesso proprietário.',
+              'Remove contas, categorias, lançamentos, compromissos e investimentos. Mantém perfil, consentimentos, aparência e acesso proprietário.',
           onTap: state.isBusy
               ? null
               : () => _showConfirmation(
@@ -39,7 +39,7 @@ class DataAndPrivacyPage extends ConsumerWidget {
           icon: Icons.delete_forever_outlined,
           title: 'Excluir permanentemente minha conta',
           description:
-              'Remove dados vinculados, perfil e acesso. Esta ação não cancela sua assinatura Google Play.',
+              'Remove dados vinculados, perfil e acesso de forma definitiva.',
           destructive: true,
           onTap: state.isBusy
               ? null
@@ -117,13 +117,6 @@ class DataAndPrivacyPage extends ConsumerWidget {
                     controller: password,
                     obscureText: true,
                     decoration: const InputDecoration(labelText: 'Senha atual'),
-                  ),
-                if (type == PrivacyOperationType.accountDeletion)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 12),
-                    child: Text(
-                      'Excluir a conta não cancela a assinatura Google Play. Gerencie-a pela Play Store quando aplicável.',
-                    ),
                   ),
               ],
             ),

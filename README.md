@@ -45,8 +45,8 @@ Concluído e validado localmente:
 - acompanhamento manual local de ações e fundos imobiliários por carteiras, compras e vendas, sem alterar o saldo;
 - proventos manuais previstos, recebidos, cancelados ou anulados, com dividendos, JCP e rendimentos de FII separados do núcleo financeiro;
 - acesso owner seguro, confirmado pelo servidor, com Área do proprietário e revalidação;
-- capabilities preparadas para futuros recursos de assinatura, funcionalidades pagas e IA;
-- entitlement Premium com domínio puro, backend SUB-1B local, enforcement SUB-1C e preparação local SUB-1D/SUB-1E-1 para um produto Google Play com planos-base; ainda sem cobrança, compra ou paywall real;
+- investimentos, proventos, calculadoras e análises disponíveis gratuitamente, sem rota, popup, cobrança ou verificação comercial no fluxo ativo;
+- infraestrutura histórica de entitlement e cobrança preservada de forma inativa e reversível, sem chamadas em runtime;
 - regras Firestore publicadas em development com isolamento por UID, campos fechados e negação por padrão;
 - testes unitários, de widgets, integração de fluxos e segurança estrutural.
 
@@ -201,10 +201,9 @@ O papel `owner` recebe capabilities centralizadas para módulos implementados, r
 - [x] Dashboard
 - [x] Acompanhamento manual de ações e FIIs
 - [x] Proventos manuais
-- [x] Domínio e contrato de entitlement Premium (sem cobrança ou paywall)
-- [x] Backend development local e leitura do entitlement; regras publicadas somente em development
-- [x] Enforcement Premium local e modo somente leitura em investimentos (regras ainda não publicadas)
-- [-] SUB-1D/SUB-1E-1: experiência e catálogo local Google Play preparados para um produto único; backend real e cobrança continuam bloqueados
+- [x] Infraestrutura histórica de entitlement e backend development, inativa pelo FREE-1
+- [x] FREE-1: investimentos, proventos, calculadoras e análises gratuitos
+- [-] Catálogo e cobrança Google Play preservados somente como histórico reversível, sem runtime ativo
 - [ ] Cotações atrasadas por provedor independente, condicionadas a licenciamento e SUB-1
 - [ ] Projeções
 - [ ] Cartões e faturas
@@ -229,10 +228,10 @@ Distribuído sob a licença [MIT](LICENSE).
 Construído de forma incremental, verificável e orientada à segurança.
 </div>
 
-## SUB-1D/SUB-1E-1 — Google Play Billing preparado localmente
+## Histórico inativo — SUB-1D/SUB-1E-1
 
-O mesmo checkpoint do SUB-1C inclui a página **Premium e assinatura**, acessível por Menu, Perfil e pela tela negada de investimentos. Há contratos de catálogo, compra, restauração, verificação, disponibilidade e gerenciamento externo. `in_app_purchase` 3.3.0 e `url_launcher` 6.3.2 são plugins mantidos pelo Flutter.
+O FREE-1 removeu do fluxo ativo a página comercial, seus acessos por Menu/Perfil, gates e verificações de entitlement. Os contratos e adaptadores anteriores permanecem isolados como histórico reversível, sem inicialização ou chamadas no runtime.
 
-O catálogo comercial aprovado tem o produto único `meu_gestor_premium`, planos-base `mensal` e `anual` e oferta `teste-3d` somente no mensal. Brasil é o país inicial; R$ 19,90/mês e R$ 209,90/ano são valores para configuração futura no Play Console. A interface exibe preço, moeda, elegibilidade e detalhes apenas quando a Play Store os devolver. Sem catálogo real, backend verificador e App Check preparado, mostra “Assinaturas em preparação” e nenhuma cobrança é iniciada.
+O catálogo, planos e oferta registrados no código documentam a proposta anterior. Eles não são exibidos, consultados ou tratados como planejamento comercial ativo após o FREE-1.
 
-Resposta local de compra nunca concede Premium: exige verificação de backend e releitura confirmada do entitlement. Não foram criados produtos Play, grants reais ou regras SUB-1E publicadas. Localmente, a próxima callable de teste fechado exige Auth, e-mail verificado, App Check e perfil jurídico, consulta diretório privado sem e-mail e prepara uma validade individual de 15 dias; ela ainda não foi publicada nem contém testador real. As três callables de bootstrap já publicadas em development continuam fechadas para compra/restauração; o artefato de produção omite dependências opcionais e sua auditoria não encontrou vulnerabilidades. O núcleo financeiro permanece gratuito; investimentos manuais e proventos permanecem Premium. A margem líquida não é prometida: dependerá de taxa Play, impostos, reembolsos e custos Cloud reais.
+Investimentos manuais, proventos, calculadoras e análises são gratuitos. As Functions e regras comerciais historicamente preparadas não são chamadas pelo aplicativo ativo nem concedem ou restringem esses recursos. Nenhum produto Play, compra ou cobrança integra a experiência atual.

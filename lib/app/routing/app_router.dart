@@ -45,9 +45,6 @@ import 'package:meu_gestor_financeiro/features/profile/presentation/pages/privac
 import 'package:meu_gestor_financeiro/features/profile/presentation/pages/profile_access_error_page.dart';
 import 'package:meu_gestor_financeiro/features/profile/presentation/pages/profile_page.dart';
 import 'package:meu_gestor_financeiro/features/profile/presentation/pages/profile_setup_page.dart';
-import 'package:meu_gestor_financeiro/features/subscriptions/domain/premium_capability.dart';
-import 'package:meu_gestor_financeiro/features/subscriptions/presentation/pages/premium_page.dart';
-import 'package:meu_gestor_financeiro/features/subscriptions/presentation/widgets/investment_premium_route_gate.dart';
 import 'package:meu_gestor_financeiro/features/transactions/domain/financial_transaction.dart';
 import 'package:meu_gestor_financeiro/features/transactions/presentation/pages/transaction_details_page.dart';
 import 'package:meu_gestor_financeiro/features/transactions/presentation/pages/transaction_form_page.dart';
@@ -315,99 +312,57 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((Ref ref) {
       ),
       GoRoute(
         path: AppRoutes.investments,
-        builder: (context, state) => const InvestmentPremiumRouteGate(
-          capability: PremiumCapability.investmentsManual,
-          intent: PremiumAccessIntent.read,
-          fallbackLocation: AppRoutes.home,
-          child: InvestmentsPage(),
-        ),
+        builder: (context, state) => const InvestmentsPage(),
       ),
       GoRoute(
         path: AppRoutes.investmentQuotes,
-        builder: (context, state) => const InvestmentPremiumRouteGate(
-          capability: PremiumCapability.investmentQuotes,
-          intent: PremiumAccessIntent.read,
-          child: InvestmentQuotesPage(),
-        ),
+        builder: (context, state) => const InvestmentQuotesPage(),
       ),
       GoRoute(
         path: AppRoutes.investmentTools,
-        builder: (context, state) => const InvestmentPremiumRouteGate(
-          capability: PremiumCapability.investmentCalculators,
-          intent: PremiumAccessIntent.read,
-          child: InvestmentToolsPage(),
-        ),
+        builder: (context, state) => const InvestmentToolsPage(),
       ),
       GoRoute(
         path: AppRoutes.newInvestmentPortfolio,
-        builder: (context, state) => const InvestmentPremiumRouteGate(
-          capability: PremiumCapability.investmentsManual,
-          intent: PremiumAccessIntent.mutate,
-          child: InvestmentPortfolioFormPage(),
-        ),
+        builder: (context, state) => const InvestmentPortfolioFormPage(),
       ),
       GoRoute(
         path: '/investimentos/carteira/:portfolioId/editar',
-        builder: (context, state) => InvestmentPremiumRouteGate(
-          capability: PremiumCapability.investmentsManual,
-          intent: PremiumAccessIntent.mutate,
-          child: InvestmentPortfolioFormPage(
-            portfolioId: state.pathParameters['portfolioId'],
-          ),
+        builder: (context, state) => InvestmentPortfolioFormPage(
+          portfolioId: state.pathParameters['portfolioId'],
         ),
       ),
       GoRoute(
         path: '/investimentos/ativo/novo',
-        builder: (context, state) => InvestmentPremiumRouteGate(
-          capability: PremiumCapability.investmentsManual,
-          intent: PremiumAccessIntent.mutate,
-          child: InvestmentAssetFormPage(
-            portfolioId: state.uri.queryParameters['portfolioId'] ?? '',
-          ),
+        builder: (context, state) => InvestmentAssetFormPage(
+          portfolioId: state.uri.queryParameters['portfolioId'] ?? '',
         ),
       ),
       GoRoute(
         path: '/investimentos/ativo/:assetId/operacao/nova',
-        builder: (context, state) => InvestmentPremiumRouteGate(
-          capability: PremiumCapability.investmentsManual,
-          intent: PremiumAccessIntent.mutate,
-          child: InvestmentOperationFormPage(
-            assetId: state.pathParameters['assetId'] ?? '',
-            initialKind: state.uri.queryParameters['kind'] == 'sell'
-                ? InvestmentOperationKind.sell
-                : InvestmentOperationKind.buy,
-          ),
+        builder: (context, state) => InvestmentOperationFormPage(
+          assetId: state.pathParameters['assetId'] ?? '',
+          initialKind: state.uri.queryParameters['kind'] == 'sell'
+              ? InvestmentOperationKind.sell
+              : InvestmentOperationKind.buy,
         ),
       ),
       GoRoute(
         path: '/investimentos/ativo/:assetId',
-        builder: (context, state) => InvestmentPremiumRouteGate(
-          capability: PremiumCapability.investmentsManual,
-          intent: PremiumAccessIntent.read,
-          child: InvestmentAssetDetailsPage(
-            assetId: state.pathParameters['assetId'] ?? '',
-          ),
+        builder: (context, state) => InvestmentAssetDetailsPage(
+          assetId: state.pathParameters['assetId'] ?? '',
         ),
       ),
       GoRoute(
         path: '/investimentos/provento/novo',
-        builder: (context, state) => InvestmentPremiumRouteGate(
-          capability: PremiumCapability.investmentIncome,
-          intent: PremiumAccessIntent.mutate,
-          child: InvestmentIncomeFormPage(
-            portfolioId: state.uri.queryParameters['portfolioId'] ?? '',
-          ),
+        builder: (context, state) => InvestmentIncomeFormPage(
+          portfolioId: state.uri.queryParameters['portfolioId'] ?? '',
         ),
       ),
       GoRoute(
         path: '/investimentos/provento/:eventId/editar',
-        builder: (context, state) => InvestmentPremiumRouteGate(
-          capability: PremiumCapability.investmentIncome,
-          intent: PremiumAccessIntent.mutate,
-          child: InvestmentIncomeFormPage(
-            eventId: state.pathParameters['eventId'],
-          ),
-        ),
+        builder: (context, state) =>
+            InvestmentIncomeFormPage(eventId: state.pathParameters['eventId']),
       ),
       GoRoute(
         path: AppRoutes.profileSetup,
@@ -420,10 +375,6 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((Ref ref) {
       GoRoute(
         path: AppRoutes.profile,
         builder: (context, state) => const ProfilePage(),
-      ),
-      GoRoute(
-        path: AppRoutes.premium,
-        builder: (context, state) => const PremiumPage(),
       ),
       GoRoute(
         path: AppRoutes.ownerArea,
@@ -459,7 +410,6 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((Ref ref) {
 bool _isValidProfileRoute(String location) {
   return location == AppRoutes.home ||
       location == AppRoutes.profile ||
-      location == AppRoutes.premium ||
       location == AppRoutes.privacyConsents ||
       location == AppRoutes.accounts ||
       location == AppRoutes.archivedAccounts ||

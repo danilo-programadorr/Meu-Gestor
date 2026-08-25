@@ -8,13 +8,14 @@ final class InvestmentPortfolio {
     required this.description,
     required this.isArchived,
     required this.archivedAt,
+    this.hasHistory = true,
     required this.createdAt,
     required this.updatedAt,
     required this.schemaVersion,
     required this.revision,
   });
 
-  static const int currentSchemaVersion = 1;
+  static const int currentSchemaVersion = 2;
   static const int maximumNameLength = 60;
   static const int maximumDescriptionLength = 160;
 
@@ -24,6 +25,7 @@ final class InvestmentPortfolio {
   final String description;
   final bool isArchived;
   final DateTime? archivedAt;
+  final bool hasHistory;
   final DateTime createdAt;
   final DateTime updatedAt;
   final int schemaVersion;
@@ -59,7 +61,8 @@ final class InvestmentPortfolio {
         normalizeName(portfolio.name) != portfolio.name ||
         normalizeDescription(portfolio.description) != portfolio.description ||
         portfolio.isArchived != (portfolio.archivedAt != null) ||
-        portfolio.schemaVersion != currentSchemaVersion ||
+        !<int>{1, currentSchemaVersion}.contains(portfolio.schemaVersion) ||
+        (portfolio.schemaVersion == 1 && !portfolio.hasHistory) ||
         portfolio.revision < 1) {
       throw const InvestmentFailure(
         kind: InvestmentFailureKind.incompatible,

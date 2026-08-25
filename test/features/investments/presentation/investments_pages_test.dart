@@ -182,7 +182,71 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Premium encerrado preserva dados e remove ações de alteração', (
+  testWidgets('lixeira ao lado da edição exclui somente após frase exata', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(320, 700));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final _WidgetContext context = await _context();
+    addTearDown(context.dispose);
+    final DateTime now = DateTime.utc(2026, 8, 4, 12);
+    context.repository.portfolios.add(
+      InvestmentPortfolio(
+        id: 'portfolio-empty',
+        ownerId: 'owner',
+        name: 'Carteira vazia',
+        description: '',
+        isArchived: false,
+        archivedAt: null,
+        hasHistory: false,
+        createdAt: now,
+        updatedAt: now,
+        schemaVersion: InvestmentPortfolio.currentSchemaVersion,
+        revision: 1,
+      ),
+    );
+    await context.container
+        .read(investmentsControllerProvider.notifier)
+        .refresh();
+    await _pump(tester, context, const InvestmentsPage());
+
+    await tester.tap(find.byTooltip('Gerenciar carteiras'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Editar Carteira vazia'), findsOneWidget);
+    expect(find.byTooltip('Excluir Carteira vazia'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(
+        const ValueKey<String>('delete-investment-portfolio-portfolio-empty'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final Finder deleteButton = find.widgetWithText(
+      FilledButton,
+      'Excluir permanentemente',
+    );
+    expect(tester.widget<FilledButton>(deleteButton).onPressed, isNull);
+    await tester.enterText(
+      find.byKey(
+        const ValueKey<String>('delete-investment-portfolio-confirmation'),
+      ),
+      'EXCLUIR',
+    );
+    await tester.pump();
+    expect(tester.widget<FilledButton>(deleteButton).onPressed, isNotNull);
+    await tester.tap(deleteButton);
+    await tester.pumpAndSettle();
+
+    expect(context.repository.portfolios, isEmpty);
+    expect(find.text('Carteira vazia'), findsNothing);
+    expect(
+      find.text('Carteira vazia excluída permanentemente.'),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('entitlement encerrado não limita investimentos gratuitos', (
     WidgetTester tester,
   ) async {
     final _WidgetContext context = await _context(
@@ -194,16 +258,13 @@ void main() {
     addTearDown(context.dispose);
     await _pump(tester, context, const InvestmentsPage());
 
-    expect(
-      find.textContaining('carteira está disponível somente para consulta'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('acesso Premium terminou'), findsNothing);
     expect(find.text('Custo atual acompanhado'), findsOneWidget);
-    expect(find.byTooltip('Criar carteira'), findsNothing);
-    expect(find.byTooltip('Gerenciar carteiras'), findsNothing);
-    expect(find.byTooltip('Consultar carteiras'), findsOneWidget);
+    expect(find.byTooltip('Criar carteira'), findsOneWidget);
+    expect(find.byTooltip('Gerenciar carteiras'), findsOneWidget);
+    expect(find.byTooltip('Consultar carteiras'), findsNothing);
     await _tapInvestmentTab(tester, 'Ativos');
-    expect(find.text('Adicionar ativo'), findsNothing);
+    expect(find.text('Adicionar ativo'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('PETR4'),
       180,
@@ -218,30 +279,25 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets(
-    'capability manual não consulta nem apresenta dados de proventos',
-    (WidgetTester tester) async {
-      final _WidgetContext context = await _context(
-        withIncome: true,
-        entitlement: syntheticPremiumEntitlement(
-          capabilities: const <PremiumCapability>{
-            PremiumCapability.investmentsManual,
-          },
-        ),
-      );
-      addTearDown(context.dispose);
-      await _pump(tester, context, const InvestmentsPage());
+  testWidgets('capability antiga não limita consulta gratuita de proventos', (
+    WidgetTester tester,
+  ) async {
+    final _WidgetContext context = await _context(
+      withIncome: true,
+      entitlement: syntheticPremiumEntitlement(
+        capabilities: const <PremiumCapability>{
+          PremiumCapability.investmentsManual,
+        },
+      ),
+    );
+    addTearDown(context.dispose);
+    await _pump(tester, context, const InvestmentsPage());
 
-      await _tapInvestmentTab(tester, 'Proventos');
-      expect(
-        find.text('Proventos não estão incluídos neste acesso Premium.'),
-        findsOneWidget,
-      );
-      expect(find.text('Rendimentos esperados'), findsNothing);
-      expect(context.repository.lastIncludeIncome, isFalse);
-      expect(tester.takeException(), isNull);
-    },
-  );
+    await _tapInvestmentTab(tester, 'Proventos');
+    expect(find.textContaining('acesso Premium'), findsNothing);
+    expect(context.repository.lastIncludeIncome, isTrue);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets(
     'rota direta de mutação encerrada não constrói conteúdo protegido',

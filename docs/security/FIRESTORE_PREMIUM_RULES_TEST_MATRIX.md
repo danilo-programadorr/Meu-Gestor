@@ -2,6 +2,8 @@
 
 Escopo: `users/{uid}/entitlements/premium` é somente leitura própria; coleções operacionais de billing e o diretório de teste fechado são totalmente privados. O SUB-1C acrescenta enforcement local às quatro coleções de investimentos. O SUB-1F-1 amplia a suíte para 70/70 no Emulator isolado: as novas regras permanecem somente locais, nenhum documento real foi criado e nenhum Firebase real foi acessado.
 
+> O enforcement de investimentos descrito aqui é histórico e foi substituído pelo FREE-1. As proteções dos caminhos internos Premium continuam vigentes, mas entitlement e capabilities não autorizam nem restringem o fluxo ativo de investimentos.
+
 | ID | Caso | Resultado esperado | Estado local |
 |---|---|---|---|
 | SUB-R-001 | usuário autenticado, verificado e com perfil jurídico lê o próprio `premium` | permitir `get` | automatizado |

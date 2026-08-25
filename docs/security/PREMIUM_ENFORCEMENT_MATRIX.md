@@ -2,6 +2,8 @@
 
 Estado: implementada e validada exclusivamente localmente. As regras não foram publicadas e nenhum Firebase real foi acessado.
 
+> Matriz histórica substituída pelo FREE-1. Nenhuma linha abaixo governa o runtime ativo; investimentos, proventos, calculadoras e análises não consultam entitlement. O documento é mantido somente para reversibilidade da infraestrutura.
+
 | Entitlement | Capability solicitada | Leitura histórica | Mutação |
 |---|---|---:|---:|
 | ausente | qualquer | negar | negar |

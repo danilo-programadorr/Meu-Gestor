@@ -304,6 +304,119 @@ final class FirebaseInvestmentRepository implements InvestmentRepository {
   }
 
   @override
+  Future<void> deleteEmptyPortfolio({
+    required String ownerId,
+    required String portfolioId,
+    required int expectedRevision,
+  }) async {
+    final DocumentReference<Map<String, dynamic>> reference = _portfolios(
+      ownerId,
+    ).doc(portfolioId);
+    try {
+      InvestmentPortfolio current = await _readPortfolio(ownerId, portfolioId);
+      if (current.revision != expectedRevision) {
+        throw _concurrencyFailure();
+      }
+      if (current.schemaVersion != InvestmentPortfolio.currentSchemaVersion ||
+          current.hasHistory) {
+        throw const InvestmentFailure(
+          kind: InvestmentFailureKind.failedPrecondition,
+          safeMessage:
+              'Esta carteira pode conter histórico e não pode ser excluída. Arquive-a para preservar os dados.',
+          code: 'investment_portfolio_delete_history_marker',
+        );
+      }
+      await _requirePortfolioEmpty(ownerId, portfolioId);
+
+      if (!current.isArchived) {
+        current = await setPortfolioArchived(
+          ownerId: ownerId,
+          portfolioId: portfolioId,
+          expectedRevision: current.revision,
+          archived: true,
+        );
+      }
+
+      // O arquivamento é a trava: as regras passam a negar novos ativos,
+      // operações e proventos antes da verificação definitiva.
+      await _requirePortfolioEmpty(ownerId, portfolioId);
+      await _firestore
+          .runTransaction<void>((Transaction transaction) async {
+            final InvestmentPortfolio locked = _portfolioFromSnapshot(
+              await transaction.get(reference),
+              ownerId,
+            );
+            if (!locked.isArchived || locked.revision != current.revision) {
+              throw _concurrencyFailure();
+            }
+            transaction.delete(reference);
+          })
+          .timeout(_timeout);
+    } on Object catch (error) {
+      if (_isUncertain(error)) {
+        final InvestmentPortfolio? remaining = await _tryReadPortfolio(
+          ownerId,
+          portfolioId,
+        );
+        if (remaining == null) {
+          return;
+        }
+      }
+      throw _mapAndRecord(
+        'delete_empty_investment_portfolio',
+        'locked_server_check',
+        error,
+      );
+    }
+  }
+
+  Future<void> _requirePortfolioEmpty(
+    String ownerId,
+    String portfolioId,
+  ) async {
+    final GetOptions options = const GetOptions(source: Source.server);
+    final List<QuerySnapshot<Map<String, dynamic>>> references =
+        await Future.wait<QuerySnapshot<Map<String, dynamic>>>(
+          <Future<QuerySnapshot<Map<String, dynamic>>>>[
+            _assets(ownerId)
+                .where('portfolioId', isEqualTo: portfolioId)
+                .limit(1)
+                .get(options),
+            _operations(ownerId)
+                .where('portfolioId', isEqualTo: portfolioId)
+                .limit(1)
+                .get(options),
+            _incomeEvents(ownerId)
+                .where('portfolioId', isEqualTo: portfolioId)
+                .limit(1)
+                .get(options),
+          ],
+        ).timeout(_timeout);
+    if (references.any(
+      (QuerySnapshot<Map<String, dynamic>> snapshot) =>
+          snapshot.metadata.isFromCache || snapshot.metadata.hasPendingWrites,
+    )) {
+      throw const InvestmentFailure(
+        kind: InvestmentFailureKind.failedPrecondition,
+        safeMessage:
+            'Não foi possível confirmar que a carteira está vazia no servidor.',
+        code: 'investment_portfolio_delete_server_confirmation_required',
+      );
+    }
+    if (references.any(
+      (QuerySnapshot<Map<String, dynamic>> snapshot) =>
+          snapshot.docs.isNotEmpty,
+    )) {
+      throw const InvestmentFailure(
+        kind: InvestmentFailureKind.failedPrecondition,
+        safeMessage:
+            'Esta carteira possui histórico. Para preservá-lo, arquive a carteira em vez de excluí-la.',
+        code: 'investment_portfolio_delete_has_history',
+      );
+    }
+  }
+
+  @override
   Future<TrackedInvestmentAsset> createAsset({
     required String ownerId,
     required TrackedInvestmentAssetDraft draft,
@@ -334,6 +447,16 @@ final class FirebaseInvestmentRepository implements InvestmentRepository {
             }
             final DocumentSnapshot<Map<String, dynamic>> existing =
                 await transaction.get(assetReference);
+            if (!portfolio.hasHistory) {
+              transaction.update(
+                _portfolios(ownerId).doc(normalized.portfolioId),
+                <String, Object>{
+                  'hasHistory': true,
+                  'updatedAt': FieldValue.serverTimestamp(),
+                  'revision': portfolio.revision + 1,
+                },
+              );
+            }
             if (existing.exists) {
               final TrackedInvestmentAsset asset = _assetFromSnapshot(
                 existing,

@@ -79,7 +79,6 @@ class _HomePageState extends ConsumerState<HomePage> {
             onPayables: () => _push(AppRoutes.payables),
             onReceivables: () => _push(AppRoutes.receivables),
             onInvestments: () => _push(AppRoutes.investments),
-            onPremium: () => _push(AppRoutes.premium),
             onTransaction: (String transactionId) =>
                 _push(AppRoutes.transactionDetails(transactionId)),
             onRetryWorkspace: _refreshWorkspace,

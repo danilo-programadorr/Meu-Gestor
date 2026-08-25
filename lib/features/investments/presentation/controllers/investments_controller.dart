@@ -8,7 +8,6 @@ import 'package:meu_gestor_financeiro/features/investments/domain/investment_por
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_position.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_repository.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/tracked_investment_asset.dart';
-import 'package:meu_gestor_financeiro/features/subscriptions/presentation/controllers/investment_premium_access_controller.dart';
 
 final AsyncNotifierProvider<InvestmentsController, InvestmentsState>
 investmentsControllerProvider =
@@ -102,27 +101,9 @@ final class InvestmentsController extends AsyncNotifier<InvestmentsState> {
 
   Future<InvestmentsState> _load() async {
     final String ownerId = requireInvestmentOwner(ref);
-    final InvestmentPremiumAccessState premiumAccess = await ref.watch(
-      investmentPremiumAccessControllerProvider.future,
-    );
-    if (!premiumAccess.canReadManual) {
-      throw InvestmentFailure(
-        kind:
-            premiumAccess.status ==
-                InvestmentPremiumAccessStatus.confirmationError
-            ? InvestmentFailureKind.premiumConfirmationUnavailable
-            : InvestmentFailureKind.premiumRequired,
-        safeMessage: premiumAccess.safeMessage,
-        code: 'investment_premium_read_denied',
-      );
-    }
     final InvestmentWorkspaceReadResult result = await ref
         .read(investmentRepositoryProvider)
-        .readWorkspace(
-          ownerId: ownerId,
-          serverOnly: true,
-          includeIncome: premiumAccess.canReadIncome,
-        );
+        .readWorkspace(ownerId: ownerId, serverOnly: true, includeIncome: true);
     if (!result.isFromServer || result.hasPendingWrites) {
       throw const InvestmentFailure(
         kind: InvestmentFailureKind.failedPrecondition,

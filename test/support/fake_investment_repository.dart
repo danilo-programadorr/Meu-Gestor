@@ -95,9 +95,10 @@ final class FakeInvestmentRepository implements InvestmentRepository {
       description: draft.normalized().description,
       isArchived: false,
       archivedAt: null,
+      hasHistory: false,
       createdAt: now,
       updatedAt: now,
-      schemaVersion: 1,
+      schemaVersion: InvestmentPortfolio.currentSchemaVersion,
       revision: 1,
     );
     portfolios.add(value);
@@ -121,9 +122,10 @@ final class FakeInvestmentRepository implements InvestmentRepository {
       description: draft.normalized().description,
       isArchived: current.isArchived,
       archivedAt: current.archivedAt,
+      hasHistory: current.hasHistory,
       createdAt: current.createdAt,
       updatedAt: DateTime.utc(2026, 8, 4, 12),
-      schemaVersion: 1,
+      schemaVersion: current.schemaVersion,
       revision: current.revision + 1,
     );
     portfolios[index] = value;
@@ -148,13 +150,59 @@ final class FakeInvestmentRepository implements InvestmentRepository {
       description: current.description,
       isArchived: archived,
       archivedAt: archived ? now : null,
+      hasHistory: current.hasHistory,
       createdAt: current.createdAt,
       updatedAt: now,
-      schemaVersion: 1,
+      schemaVersion: current.schemaVersion,
       revision: current.revision + 1,
     );
     portfolios[index] = value;
     return value;
+  }
+
+  @override
+  Future<void> deleteEmptyPortfolio({
+    required String ownerId,
+    required String portfolioId,
+    required int expectedRevision,
+  }) async {
+    _throwIfNeeded();
+    final int index = portfolios.indexWhere(
+      (InvestmentPortfolio value) => value.id == portfolioId,
+    );
+    if (index < 0) {
+      throw const InvestmentFailure(
+        kind: InvestmentFailureKind.notFound,
+        safeMessage: 'Carteira não encontrada.',
+      );
+    }
+    final InvestmentPortfolio current = portfolios[index];
+    if (current.ownerId != ownerId || current.revision != expectedRevision) {
+      throw const InvestmentFailure(
+        kind: InvestmentFailureKind.aborted,
+        safeMessage: 'A carteira foi alterada. Atualize e tente novamente.',
+      );
+    }
+    final bool hasHistory =
+        current.schemaVersion != InvestmentPortfolio.currentSchemaVersion ||
+        current.hasHistory ||
+        assets.any(
+          (TrackedInvestmentAsset value) => value.portfolioId == portfolioId,
+        ) ||
+        operations.any(
+          (InvestmentOperation value) => value.portfolioId == portfolioId,
+        ) ||
+        incomeEvents.any(
+          (InvestmentIncomeEvent value) => value.portfolioId == portfolioId,
+        );
+    if (hasHistory) {
+      throw const InvestmentFailure(
+        kind: InvestmentFailureKind.failedPrecondition,
+        safeMessage:
+            'Esta carteira possui histórico. Para preservá-lo, arquive a carteira em vez de excluí-la.',
+      );
+    }
+    portfolios.removeAt(index);
   }
 
   @override
@@ -184,6 +232,25 @@ final class FakeInvestmentRepository implements InvestmentRepository {
       schemaVersion: 1,
       revision: 1,
     );
+    final int portfolioIndex = portfolios.indexWhere(
+      (InvestmentPortfolio portfolio) => portfolio.id == normalized.portfolioId,
+    );
+    final InvestmentPortfolio portfolio = portfolios[portfolioIndex];
+    if (!portfolio.hasHistory) {
+      portfolios[portfolioIndex] = InvestmentPortfolio(
+        id: portfolio.id,
+        ownerId: portfolio.ownerId,
+        name: portfolio.name,
+        description: portfolio.description,
+        isArchived: portfolio.isArchived,
+        archivedAt: portfolio.archivedAt,
+        hasHistory: true,
+        createdAt: portfolio.createdAt,
+        updatedAt: now,
+        schemaVersion: portfolio.schemaVersion,
+        revision: portfolio.revision + 1,
+      );
+    }
     assets.add(value);
     return value;
   }

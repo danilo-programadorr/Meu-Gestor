@@ -100,6 +100,20 @@ final class PremiumGuardedInvestmentRepository implements InvestmentRepository {
   }
 
   @override
+  Future<void> deleteEmptyPortfolio({
+    required String ownerId,
+    required String portfolioId,
+    required int expectedRevision,
+  }) {
+    _requireMutation(PremiumCapability.investmentsManual);
+    return _delegate.deleteEmptyPortfolio(
+      ownerId: ownerId,
+      portfolioId: portfolioId,
+      expectedRevision: expectedRevision,
+    );
+  }
+
+  @override
   Future<TrackedInvestmentAsset> createAsset({
     required String ownerId,
     required TrackedInvestmentAssetDraft draft,

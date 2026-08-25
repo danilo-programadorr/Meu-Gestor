@@ -106,7 +106,7 @@ class _InvestmentToolsPageState extends ConsumerState<InvestmentToolsPage> {
                     'rate',
                     suffix: 'Use pontos-base: 100 = 1%',
                   ),
-                  _resultButton(() {
+                  _resultButton('Primeiro milhão', () {
                     final p = _money('principal');
                     final c = _money('contribution');
                     final r = _number('rate');
@@ -116,7 +116,35 @@ class _InvestmentToolsPageState extends ConsumerState<InvestmentToolsPage> {
                       monthlyContributionCents: c,
                       monthlyRateBasisPoints: r,
                     );
-                    return 'Estimativa: ${v.periods} meses; saldo ${_moneyText(v.amountCents, visible)}.';
+                    final int years = v.periods ~/ 12;
+                    final int remainingMonths = v.periods % 12;
+                    return _ToolCalculationResult(
+                      title: 'Resultado — primeiro milhão',
+                      summary: v.periods >= 1200 && v.amountCents < 100000000
+                          ? 'A meta não foi atingida no limite de 100 anos da simulação.'
+                          : 'Meta estimada em ${v.periods} meses.',
+                      details: <_ToolResultDetail>[
+                        _ToolResultDetail(
+                          'Valor inicial',
+                          _moneyText(p, visible),
+                        ),
+                        _ToolResultDetail(
+                          'Aporte mensal',
+                          _moneyText(c, visible),
+                        ),
+                        _ToolResultDetail('Taxa mensal', _basisPoints(r)),
+                        _ToolResultDetail(
+                          'Prazo',
+                          '$years anos e $remainingMonths meses',
+                        ),
+                        _ToolResultDetail(
+                          'Saldo estimado',
+                          _moneyText(v.amountCents, visible),
+                        ),
+                      ],
+                      explanation:
+                          'A simulação aplica a taxa ao saldo e depois soma o aporte a cada mês. Não considera impostos, inflação, taxas ou variação de mercado.',
+                    );
                   }),
                 ],
               ),
@@ -133,7 +161,7 @@ class _InvestmentToolsPageState extends ConsumerState<InvestmentToolsPage> {
                   ),
                   _integerField('Períodos', 'periods'),
                   _moneyField('Aporte mensal (opcional)', 'contribution'),
-                  _resultButton(() {
+                  _resultButton('Juros simples e compostos', () {
                     final p = _money('principal');
                     final r = _number('rate');
                     final n = _number('periods');
@@ -151,7 +179,41 @@ class _InvestmentToolsPageState extends ConsumerState<InvestmentToolsPage> {
                       months: n,
                       monthlyContributionCents: _money('contribution') ?? 0,
                     );
-                    return 'Simples: ${_moneyText(simple.totalCents, visible)}. Compostos: ${_moneyText(compound.totalCents, visible)}.';
+                    final int contribution = _money('contribution') ?? 0;
+                    return _ToolCalculationResult(
+                      title: 'Resultado — juros',
+                      summary:
+                          'Comparação matemática com a mesma taxa informada em duas periodicidades distintas.',
+                      details: <_ToolResultDetail>[
+                        _ToolResultDetail(
+                          'Capital inicial',
+                          _moneyText(p, visible),
+                        ),
+                        _ToolResultDetail('Taxa informada', _basisPoints(r)),
+                        _ToolResultDetail(
+                          'Juros simples',
+                          _moneyText(simple.interestCents, visible),
+                        ),
+                        _ToolResultDetail(
+                          'Total simples',
+                          _moneyText(simple.totalCents, visible),
+                        ),
+                        _ToolResultDetail(
+                          'Aporte mensal',
+                          _moneyText(contribution, visible),
+                        ),
+                        _ToolResultDetail(
+                          'Juros compostos',
+                          _moneyText(compound.interestCents, visible),
+                        ),
+                        _ToolResultDetail(
+                          'Total composto',
+                          _moneyText(compound.totalCents, visible),
+                        ),
+                      ],
+                      explanation:
+                          'No cálculo simples, a taxa é anual e o número informado representa dias. No composto, a taxa é mensal e o mesmo número representa meses; os aportes entram ao fim de cada mês.',
+                    );
                   }),
                 ],
               ),
@@ -181,7 +243,7 @@ class _InvestmentToolsPageState extends ConsumerState<InvestmentToolsPage> {
                     ],
                     onChanged: (v) => setState(() => _percentageOperation = v!),
                   ),
-                  _resultButton(() {
+                  _resultButton('Porcentagem', () {
                     final b = _money('base');
                     final r = _number('percentage');
                     if (b == null || r == null) return null;
@@ -190,7 +252,30 @@ class _InvestmentToolsPageState extends ConsumerState<InvestmentToolsPage> {
                       rateBasisPoints: r,
                       operation: _percentageOperation,
                     );
-                    return 'Variação: ${_moneyText(v.deltaCents, visible)}. Resultado: ${_moneyText(v.resultCents, visible)}.';
+                    final String operation =
+                        _percentageOperation == PercentageOperation.increase
+                        ? 'Aumento'
+                        : 'Desconto';
+                    return _ToolCalculationResult(
+                      title: 'Resultado — porcentagem',
+                      summary:
+                          '$operation de ${_basisPoints(r)} sobre o valor-base.',
+                      details: <_ToolResultDetail>[
+                        _ToolResultDetail('Valor-base', _moneyText(b, visible)),
+                        _ToolResultDetail('Operação', operation),
+                        _ToolResultDetail('Percentual', _basisPoints(r)),
+                        _ToolResultDetail(
+                          'Variação',
+                          _moneyText(v.deltaCents, visible),
+                        ),
+                        _ToolResultDetail(
+                          'Resultado',
+                          _moneyText(v.resultCents, visible),
+                        ),
+                      ],
+                      explanation:
+                          'O percentual é aplicado diretamente sobre o valor-base informado. Descontos nunca produzem resultado monetário negativo.',
+                    );
                   }),
                 ],
               ),
@@ -207,23 +292,50 @@ class _InvestmentToolsPageState extends ConsumerState<InvestmentToolsPage> {
                     'yield',
                     suffix: '600 = 6%',
                   ),
-                  _resultButton(() {
+                  _resultButton('Graham e Bazin', () {
                     final eps = _money('eps');
                     final vpa = _money('vpa');
                     final d = _money('dividend');
                     final y = _number('yield');
-                    final List<String> values = <String>[];
+                    final List<_ToolResultDetail> values =
+                        <_ToolResultDetail>[];
                     if (eps != null && vpa != null && eps > 0 && vpa > 0) {
                       values.add(
-                        'Graham: ${_moneyText(InvestmentTools.grahamFairPriceCents(earningsPerShareCents: eps, bookValuePerShareCents: vpa), visible)}',
+                        _ToolResultDetail(
+                          'Preço justo de Graham',
+                          _moneyText(
+                            InvestmentTools.grahamFairPriceCents(
+                              earningsPerShareCents: eps,
+                              bookValuePerShareCents: vpa,
+                            ),
+                            visible,
+                          ),
+                        ),
                       );
                     }
                     if (d != null && y != null && d > 0 && y > 0) {
                       values.add(
-                        'Bazin: ${_moneyText(InvestmentTools.bazinCeilingPriceCents(annualDividendPerShareCents: d, desiredYieldBasisPoints: y), visible)}',
+                        _ToolResultDetail(
+                          'Preço-teto de Bazin',
+                          _moneyText(
+                            InvestmentTools.bazinCeilingPriceCents(
+                              annualDividendPerShareCents: d,
+                              desiredYieldBasisPoints: y,
+                            ),
+                            visible,
+                          ),
+                        ),
                       );
                     }
-                    return values.isEmpty ? null : values.join(' · ');
+                    if (values.isEmpty) return null;
+                    return _ToolCalculationResult(
+                      title: 'Resultado — Graham e Bazin',
+                      summary:
+                          'Referências matemáticas calculadas apenas com os dados manuais válidos.',
+                      details: values,
+                      explanation:
+                          'Graham usa √(22,5 × LPA × VPA). Bazin divide o dividendo anual por cota pelo yield desejado. As fórmulas não avaliam qualidade, risco, liquidez ou preço de mercado e não constituem recomendação.',
+                    );
                   }),
                 ],
               ),
@@ -277,7 +389,7 @@ class _InvestmentToolsPageState extends ConsumerState<InvestmentToolsPage> {
                     ),
                     onChanged: (v) => setState(() => _checked = v!),
                   ),
-                  _resultButton(() {
+                  _resultButton('Análise manual', () {
                     final analysis = ManualAssetAnalysis(
                       kind: _assetKind,
                       positive: _positive,
@@ -285,9 +397,21 @@ class _InvestmentToolsPageState extends ConsumerState<InvestmentToolsPage> {
                       completedChecklistItems: _checked,
                       totalChecklistItems: 5,
                     );
-                    return analysis.findings
-                        .map((f) => '${f.kind.name}: ${f.message}')
-                        .join('\n');
+                    return _ToolCalculationResult(
+                      title: 'Resultado — análise manual',
+                      summary:
+                          '${_assetKind == ManualAssetKind.stock ? 'Ação' : 'FII'} com $_checked de 5 itens do checklist preenchidos.',
+                      details: analysis.findings
+                          .map(
+                            (InvestmentFinding finding) => _ToolResultDetail(
+                              _findingLabel(finding.kind),
+                              finding.message,
+                            ),
+                          )
+                          .toList(growable: false),
+                      explanation:
+                          'O resultado organiza somente as marcações informadas. Ele não atribui nota, não consulta mercado e não recomenda comprar, vender ou manter.',
+                    );
                   }),
                 ],
               ),
@@ -309,14 +433,40 @@ class _InvestmentToolsPageState extends ConsumerState<InvestmentToolsPage> {
                     _secondComparisonItems,
                     (value) => setState(() => _secondComparisonItems = value),
                   ),
-                  _resultButton(
-                    () => ManualAssetComparison(
-                      firstName: _fields['firstAsset']!.text,
-                      firstChecklistItems: _firstComparisonItems,
-                      secondName: _fields['secondAsset']!.text,
-                      secondChecklistItems: _secondComparisonItems,
-                    ).finding.message,
-                  ),
+                  _resultButton('Comparação de ativos', () {
+                    final ManualAssetComparison comparison =
+                        ManualAssetComparison(
+                          firstName: _fields['firstAsset']!.text,
+                          firstChecklistItems: _firstComparisonItems,
+                          secondName: _fields['secondAsset']!.text,
+                          secondChecklistItems: _secondComparisonItems,
+                        );
+                    final InvestmentFinding finding = comparison.finding;
+                    return _ToolCalculationResult(
+                      title: 'Resultado — comparação manual',
+                      summary: finding.message,
+                      details: <_ToolResultDetail>[
+                        _ToolResultDetail(
+                          comparison.firstName.trim().isEmpty
+                              ? 'Primeiro ativo'
+                              : comparison.firstName.trim(),
+                          '$_firstComparisonItems de 5 itens',
+                        ),
+                        _ToolResultDetail(
+                          comparison.secondName.trim().isEmpty
+                              ? 'Segundo ativo'
+                              : comparison.secondName.trim(),
+                          '$_secondComparisonItems de 5 itens',
+                        ),
+                        _ToolResultDetail(
+                          _findingLabel(finding.kind),
+                          finding.message,
+                        ),
+                      ],
+                      explanation:
+                          'A comparação considera apenas a quantidade de critérios manuais preenchidos. Mais itens não significam melhor investimento e não constituem recomendação.',
+                    );
+                  }),
                 ],
               ),
             ],
@@ -329,6 +479,7 @@ class _InvestmentToolsPageState extends ConsumerState<InvestmentToolsPage> {
   Widget _moneyField(String label, String name) => Padding(
     padding: const EdgeInsets.only(bottom: AppSpacing.sm),
     child: TextField(
+      key: ValueKey<String>('investment-tool-field-$label'),
       controller: _fields[name],
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       decoration: InputDecoration(labelText: label, hintText: '0,00'),
@@ -338,6 +489,7 @@ class _InvestmentToolsPageState extends ConsumerState<InvestmentToolsPage> {
   Widget _textField(String label, String name) => Padding(
     padding: const EdgeInsets.only(bottom: AppSpacing.sm),
     child: TextField(
+      key: ValueKey<String>('investment-tool-field-$label'),
       controller: _fields[name],
       textCapitalization: TextCapitalization.characters,
       decoration: InputDecoration(labelText: label),
@@ -367,27 +519,160 @@ class _InvestmentToolsPageState extends ConsumerState<InvestmentToolsPage> {
   Widget _integerField(String label, String name, {String? suffix}) => Padding(
     padding: const EdgeInsets.only(bottom: AppSpacing.sm),
     child: TextField(
+      key: ValueKey<String>('investment-tool-field-$label'),
       controller: _fields[name],
       keyboardType: TextInputType.number,
       decoration: InputDecoration(labelText: label, helperText: suffix),
     ),
   );
-  Widget _resultButton(String? Function() calculation) => Align(
+  String _basisPoints(int value) {
+    final String percentage = (value / 100).toStringAsFixed(2);
+    return '${percentage.replaceAll('.', ',')}%';
+  }
+
+  String _findingLabel(InvestmentFindingKind kind) => switch (kind) {
+    InvestmentFindingKind.positive => 'Ponto positivo',
+    InvestmentFindingKind.attention => 'Ponto de atenção',
+    InvestmentFindingKind.insufficient => 'Dados insuficientes',
+  };
+
+  Widget _resultButton(
+    String title,
+    _ToolCalculationResult? Function() calculation,
+  ) => Align(
     alignment: Alignment.centerLeft,
     child: FilledButton.tonalIcon(
-      onPressed: () {
-        final message = calculation();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(message ?? 'Preencha valores válidos para calcular.'),
-            behavior: SnackBarBehavior.floating,
-          ),
+      onPressed: () async {
+        _ToolCalculationResult? result;
+        try {
+          result = calculation();
+        } on ArgumentError {
+          result = null;
+        }
+        await _showResultDialog(
+          result ??
+              _ToolCalculationResult(
+                title: 'Não foi possível calcular',
+                summary: 'Revise os campos de $title.',
+                details: const <_ToolResultDetail>[
+                  _ToolResultDetail(
+                    'Dados necessários',
+                    'Preencha valores válidos e compatíveis antes de calcular.',
+                  ),
+                ],
+                explanation:
+                    'Nenhum resultado foi estimado e nenhum dado foi salvo.',
+              ),
         );
       },
       icon: const Icon(Icons.calculate_outlined),
       label: const Text('Calcular'),
     ),
   );
+
+  Future<void> _showResultDialog(_ToolCalculationResult result) =>
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext dialogContext) => PopScope(
+          canPop: false,
+          child: Semantics(
+            scopesRoute: true,
+            namesRoute: true,
+            explicitChildNodes: true,
+            label: result.title,
+            child: AlertDialog(
+              titlePadding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.sm,
+                AppSpacing.xs,
+                0,
+              ),
+              title: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Expanded(child: Text(result.title)),
+                  IconButton(
+                    key: const ValueKey<String>('investment-result-close'),
+                    tooltip: 'Fechar resultado',
+                    autofocus: true,
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+              content: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 480),
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: <Widget>[
+                      Text(
+                        result.summary,
+                        style: Theme.of(dialogContext).textTheme.titleSmall,
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      for (final _ToolResultDetail detail in result.details)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                          child: Semantics(
+                            label: '${detail.label}: ${detail.value}',
+                            child: ExcludeSemantics(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  Text(
+                                    detail.label,
+                                    style: Theme.of(
+                                      dialogContext,
+                                    ).textTheme.labelLarge,
+                                  ),
+                                  const SizedBox(height: AppSpacing.xxs),
+                                  SelectableText(detail.value),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      const Divider(),
+                      Text(
+                        result.explanation,
+                        style: Theme.of(dialogContext).textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        'Resultado informativo. Não é recomendação financeira.',
+                        style: Theme.of(dialogContext).textTheme.labelMedium,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+}
+
+final class _ToolCalculationResult {
+  const _ToolCalculationResult({
+    required this.title,
+    required this.summary,
+    required this.details,
+    required this.explanation,
+  });
+
+  final String title;
+  final String summary;
+  final List<_ToolResultDetail> details;
+  final String explanation;
+}
+
+final class _ToolResultDetail {
+  const _ToolResultDetail(this.label, this.value);
+
+  final String label;
+  final String value;
 }
 
 class _ToolCard extends StatelessWidget {

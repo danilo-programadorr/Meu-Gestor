@@ -325,7 +325,7 @@
 
 | ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |
 |---|---|---:|---:|---|---|---|---|---|
-| INV-001-1A | Manter carteiras manuais | P0 | INV-1A | criar, editar, arquivar e restaurar preserva ativos e histórico; exclusão é negada | implementado localmente | perfil válido e Firestore | alto | baixo por documento |
+| INV-001-1A | Manter carteiras manuais | P0 | INV-1A/INV-UX-3 | criar, editar, arquivar e restaurar preserva ativos e histórico; somente carteira schema 2 nunca utilizada pode ser excluída após confirmação | implementado localmente | perfil válido e Firestore | alto | baixo por documento |
 | INV-002-1A | Cadastrar ação e FII em BRL | P0 | INV-1A | ticker maiúsculo e ID determinístico impedem duplicata na carteira; nome e tipo são fechados | implementado localmente | carteira ativa | alto | baixo |
 | INV-003-1A | Representar valores sem ponto flutuante | P0 | INV-1A | dinheiro usa centavos, quantidade escala 8, preço escala 6 e intermediários `BigInt` com half-up | implementado e coberto unitariamente | nenhuma dependência nova | crítico | neutro |
 | INV-004-1A | Reconstruir custo médio e resultado | P0 | INV-1A | taxa de compra entra no custo; venda baixa custo proporcional e taxa reduz resultado; posição zerada permanece | implementado e coberto unitariamente | operações imutáveis | crítico | CPU local proporcional ao histórico |
@@ -480,9 +480,13 @@
 
 | ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |
 |---|---|---:|---:|---|---|---|---|---|
-| INV-201 | Calcular com entradas manuais determinísticas | P0 | INV-2A | primeiro milhão, juros, porcentagem, Graham e Bazin usam inteiros/pontos-base, validam incompatibilidades e documentam fórmula | local em andamento | capability Premium | alto: não recebe dados externos | zero externo |
-| INV-202 | Analisar sem recomendação ou dado fictício | P0 | INV-2A | ações/FIIs, checklist e comparação declaram positivo, atenção ou dados insuficientes; nenhuma ordem de compra/venda/manutenção | local em andamento | capability Premium | alto: evita indução financeira | zero externo |
+| INV-201 | Calcular com entradas manuais determinísticas | P0 | INV-2A/FREE-1 | primeiro milhão, juros, porcentagem, Graham e Bazin usam inteiros/pontos-base, validam incompatibilidades e documentam fórmula | implementado e gratuito | nenhuma capability comercial | alto: não recebe dados externos | zero externo |
+| INV-202 | Analisar sem recomendação ou dado fictício | P0 | INV-2A/FREE-1 | ações/FIIs, checklist e comparação declaram positivo, atenção ou dados insuficientes; nenhuma ordem de compra/venda/manutenção | implementado e gratuito | nenhuma capability comercial | alto: evita indução financeira | zero externo |
 | INV-203 | Preservar isolamento financeiro | P0 | INV-2A | não persiste entrada nem altera carteira, saldo, conta, lançamento, provento ou resumo | local em andamento | domínio isolado | crítico | zero externo |
+| INV-UX-301 | Excluir carteira nunca utilizada com segurança | P0 | INV-UX-3 | lixeira ao lado da edição exige `EXCLUIR`; schema 2 vazio é arquivado como trava, revalidado no servidor e excluído; histórico/schema 1 é recusado | implementado localmente | Rules FREE-1 ainda locais | crítico | três consultas limitadas e uma transação |
+| INV-UX-302 | Detalhar resultados das ferramentas | P0 | INV-UX-3 | toda ação de cálculo abre modal rolável com entradas, fórmula, resultado, aviso, semântica e fechamento por `X` em 320 px/fonte ampliada | implementado e coberto por widget | domínio determinístico | médio | neutro |
+| FREE-001 | Remover monetização do fluxo ativo | P0 | FREE-1 | investimentos, proventos, calculadoras e análises não consultam entitlement e não exibem tela, rota, popup, cobrança ou teste | implementado localmente; infraestrutura histórica preservada inativa | autenticação, perfil e UID continuam obrigatórios | crítico | reduz leituras e callables comerciais |
+| FREE-002 | Preservar segurança sem capability comercial | P0 | FREE-1 | Auth, e-mail confirmado, perfil jurídico, isolamento por UID, integridade, revisões, vínculos e owner sem bypass permanecem | Rules e testes locais atualizados; publicação não autorizada | Emulator `demo-*` | crítico | elimina leitura de entitlement nas Rules ativas |
 
 ## Incrementos futuros de dados, privacidade e armazenamento
 

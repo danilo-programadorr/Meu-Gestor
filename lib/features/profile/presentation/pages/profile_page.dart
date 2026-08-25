@@ -171,12 +171,6 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         ],
         const SizedBox(height: AppSpacing.lg),
         const AppThemePreferenceSelector(),
-        const SizedBox(height: AppSpacing.md),
-        FilledButton.tonalIcon(
-          onPressed: loading ? null : () => context.push(AppRoutes.premium),
-          icon: const Icon(Icons.workspace_premium_outlined),
-          label: const Text('Premium e assinatura'),
-        ),
         if (action.message case final String message) ...<Widget>[
           const SizedBox(height: AppSpacing.md),
           ProfileMessage(

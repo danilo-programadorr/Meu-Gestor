@@ -6,7 +6,7 @@ import 'package:meu_gestor_financeiro/features/investments/domain/investment_por
 import 'package:meu_gestor_financeiro/features/investments/domain/tracked_investment_asset.dart';
 
 abstract final class FirestoreInvestmentPortfolioMapper {
-  static const Set<String> fieldNames = <String>{
+  static const Set<String> fieldNamesV1 = <String>{
     'ownerId',
     'name',
     'description',
@@ -18,13 +18,22 @@ abstract final class FirestoreInvestmentPortfolioMapper {
     'revision',
   };
 
+  static const Set<String> fieldNamesV2 = <String>{
+    ...fieldNamesV1,
+    'hasHistory',
+  };
+
   static InvestmentPortfolio fromMap({
     required Map<String, dynamic> data,
     required String documentId,
     required String expectedOwnerId,
   }) {
     try {
-      _requireExactFields(data, fieldNames);
+      final int schemaVersion = _integer(data, 'schemaVersion');
+      _requireExactFields(
+        data,
+        schemaVersion == 1 ? fieldNamesV1 : fieldNamesV2,
+      );
       final InvestmentPortfolio portfolio = InvestmentPortfolio(
         id: documentId,
         ownerId: _string(data, 'ownerId'),
@@ -32,9 +41,10 @@ abstract final class FirestoreInvestmentPortfolioMapper {
         description: _string(data, 'description'),
         isArchived: _boolean(data, 'isArchived'),
         archivedAt: _nullableDateTime(data, 'archivedAt'),
+        hasHistory: schemaVersion == 1 ? true : _boolean(data, 'hasHistory'),
         createdAt: _dateTime(data, 'createdAt'),
         updatedAt: _dateTime(data, 'updatedAt'),
-        schemaVersion: _integer(data, 'schemaVersion'),
+        schemaVersion: schemaVersion,
         revision: _integer(data, 'revision'),
       );
       if (portfolio.ownerId != expectedOwnerId) {
@@ -60,6 +70,7 @@ abstract final class FirestoreInvestmentPortfolioMapper {
       'description': normalized.description,
       'isArchived': false,
       'archivedAt': null,
+      'hasHistory': false,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
       'schemaVersion': InvestmentPortfolio.currentSchemaVersion,

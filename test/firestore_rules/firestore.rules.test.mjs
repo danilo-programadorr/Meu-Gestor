@@ -1001,11 +1001,13 @@ describe('regressão de estabilidade temporal', () => {
 describe('INV-1A carteiras e ativos de acompanhamento', () => {
   beforeEach(async () => seedPremium());
 
-  test('cria, edita, arquiva e restaura carteira sem permitir exclusão', async () => {
+  test('cria, edita, arquiva e restaura carteira; delete ativo é negado', async () => {
     const db = verifiedDb();
     await assertSucceeds(setDoc(investmentPortfolioRef(db), investmentPortfolio(ownerId, {
+      hasHistory: false,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
+      schemaVersion: 2,
     })));
     await assertSucceeds(updateDoc(investmentPortfolioRef(db), {
       name: 'Longo prazo BR',
@@ -1080,8 +1082,10 @@ describe('INV-1A carteiras e ativos de acompanhamento', () => {
   test('nega campos extras, ticker/id divergente e carteira inexistente', async () => {
     const db = verifiedDb();
     await assertFails(setDoc(investmentPortfolioRef(db), investmentPortfolio(ownerId, {
+      hasHistory: false,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
+      schemaVersion: 2,
       extra: true,
     })));
     await assertFails(setDoc(investmentAssetRef(db), investmentAsset(ownerId, {
@@ -1575,7 +1579,7 @@ describe('SUB-1B entitlement Premium somente leitura', () => {
     ));
   });
 
-  test('batch cliente não pode criar entitlement e elevar investimento atomicamente', async () => {
+  test('batch cliente não cria entitlement nem altera investimento gratuito', async () => {
     await seedInvestmentIncome();
     const db = verifiedDb();
     const batch = writeBatch(db);
@@ -1589,11 +1593,17 @@ describe('SUB-1B entitlement Premium somente leitura', () => {
       revision: 2,
     });
     await assertFails(batch.commit());
-    await assertFails(getDoc(investmentPortfolioRef(db)));
+    const entitlement = await assertSucceeds(
+      getDoc(doc(db, `users/${ownerId}/entitlements/premium`)),
+    );
+    assert.equal(entitlement.exists(), false);
+    const portfolio = await assertSucceeds(getDoc(investmentPortfolioRef(db)));
+    assert.equal(portfolio.data().name, 'Longo prazo');
+    assert.equal(portfolio.data().revision, 1);
   });
 });
 
-describe('SUB-1C enforcement Premium em investimentos', () => {
+describe('FREE-1 investimentos gratuitos com integridade preservada', () => {
   async function seedHistory() {
     await seedInvestmentIncome();
     await testEnv.withSecurityRulesDisabled(async (context) => {
@@ -1633,26 +1643,28 @@ describe('SUB-1C enforcement Premium em investimentos', () => {
     }
   }
 
-  test('ausência de entitlement nega get, list e todas as escritas', async () => {
+  test('ausência de entitlement permite leitura e mutações válidas próprias', async () => {
     await seedHistory();
     const db = verifiedDb();
-    await assertAllInvestmentReadsFail(db);
-    await assertFails(setDoc(
+    await assertAllInvestmentReadsSucceed(db);
+    await assertSucceeds(setDoc(
       investmentPortfolioRef(db, 'portfolio-new'),
       investmentPortfolio(ownerId, {
+        hasHistory: false,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
+        schemaVersion: 2,
       }),
     ));
-    await assertFails(updateDoc(investmentPortfolioRef(db), {
-      name: 'Bloqueada',
+    await assertSucceeds(updateDoc(investmentPortfolioRef(db), {
+      name: 'Atualizada sem assinatura',
       updatedAt: serverTimestamp(),
       revision: 2,
     }));
     await assertFails(deleteDoc(investmentIncomeRef(db)));
   });
 
-  test('pending nega leitura e escrita sem ser tratado como expiração', async () => {
+  test('status e documento Premium não participam mais da autorização', async () => {
     await seedHistory();
     await seedPremium(ownerId, {
       status: 'pending',
@@ -1661,197 +1673,120 @@ describe('SUB-1C enforcement Premium em investimentos', () => {
       currentPeriodEnd: null,
     });
     const db = verifiedDb();
-    await assertAllInvestmentReadsFail(db);
-    await assertFails(updateDoc(investmentPortfolioRef(db), {
-      name: 'Pendente',
-      updatedAt: serverTimestamp(),
-      revision: 2,
-    }));
-  });
-
-  test('trial, active, grace e cancelled vigente mantêm acesso integral', async () => {
-    const cases = [
-      { status: 'trialing' },
-      { status: 'active' },
-      {
-        status: 'gracePeriod',
-        graceUntil: Timestamp.fromDate(new Date('2026-10-01T00:00:00Z')),
-      },
-      {
-        status: 'cancelled',
-        cancelAtPeriodEnd: true,
-        cancelledAt: past,
-      },
-    ];
-    for (let index = 0; index < cases.length; index += 1) {
-      await testEnv.clearFirestore();
-      await seedBase();
-      await seedPremium(ownerId, cases[index]);
-      const db = verifiedDb();
-      await assertSucceeds(setDoc(
-        investmentPortfolioRef(db, `portfolio-full-${index}`),
-        investmentPortfolio(ownerId, {
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        }),
-      ));
-    }
-  });
-
-  test('estados de perda preservam leitura histórica e negam mutações', async () => {
-    const endedAt = Timestamp.fromDate(new Date('2026-08-05T00:00:00Z'));
-    const verifiedAt = Timestamp.fromDate(new Date('2026-08-06T00:00:00Z'));
-    const cases = [
-      {
-        status: 'expired',
-        currentPeriodEnd: endedAt,
-        expiredAt: endedAt,
-        lastVerifiedAt: verifiedAt,
-        updatedAt: verifiedAt,
-      },
-      { status: 'accountHold' },
-      { status: 'paused' },
-      { status: 'revoked', revokedAt: past },
-      { status: 'refunded', refundedAt: past },
-      {
-        status: 'cancelled',
-        currentPeriodEnd: endedAt,
-        cancelAtPeriodEnd: true,
-        cancelledAt: past,
-      },
-    ];
-    for (const value of cases) {
-      await testEnv.clearFirestore();
-      await seedBase();
-      await seedHistory();
-      await seedPremium(ownerId, value);
-      const db = verifiedDb();
-      await assertAllInvestmentReadsSucceed(db);
-      await assertFails(updateDoc(investmentPortfolioRef(db), {
-        name: 'Não deve alterar',
-        updatedAt: serverTimestamp(),
-        revision: 2,
-      }));
-      await assertFails(receiveInvestmentIncome(db));
-    }
-  });
-
-  test('capability manual não concede proventos', async () => {
-    await seedHistory();
-    await seedPremium(ownerId, { capabilities: ['investmentsManual'] });
-    const db = verifiedDb();
-    await assertSucceeds(getDoc(investmentPortfolioRef(db)));
-    await assertFails(getDoc(investmentIncomeRef(db)));
-    await assertSucceeds(updateDoc(investmentPortfolioRef(db), {
-      name: 'Manual permitido',
-      updatedAt: serverTimestamp(),
-      revision: 2,
-    }));
-    await assertFails(receiveInvestmentIncome(db));
-  });
-
-  test('capability de proventos não concede carteiras, ativos ou operações', async () => {
-    await seedHistory();
-    await seedPremium(ownerId, { capabilities: ['investmentIncome'] });
-    const db = verifiedDb();
-    await assertSucceeds(getDoc(investmentIncomeRef(db)));
-    await assertFails(getDoc(investmentPortfolioRef(db)));
-    await assertFails(getDoc(investmentAssetRef(db)));
-    await assertFails(getDoc(investmentOperationRef(db)));
-    await assertSucceeds(receiveInvestmentIncome(db));
-    await assertFails(updateDoc(investmentPortfolioRef(db), {
-      name: 'Sem manual',
-      updatedAt: serverTimestamp(),
-      revision: 2,
-    }));
-  });
-
-  test('capability inválida ou duplicada falha fechado', async () => {
-    await seedHistory();
-    const cases = [
-      ['investmentsManual', 'unknownSyntheticCapability'],
-      ['investmentsManual', 'investmentsManual'],
-    ];
-    for (const capabilities of cases) {
-      await seedPremium(ownerId, { capabilities });
-      await assertAllInvestmentReadsFail(verifiedDb());
-    }
-  });
-
-  test('schema, revisão, owner, ambiente e timestamps inválidos negam', async () => {
-    await seedHistory();
-    const cases = [
-      { schemaVersion: 99 },
-      { revision: 0 },
-      { ownerId: otherId },
-      { environment: 'production' },
-      { planId: 'unsupported-plan' },
-      { source: 'unknown-source' },
-      { currentPeriodStart: Timestamp.fromDate(new Date('2027-01-01T00:00:00Z')) },
-    ];
-    for (const value of cases) {
-      await seedPremium(ownerId, value);
-      await assertAllInvestmentReadsFail(verifiedDb());
-      await assertFails(updateDoc(investmentPortfolioRef(verifiedDb()), {
-        name: 'Documento inválido',
-        updatedAt: serverTimestamp(),
-        revision: 2,
-      }));
-    }
-  });
-
-  test('fronteira temporal usa request.time e o vencimento já é somente leitura', async () => {
-    await seedHistory();
-    const now = Timestamp.now();
-    await seedPremium(ownerId, {
-      status: 'cancelled',
-      currentPeriodEnd: now,
-      cancelAtPeriodEnd: true,
-      cancelledAt: past,
-      lastVerifiedAt: now,
-      updatedAt: now,
-    });
-    const db = verifiedDb();
     await assertAllInvestmentReadsSucceed(db);
-    await assertFails(updateDoc(investmentPortfolioRef(db), {
-      name: 'Exatamente no limite',
-      updatedAt: serverTimestamp(),
-      revision: 2,
-    }));
-  });
-
-  test('antes do vencimento permite e depois nega mutação sem apagar dados', async () => {
-    await seedHistory();
-    const future = Timestamp.fromMillis(Date.now() + 60_000);
-    await seedPremium(ownerId, {
-      status: 'cancelled',
-      currentPeriodEnd: future,
-      cancelAtPeriodEnd: true,
-      cancelledAt: past,
-    });
-    const db = verifiedDb();
     await assertSucceeds(updateDoc(investmentPortfolioRef(db), {
-      name: 'Antes do vencimento',
+      name: 'Livre com Premium pendente',
       updatedAt: serverTimestamp(),
       revision: 2,
     }));
     await testEnv.withSecurityRulesDisabled(async (context) => {
-      await updateDoc(
-        doc(context.firestore(), `users/${ownerId}/entitlements/premium`),
-        { currentPeriodEnd: Timestamp.fromMillis(Date.now() - 1_000) },
-      );
+      await setDoc(doc(context.firestore(), `users/${ownerId}/entitlements/premium`), {
+        ownerId: otherId,
+        schemaVersion: 99,
+      });
     });
     await assertSucceeds(getDoc(investmentPortfolioRef(db)));
-    await assertFails(updateDoc(investmentPortfolioRef(db), {
-      name: 'Depois do vencimento',
+    await assertSucceeds(updateDoc(investmentPortfolioRef(db), {
+      name: 'Livre com entitlement inválido',
       updatedAt: serverTimestamp(),
       revision: 3,
     }));
   });
 
-  test('delete e caminhos desconhecidos continuam sempre negados', async () => {
+  test('autenticação, e-mail, perfil e UID próprio continuam obrigatórios', async () => {
     await seedHistory();
-    await seedPremium();
+    await assertAllInvestmentReadsFail(testEnv.unauthenticatedContext().firestore());
+    await assertAllInvestmentReadsFail(unverifiedDb());
+    await assertFails(getDoc(investmentPortfolioRef(verifiedDb(otherId))));
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await updateDoc(doc(context.firestore(), `users/${ownerId}`), {
+        termsVersionAccepted: 'invalid',
+      });
+    });
+    await assertAllInvestmentReadsFail(verifiedDb());
+  });
+
+  test('capabilities antigas não particionam carteiras ou proventos', async () => {
+    await seedHistory();
+    await seedPremium(ownerId, { capabilities: ['investmentsManual'] });
+    const db = verifiedDb();
+    await assertAllInvestmentReadsSucceed(db);
+    await assertSucceeds(receiveInvestmentIncome(db));
+  });
+
+  test('delete exige schema 2 vazio, marcador monotônico e arquivamento', async () => {
+    const db = verifiedDb();
+    const emptyRef = investmentPortfolioRef(db, 'portfolio-empty');
+    await assertSucceeds(setDoc(emptyRef, investmentPortfolio(ownerId, {
+      hasHistory: false,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      schemaVersion: 2,
+    })));
+    await assertFails(deleteDoc(emptyRef));
+    await assertSucceeds(updateDoc(emptyRef, {
+      isArchived: true,
+      archivedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      revision: 2,
+    }));
+    await assertSucceeds(deleteDoc(emptyRef));
+
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(
+        investmentPortfolioRef(context.firestore(), 'portfolio-history'),
+        investmentPortfolio(ownerId, {
+          hasHistory: true,
+          isArchived: true,
+          archivedAt: past,
+          schemaVersion: 2,
+        }),
+      );
+    });
+    const historyRef = investmentPortfolioRef(db, 'portfolio-history');
+    await assertFails(updateDoc(historyRef, {
+      hasHistory: false,
+      updatedAt: serverTimestamp(),
+      revision: 2,
+    }));
+    await assertFails(deleteDoc(historyRef));
+  });
+
+  test('primeiro ativo exige elevar o marcador de histórico no mesmo batch', async () => {
+    const db = verifiedDb();
+    const emptyRef = investmentPortfolioRef(db, 'portfolio-empty');
+    const assetRef = investmentAssetRef(db, 'portfolio-empty__PETR4');
+    const asset = investmentAsset(ownerId, {
+      portfolioId: 'portfolio-empty',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    await assertSucceeds(setDoc(emptyRef, investmentPortfolio(ownerId, {
+      hasHistory: false,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      schemaVersion: 2,
+    })));
+    await assertFails(setDoc(assetRef, asset));
+
+    const batch = writeBatch(db);
+    batch.update(emptyRef, {
+      hasHistory: true,
+      updatedAt: serverTimestamp(),
+      revision: 2,
+    });
+    batch.set(assetRef, asset);
+    await assertSucceeds(batch.commit());
+
+    await assertFails(updateDoc(emptyRef, {
+      hasHistory: false,
+      updatedAt: serverTimestamp(),
+      revision: 3,
+    }));
+  });
+
+  test('delete de históricos e caminhos desconhecidos continua negado', async () => {
+    await seedHistory();
     const db = verifiedDb();
     await assertFails(deleteDoc(investmentPortfolioRef(db)));
     await assertFails(deleteDoc(investmentAssetRef(db)));
@@ -1883,9 +1818,8 @@ describe('SUB-1F-1 diretório interno do teste fechado', () => {
 });
 
 describe('INV-2C snapshots globais de cotações atrasadas', () => {
-  test('Premium vigente com capability lê somente snapshot conhecido por ticker', async () => {
+  test('usuário financeiro lê snapshot conhecido sem entitlement', async () => {
     await seedMarketQuote();
-    await seedPremium(ownerId, { capabilities: ['investmentQuotes'] });
     const db = verifiedDb();
     await assertSucceeds(getDoc(doc(db, 'marketQuoteSnapshots/PETR4')));
     await assertFails(getDocs(collection(db, 'marketQuoteSnapshots')));
@@ -1894,11 +1828,10 @@ describe('INV-2C snapshots globais de cotações atrasadas', () => {
     await assertSucceeds(getDoc(doc(db, 'marketQuoteSnapshots/HGLG11')));
   });
 
-  test('nega anônimo, e-mail não confirmado, perfil inválido, capability ausente e Premium expirado', async () => {
+  test('nega anônimo, e-mail não confirmado e perfil inválido', async () => {
     await seedMarketQuote();
     const reference = doc(verifiedDb(), 'marketQuoteSnapshots/PETR4');
-    await assertFails(getDoc(reference));
-    await seedPremium(ownerId, { capabilities: ['investmentQuotes'] });
+    await assertSucceeds(getDoc(reference));
     await assertFails(getDoc(doc(testEnv.unauthenticatedContext().firestore(), 'marketQuoteSnapshots/PETR4')));
     await assertFails(getDoc(doc(unverifiedDb(), 'marketQuoteSnapshots/PETR4')));
     await testEnv.withSecurityRulesDisabled(async (context) => {
@@ -1908,20 +1841,10 @@ describe('INV-2C snapshots globais de cotações atrasadas', () => {
     await testEnv.clearFirestore();
     await seedBase();
     await seedMarketQuote();
-    await seedPremium(ownerId, {
-      capabilities: ['investmentQuotes'],
-      status: 'expired',
-      currentPeriodEnd: Timestamp.fromDate(new Date('2026-08-01T00:00:00Z')),
-      expiredAt: Timestamp.fromDate(new Date('2026-08-01T00:00:00Z')),
-      lastVerifiedAt: past,
-      updatedAt: past,
-    });
-    await assertFails(getDoc(doc(verifiedDb(), 'marketQuoteSnapshots/PETR4')));
   });
 
   test('cliente e owner não escrevem snapshots, leases, requests ou circuit breakers', async () => {
     await seedMarketQuote();
-    await seedPremium(ownerId, { capabilities: ['investmentQuotes'] });
     const db = verifiedDb();
     await assertFails(setDoc(doc(db, 'marketQuoteSnapshots/PETR4'), marketQuoteSnapshot()));
     await assertFails(deleteDoc(doc(db, 'marketQuoteSnapshots/PETR4')));

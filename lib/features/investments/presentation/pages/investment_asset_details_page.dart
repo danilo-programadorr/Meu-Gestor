@@ -13,7 +13,6 @@ import 'package:meu_gestor_financeiro/features/investments/domain/tracked_invest
 import 'package:meu_gestor_financeiro/features/investments/presentation/controllers/investment_action_controller.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/controllers/investments_controller.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/widgets/investment_view_support.dart';
-import 'package:meu_gestor_financeiro/features/subscriptions/presentation/controllers/investment_premium_access_controller.dart';
 
 class InvestmentAssetDetailsPage extends ConsumerWidget {
   const InvestmentAssetDetailsPage({required this.assetId, super.key});
@@ -26,12 +25,6 @@ class InvestmentAssetDetailsPage extends ConsumerWidget {
       investmentsControllerProvider,
     );
     final bool valuesVisible = ref.watch(financialPrivacyControllerProvider);
-    final bool canMutate =
-        ref
-            .watch(investmentPremiumAccessControllerProvider)
-            .value
-            ?.canMutateManual ==
-        true;
     return SafeBackScope(
       fallbackLocation: AppRoutes.investments,
       child: Scaffold(
@@ -66,7 +59,7 @@ class InvestmentAssetDetailsPage extends ConsumerWidget {
               ref,
               state,
               valuesVisible: valuesVisible,
-              canMutate: canMutate,
+              canMutate: true,
             ),
           ),
         ),

@@ -33,7 +33,6 @@ abstract final class AppRoutes {
   static const String profileSetup = '/configurar-perfil';
   static const String legalUpdate = '/atualizar-documentos';
   static const String profile = '/perfil';
-  static const String premium = '/premium';
   static const String ownerArea = '/proprietario';
   static const String privacyConsents = '/privacidade-e-consentimentos';
   static const String dataAndPrivacy = '/dados-e-privacidade';

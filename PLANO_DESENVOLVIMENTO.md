@@ -77,8 +77,9 @@
 62. A oferta `teste-3d` é gratuita por três dias/72 horas e existe somente no plano-base mensal; o plano anual não possui teste.
 63. O Brasil é o país comercial inicial; R$ 19,90 mensal e R$ 209,90 anual são valores aprovados para configuração no Play Console, nunca preços autoritativos, entitlement ou cobrança local.
 64. O cliente somente apresenta preço, moeda, elegibilidade e detalhes retornados pela Play Store; status, token, recibo e relógio do aparelho não concedem Premium.
-65. Investimentos manuais e proventos permanecem Premium; núcleo financeiro permanece gratuito. B3 e integrações automáticas com corretoras seguem canceladas, e cotações não pertencem ao SUB-1E-1.
+65. Decisão histórica substituída pelo FREE-1: investimentos manuais e proventos deixaram de ser Premium. B3 e integrações automáticas com corretoras seguem canceladas.
 66. Receita ou margem líquida não será estimada a partir do preço bruto: requer taxa Play, impostos, reembolsos e custos Cloud reais.
+67. FREE-1 torna gratuitos investimentos, proventos, calculadoras e análises. A infraestrutura de monetização permanece apenas como código inativo e histórico reversível, sem rota, tela, popup, verificação ou chamada no runtime ativo.
 
 ## 3. Estado do ambiente
 
@@ -705,6 +706,7 @@ Situação em 04/08/2026: decisões registradas; somente a auditoria local de ST
 Situação em 09/08/2026: implementação e validações concluídas; Security Rules publicadas exclusivamente em development e APK debug development aprovado manualmente. O checkpoint Git foi autorizado em conjunto com a UI-INV-1B.
 
 - Carteiras podem ser criadas, editadas, arquivadas e restauradas; ativos aceitam ação ou FII, ticker brasileiro maiúsculo, nome, BRL e carteira própria.
+- INV-UX-3 permite excluir somente carteira nova do esquema 2 que nunca teve histórico. `hasHistory` nasce falso, torna-se verdadeiro atomicamente no primeiro ativo e nunca regride; esquema 1 e qualquer carteira histórica permanecem apenas arquiváveis.
 - Compras e vendas usam data civil de São Paulo, quantidade em escala 8, preço em escala 6, taxas em centavos e observação opcional. Operações confirmadas são imutáveis e nunca excluídas.
 - Custo, preço médio e resultado realizado são reconstruídos deterministicamente com `BigInt`; taxas de compra integram custo e taxas de venda reduzem resultado. Posições zeradas permanecem visíveis.
 - Operações são registradas da mais antiga para a mais recente. Cada uma referencia o topo anterior; somente o topo pode ser anulado, restaurando atomicamente o elo e a quantidade anteriores.
@@ -783,6 +785,8 @@ Situação em 10/08/2026: implementado e validado somente no worktree local com 
 
 ## 35. SUB-1D — Interface e preparação Google Play Billing
 
+> Histórico substituído pelo FREE-1. As seções 35 a 40 registram trabalho reversível já realizado, mas não constituem fluxo, bloqueio ou planejamento comercial ativo do aplicativo.
+
 Concluído localmente: contratos de catálogo, compra, restauração, atualizações, verificação, disponibilidade e gerenciamento; página Premium, rota, entradas de Menu/Perfil, gateway Flutter e testes determinísticos. A cobrança continua bloqueada por ausência de produtos Play, backend seguro, identificação ofuscada emitida pelo servidor, App Check, grant development real e publicação autorizada das regras SUB-1C.
 
 O modelo inicial de dois produtos distintos foi substituído pelo catálogo único aprovado no SUB-1E-1. Integração B3/corretoras permanece cancelada. Cotações atrasadas por provedor independente continuam tema separado e não foram iniciadas.
@@ -795,7 +799,7 @@ Situação em 10/08/2026: autorizado exclusivamente para remodelagem e validaç�
 - R$ 19,90 mensal e R$ 209,90 anual são preços aprovados somente para futura configuração no Play Console. O aplicativo não usa preço fixo como autoridade e só apresenta detalhes localizados retornados pela loja.
 - Contratos de catálogo, compra, restauração, verificação, gerenciamento e disponibilidade distinguem produto, plano-base e oferta. Resposta da loja, cache, relógio do aparelho, falha de rede, compra pendente, cancelamento ou timeout nunca concedem entitlement.
 - O cliente permanece abstrato e testável. O backend local usa fakes/fixtures sintéticas para a futura verificação por Google Play Developer API e RTDN; token continua transitório e nenhum backend Cloud, segredo, endpoint ou chamada externa existe.
-- Investimentos manuais e proventos permanecem Premium; contas, saldo, receitas, despesas, compromissos e resumo mensal continuam gratuitos e inalterados. Não há B3, corretora, cotação, dados fictícios ou integração financeira.
+- A decisão comercial desta etapa foi substituída pelo FREE-1: investimentos manuais, proventos, calculadoras e análises são gratuitos. Não há B3, corretora, dados fictícios ou integração financeira.
 - A margem líquida é indeterminada até a operação real: depende de taxa Play, tributos, reembolsos e custos Cloud. Não há projeção ou promessa de margem de 16–20%.
 
 ## 37. SUB-1E-2 — Concessão segura de teste fechado
@@ -804,7 +808,7 @@ Situação: preparada e validada somente localmente. Nenhuma concessão foi emit
 
 - `closedTestGrant` representa validade individual de quinze dias do teste fechado, iniciada pelo relógio UTC confiável do servidor em `development` e track `closed`; não é assinatura, compra, preço, oferta Play ou direito de production.
 - O diretório privado de testadores é autorizado e revogado somente por caminho administrativo server-side, sem e-mail no registro. A callable de ativação aceita somente o próprio UID autenticado, e-mail verificado, App Check e perfil jurídico atual; ela não recebe prazo, capability, track ou UID alvo. Não há relógio do aparelho, escrita direta, restauração ou reutilização depois da expiração.
-- Enquanto ativa, a concessão entrega exatamente todas as capabilities Premium atuais. Expirada, não conserva capability Premium, não abre popup modal e preserva núcleo gratuito e leitura histórica conforme o guard comercial normal.
+- A concessão e suas capabilities permanecem apenas na infraestrutura histórica. O aplicativo FREE-1 não a solicita, não mede validade e não altera a experiência quando ela expira.
 - Production nunca aceitará `closedTestGrant`; após lançamento oficial, somente entitlement verificado da Google Play libera Premium em production.
 
 ## 38. SUB-1E-3A — Backend Premium Gen 2 preparado localmente
@@ -837,7 +841,7 @@ Situação: implementada e validada somente localmente. Não houve deploy, publi
 
 ### ACCESS-INV-DEV-1 — Integração Flutter da concessão fechada
 
-Situação: integração Flutter implementada localmente. A callable e as Rules continuam sem publicação, e nenhum testador, grant ou entitlement real foi criado.
+Situação histórica: integração retirada do runtime ativo pelo FREE-1. O código permanece isolado e reversível, sem chamada pelo aplicativo.
 
 - Quando uma releitura server-only confirma ausência de entitlement, somente em `development`, o aplicativo chama `activateClosedTestPremium` uma vez por UID e por processo, com payload estritamente vazio. Production nunca executa essa ativação.
 - O cliente não envia UID, ambiente, duração, track, capabilities ou identificador de grant. Auth, e-mail confirmado, App Check, perfil jurídico, autorização privada e relógio permanecem responsabilidades do backend.
@@ -850,7 +854,7 @@ Situação: implementação local em andamento, sem API, cotação, Firebase ou 
 
 - As calculadoras usam somente entradas manuais: primeiro milhão, juros simples e compostos, porcentagem, Graham e Bazin. Valores monetários permanecem em centavos inteiros; percentuais usam pontos-base e as fórmulas/arredondamentos são determinísticos.
 - Análises de ações e FIIs, checklist Buy and Hold e comparação exibem somente pontos positivos, atenção ou dados insuficientes conforme marcações manuais. Não há cotação, indicador inventado nem recomendação de compra, venda ou manutenção.
-- O módulo é protegido pelas capabilities Premium `investmentCalculators` e `investmentAnalysis`, não salva entradas e nunca altera carteira, posição, provento, conta, saldo, lançamento ou resumo mensal.
+- O módulo é gratuito pelo FREE-1, não salva entradas e nunca altera carteira, posição, provento, conta, saldo, lançamento ou resumo mensal. Resultados são apresentados em modal acessível e detalhado.
 
 ## 42. INV-2B — Cotações atrasadas e rentabilidade estimada
 
@@ -859,7 +863,7 @@ Situação: implementação local preparada, sem provedor escolhido, API, chave,
 - Cotações são snapshots globais de ação/FII em BRL por ticker, com preço escalado, horário da fonte, captura, atraso e validade declarados. Estados indisponível, inválido, mercado fechado, atrasado e possível evento corporativo são explícitos; resposta sem horário, preço não positivo ou mais antiga é recusada.
 - O gateway local é independente de provedor e trabalha em lotes deduplicados, cache global, lease, retry idempotente e circuit breaker. Não há consulta por usuário, chamada de API nem dado fictício no aplicativo.
 - Valor estimado, não realizado, realizado e proventos recebidos aparecem separados. Total econômico somente é calculado quando todas as posições abertas têm snapshot compatível; cobertura parcial não simula total nem evolução histórica.
-- A experiência usa rota Premium própria e estados honestos de indisponibilidade. Preços, operações, quantidade, preço médio, proventos, contas e saldo nunca são modificados.
+- A experiência usa rota autenticada gratuita e estados honestos de indisponibilidade. Preços, operações, quantidade, preço médio, proventos, contas e saldo nunca são modificados.
 - A ativação externa depende de aprovação comercial e técnica separada de provedor de dados atrasados, licença, orçamento/limites, segredo server-side, persistência global de snapshots e job backend. B3 e corretoras permanecem canceladas.
 
 ## 43. INV-2C-A + INV-2C-B — Implementação local de cotações atrasadas
@@ -869,6 +873,6 @@ Situação: preparada localmente, sem deploy, publicação de Rules, Function, S
 - `backend/quotes` mantém o contrato provider-neutral, o gateway BRAPI opcional e o processador de lote global. O adaptador usa somente `fetch` nativo Node 22, converte preço/variação para inteiros escalados e falha fechada sem token de runtime.
 - `backend/functions/quotes` prepara uma Function Gen 2 interna com região `southamerica-east1`, Node 22, 256 MiB, timeout de 30 segundos, concorrência 1, mínimo 0 e máximo 1 instância. A identidade runtime e os segredos são parâmetros não versionados; o endpoint não é chamado pelo aplicativo.
 - Os documentos globais `marketQuoteSnapshots/{ticker}` e internos de lease/request/circuit não incluem usuário, carteira, posição, operação, custo, preço médio ou token. Requisições internas usam lote máximo de 50, idempotência, lease e monotonicidade por horário observado.
-- Rules locais permitem somente `get` por ticker a usuário verificado, perfil jurídico atual e `investmentQuotes` integral; listagem, escrita e acesso a internos são negados, inclusive para owner. Não há índice composto porque a consulta atual é por ID; qualquer índice futuro será guiado por consulta aprovada.
+- Rules locais permitem somente `get` por ticker a usuário autenticado, com e-mail confirmado e perfil jurídico atual; listagem, escrita e acesso a internos são negados, inclusive para owner. Nenhuma capability comercial é consultada. Não há índice composto porque a consulta atual é por ID; qualquer índice futuro será guiado por consulta aprovada.
 - A tela recebe somente snapshots server-only já confirmados e preserva estados atrasado, fechado, indisponível, inválido, possível evento corporativo e cobertura parcial. Patrimônio/resultado estimados não substituem custo, operação, provento, conta, saldo ou resumo mensal.
 - Antes de ativar: aprovar licença/cobertura e limite do provedor, criar segredo no cofre, configurar identidade runtime e Scheduler interno, revisar custos, publicar Function/Rules em autorização independente e validar com dados não pessoais. B3 e corretoras seguem canceladas como integração.
