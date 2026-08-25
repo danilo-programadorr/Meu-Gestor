@@ -10,6 +10,9 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 - ASSIST-0 inventaria as fontes próprias do futuro Assistente Financeiro Pessoal e adiciona contratos locais para consentimento, contexto tipado, memória desativada, evidências e propostas que nunca executam mutações sem confirmação;
 - borda ESM neutra de provedor valida Auth/App Check/perfil/consentimento, deriva o UID e o contexto no servidor, bloqueia segredos/dados de terceiros e rejeita afirmações sem fonte, sem conectar API de IA;
+- ASSIST-1A adiciona a interface local do Assistente Financeiro, com consentimento antes da leitura, escopo visível, perguntas guiadas e resumos determinísticos somente leitura;
+- respostas do Assistente mostram período civil e fontes confirmadas, preservam privacidade global e declaram dados ausentes sem simular IA, cotação ou rentabilidade;
+- ASSIST-1B-0 compara OpenAI API, Gemini pago/Vertex AI e Anthropic somente por fontes oficiais, registra privacidade, retenção, custos, português, saídas estruturadas, ferramentas e controles de gasto sem escolher ou ativar fornecedor;
 
 - CRUD-AUDIT-1 registra uma matriz completa das ações de todas as entidades e padroniza lápis, lixeira, arquivamento e restauração com tooltip e semântica acessível;
 - ativos de investimento ganham correção de nome, edição de tipo antes do primeiro histórico, arquivamento/restauração e exclusão segura somente quando nunca tiveram operação ou provento;

@@ -1,8 +1,22 @@
-# Assistente Financeiro Pessoal — arquitetura ASSIST-0
+# Assistente Financeiro Pessoal — arquitetura ASSIST-0/ASSIST-1A/ASSIST-1B-0
 
 ## Estado do incremento
 
-ASSIST-0 implementa somente domínio, contrato local server-side neutro, políticas e testes. Não há tela, provider de estado, Function, API de IA, segredo, memória persistida, coleção nova, regra publicada ou chamada externa.
+ASSIST-0 implementa domínio, contrato server-side neutro, políticas e testes. O ASSIST-1A acrescenta interface local, consentimento visível, quatro perguntas guiadas e resumos determinísticos. O ASSIST-1B-0 compara provedores somente por documentação oficial e não seleciona nem ativa nenhum deles. Não há Function, API de IA, segredo, memória persistida, coleção nova, regra publicada ou chamada externa.
+
+## Auditoria ASSIST-1B-0
+
+A comparação atual de privacidade, retenção, uso de dados, custos, português, saídas estruturadas, ferramentas e controles de gasto está em [ASSISTENTE_PROVEDORES_IA.md](ASSISTENTE_PROVEDORES_IA.md). A recomendação define apenas uma ordem futura de avaliação com dados sintéticos; o contrato continua neutro e nenhum fornecedor foi escolhido.
+
+## Experiência local ASSIST-1A
+
+- A rota `/assistente` fica no grupo Assistência do menu da Home.
+- Antes do consentimento, a tela apresenta escopo e proteção, mas não observa providers financeiros.
+- As perguntas disponíveis consultam resumo do mês, saldo atual, compromissos e investimentos cadastrados.
+- Cada resposta exibe período civil, fontes confirmadas e indisponibilidade sem preencher lacunas.
+- O resumo de investimentos usa somente custo, resultado realizado e proventos manuais; não simula cotação ou rentabilidade.
+- A privacidade global oculta cifras e contagens. Não há texto livre, recomendação, memória ou ação mutável.
+- O consentimento atual vale somente para leitura local. Envio futuro a provedor exige política versionada e autorização próprias.
 
 ## Fluxo seguro futuro
 
@@ -53,7 +67,7 @@ Reset financeiro, exclusão de conta, autenticação, assinatura, owner, seguran
 
 ## Bloqueios para um incremento conectado
 
-- escolha e análise contratual do provedor;
+- benchmark sintético e escolha explícita do provedor após a auditoria ASSIST-1B-0;
 - base legal/texto final de consentimento e política de privacidade;
 - Function com IAM mínimo, App Check, rate limit, timeout, orçamento e observabilidade sanitizada;
 - política técnica de exclusão no provedor e avaliação de retenção zero;

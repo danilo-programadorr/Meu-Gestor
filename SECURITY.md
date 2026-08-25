@@ -98,6 +98,10 @@ O provedor futuro receberá somente fatos tipados e minimizados com aliases efê
 
 ASSIST-0 não possui API de IA, segredo, memória persistente ou executor. Uma saída pode explicar e propor uma prévia, mas nunca altera dados. Mutações futuras exigirão confirmação explícita e revalidação pelo domínio; reset, exclusão de conta, Auth, owner e entitlement permanecem sempre fora do assistente.
 
+O ASSIST-1A permanece local e determinístico. Sem consentimento, o componente de dados não é montado; com consentimento, somente estados próprios confirmados pelo servidor são lidos. Fonte ausente falha de forma explícita, a privacidade global oculta cifras e contagens, e não existe texto livre, memória, chamada de IA ou capacidade de escrita. O consentimento local não autoriza envio futuro a terceiros.
+
+O ASSIST-1B-0 não seleciona nem ativa fornecedor. Qualquer piloto futuro exige serviço pago aprovado, retenção e DPA conhecidos, consentimento versionado, contexto mínimo, saída estruturada validada e limite de gasto server-side. Free tier/console interativo não recebe contexto financeiro. Chaves ou identidades de provedor ficam somente no backend e, quando segredo for necessário, no Secret Manager; nunca no APK, Firestore, Git, documentação ou logs.
+
 ## Entitlement Premium — SUB-1A/SUB-1B/SUB-1C
 
 O backend de referência SUB-1B permanece exclusivamente local, sem rede, com armazenamento em memória para testes e mapper/repositório Flutter somente leitura. Suas Security Rules foram publicadas anteriormente somente em development, com SHA-256 `F01E52545F2CE88896A48B28B957BF45F8AE79B0173DF2E20449929FF21532B4`. O SUB-1C aplica enforcement apenas no código e nas regras locais; não houve nova publicação, Firebase real ou bloqueio de usuário development. Não existe entitlement real, backend implantado, produto de loja, compra ou paywall.

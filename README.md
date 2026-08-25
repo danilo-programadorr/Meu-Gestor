@@ -47,7 +47,7 @@ Concluído e validado localmente:
 - acesso owner seguro, confirmado pelo servidor, com Área do proprietário e revalidação;
 - investimentos, proventos, calculadoras e análises disponíveis gratuitamente, incluindo Primeiro milhão por prazo ou aporte e campos com unidades explícitas, sem rota, popup, cobrança ou verificação comercial no fluxo ativo;
 - infraestrutura histórica de entitlement e cobrança preservada de forma inativa e reversível, sem chamadas em runtime;
-- contrato local ASSIST-0 para futuro assistente explicável, com contexto próprio minimizado, consentimento vigente, evidências e nenhuma capacidade de escrita;
+- Assistente Financeiro local com consentimento visível, perguntas guiadas e resumos determinísticos de fontes/períodos explícitos, sem IA conectada ou capacidade de escrita;
 - regras Firestore publicadas em development com isolamento por UID, campos fechados e negação por padrão;
 - testes unitários, de widgets, integração de fluxos e segurança estrutural.
 
@@ -64,7 +64,9 @@ Limites atuais:
 
 O roadmap inclui linha do tempo do saldo, projeções financeiras, recurso “Posso comprar?”, simulador de cenários, alertas, orçamentos, metas, estratégias para dívidas, plano anticrise e assistência financeira com IA explicável. Esses recursos são planejamento, não estado atual do produto.
 
-O [contrato seguro do Assistente Financeiro Pessoal](docs/architecture/ASSISTENTE_FINANCEIRO_PESSOAL.md) já delimita consentimento, fontes, memória e permissões, mas permanece totalmente local e desconectado de qualquer IA.
+O [Assistente Financeiro Pessoal](docs/architecture/ASSISTENTE_FINANCEIRO_PESSOAL.md) já oferece resumos locais guiados e delimita consentimento, fontes, memória e permissões. Ele permanece desconectado de qualquer IA, não executa ações e não inventa dados ausentes.
+
+A [auditoria ASSIST-1B-0 de provedores de IA](docs/architecture/ASSISTENTE_PROVEDORES_IA.md) compara opções reais somente por documentação oficial. Ela não seleciona fornecedor; qualquer credencial futura permanece exclusivamente no backend/Secret Manager.
 
 ## Arquitetura
 

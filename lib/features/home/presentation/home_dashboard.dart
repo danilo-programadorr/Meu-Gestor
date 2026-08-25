@@ -35,6 +35,7 @@ final class HomeDashboardCallbacks {
     required this.onPayables,
     required this.onReceivables,
     required this.onInvestments,
+    required this.onAssistant,
     required this.onTransaction,
     required this.onRetryWorkspace,
     required this.onRetryCommitments,
@@ -54,6 +55,7 @@ final class HomeDashboardCallbacks {
   final VoidCallback onPayables;
   final VoidCallback onReceivables;
   final VoidCallback onInvestments;
+  final VoidCallback onAssistant;
   final ValueChanged<String> onTransaction;
   final VoidCallback onRetryWorkspace;
   final VoidCallback onRetryCommitments;
@@ -2442,6 +2444,8 @@ Future<void> _openDashboardMenu(
       callbacks.onReceivables();
     case _DashboardMenuDestination.investments:
       callbacks.onInvestments();
+    case _DashboardMenuDestination.assistant:
+      callbacks.onAssistant();
     case _DashboardMenuDestination.profile:
       callbacks.onProfile();
     case _DashboardMenuDestination.appearance:
@@ -2456,6 +2460,7 @@ enum _DashboardMenuDestination {
   payables,
   receivables,
   investments,
+  assistant,
   profile,
   appearance,
 }
@@ -2528,6 +2533,17 @@ class _DashboardMenuSheet extends StatelessWidget {
                     destination: _DashboardMenuDestination.receivables,
                     icon: Icons.event_available_outlined,
                     label: 'Contas a receber',
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              const _DashboardMenuGroup(
+                title: 'Assistência',
+                items: <_DashboardMenuItemData>[
+                  _DashboardMenuItemData(
+                    destination: _DashboardMenuDestination.assistant,
+                    icon: Icons.auto_awesome_outlined,
+                    label: 'Assistente financeiro',
                   ),
                 ],
               ),

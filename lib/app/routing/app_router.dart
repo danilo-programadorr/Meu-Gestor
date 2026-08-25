@@ -6,6 +6,7 @@ import 'package:meu_gestor_financeiro/features/accounts/presentation/pages/accou
 import 'package:meu_gestor_financeiro/features/accounts/presentation/pages/account_form_page.dart';
 import 'package:meu_gestor_financeiro/features/accounts/presentation/pages/accounts_page.dart';
 import 'package:meu_gestor_financeiro/features/accounts/presentation/pages/archived_accounts_page.dart';
+import 'package:meu_gestor_financeiro/features/assistant/presentation/pages/assistant_page.dart';
 import 'package:meu_gestor_financeiro/features/authentication/data/auth_providers.dart';
 import 'package:meu_gestor_financeiro/features/authentication/domain/auth_user.dart';
 import 'package:meu_gestor_financeiro/features/authentication/presentation/pages/email_verification_page.dart';
@@ -189,6 +190,10 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((Ref ref) {
       GoRoute(
         path: AppRoutes.home,
         builder: (context, state) => const HomePage(),
+      ),
+      GoRoute(
+        path: AppRoutes.assistant,
+        builder: (context, state) => const AssistantPage(),
       ),
       GoRoute(
         path: AppRoutes.accounts,
@@ -414,6 +419,7 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((Ref ref) {
 
 bool _isValidProfileRoute(String location) {
   return location == AppRoutes.home ||
+      location == AppRoutes.assistant ||
       location == AppRoutes.profile ||
       location == AppRoutes.privacyConsents ||
       location == AppRoutes.accounts ||

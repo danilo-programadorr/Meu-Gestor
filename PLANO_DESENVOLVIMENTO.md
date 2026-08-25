@@ -898,3 +898,26 @@ Situação: domínio, contrato server-side neutro, documentação e testes imple
 - Memória começa desativada. Persistência futura exigirá consentimento separado, retenção máxima de 90 dias e exclusão/invalidação compatível com retirada, reset e exclusão de conta.
 - O assistente pode ler, explicar, comparar e sugerir. Mutações são apenas propostas e dependerão de confirmação exata, recente e revalidação em executor separado. Ações de privacidade, Auth, owner, entitlement e segurança são proibidas.
 - Uma etapa conectada dependerá de seleção aprovada de provedor, texto jurídico, Function/IAM/App Check, orçamento, limites, exclusão no provedor e testes adversariais, todos sob autorização própria.
+
+## 46. ASSIST-1A — interface local e resumos determinísticos
+
+Situação em 25/08/2026: implementado somente localmente após a publicação do checkpoint ASSIST-0. Não há API de IA, Function, segredo, memória, coleção, Rule, deploy ou chamada externa.
+
+- A Home oferece acesso ao Assistente por um grupo próprio no menu, preservando navegação protegida e privacidade global.
+- A tela explica o escopo antes do uso. Sem consentimento opcional, nenhuma fonte financeira é observada pelo componente de dados.
+- Quatro perguntas guiadas cobrem mês atual, saldo, compromissos e investimentos cadastrados. Não existe entrada livre ou aparência de conversa com IA.
+- Resumos usam somente estados confirmados pelo servidor, centavos inteiros e data civil de `America/Sao_Paulo`; fonte ausente permanece indisponível e nunca é simulada.
+- Cada resposta mostra fonte, período e premissa. Pendências não entram no saldo; investimentos não recebem cotação ou rentabilidade inventada.
+- A experiência é somente leitura, sem recomendação ou mutação, e suporta temas, privacidade, 320 px e fonte ampliada.
+- Uma integração externa futura continua bloqueada até política versionada, consentimento específico de envio, provedor aprovado e controles server-side do ASSIST-0.
+
+## 47. ASSIST-1B-0 — auditoria de provedores reais de IA
+
+Situação em 25/08/2026: auditoria documental local concluída com fontes oficiais de OpenAI, Google e Anthropic. Nenhum provedor foi selecionado ou ativado; não houve conta, chave, segredo, cobrança, API, Function, Rule, deploy ou envio de dados.
+
+- A comparação cobre treinamento, retenção padrão e reduzida, português, saída estruturada, ferramentas, preços públicos e controles de gasto.
+- O free tier do Gemini Developer API e o AI Studio são inadequados para contexto financeiro porque a documentação informa uso do conteúdo para melhoria dos produtos. Somente paid tier/Vertex pode participar de avaliação futura.
+- OpenAI e Anthropic têm retenção padrão de até 30 dias em cenários documentados e opções ZDR sujeitas a aprovação e limitações. Vertex exige desativar/evitar recursos de cache, abuse monitoring e grounding conforme a política aprovada.
+- A ordem recomendada para um benchmark futuro é Vertex AI como primeira prova operacional, OpenAI como principal comparador de custo/estrutura e Anthropic como comparador de qualidade pt-BR e segurança. Isso não constitui escolha.
+- A próxima decisão exige benchmark exclusivamente sintético, DPA/base legal, consentimento versionado, retenção efetiva, exclusão, controles de gasto, limites internos e testes adversariais.
+- Qualquer credencial futura permanecerá somente no backend/Secret Manager; APK, Firestore, Git e logs nunca armazenam chave de provedor.

@@ -435,6 +435,23 @@ void main() {
     expect(find.text('Adicionar conta'), findsNothing);
   });
 
+  testWidgets('menu superior abre o Assistente financeiro', (
+    WidgetTester tester,
+  ) async {
+    final _DashboardTracker tracker = _DashboardTracker();
+    await _pumpDashboard(tester, tracker: tracker);
+
+    await tester.tap(_semanticsLabel('Abrir menu de navegação'));
+    await tester.pumpAndSettle();
+    expect(find.text('Assistência'), findsOneWidget);
+    expect(_menuItem('Assistente financeiro'), findsOneWidget);
+
+    await tester.tap(_menuItem('Assistente financeiro'));
+    await tester.pumpAndSettle();
+
+    expect(tracker.assistant, 1);
+  });
+
   testWidgets('aplica período real pelo bottom sheet sem alterar documentos', (
     WidgetTester tester,
   ) async {
@@ -800,6 +817,7 @@ final class _DashboardTracker {
   int newReceivable = 0;
   int receivables = 0;
   int investments = 0;
+  int assistant = 0;
   int retryWorkspace = 0;
   int toggleTheme = 0;
   int accounts = 0;
@@ -826,6 +844,7 @@ final class _DashboardTracker {
         onPayables: () => payables += 1,
         onReceivables: () => receivables += 1,
         onInvestments: () => investments += 1,
+        onAssistant: () => assistant += 1,
         onTransaction: (String value) => transactionId = value,
         onRetryWorkspace: () => retryWorkspace += 1,
         onRetryCommitments: () {},

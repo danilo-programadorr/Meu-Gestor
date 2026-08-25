@@ -8,6 +8,7 @@ abstract final class AppRoutes {
   static const String resetPassword = '/redefinir-senha';
   static const String verifyEmail = '/verificar-email';
   static const String home = '/inicio';
+  static const String assistant = '/assistente';
   static const String accounts = '/contas';
   static const String newAccount = '/contas/nova';
   static const String newAccountReturning =

@@ -84,9 +84,9 @@ class _PrivacyConsentsPageState extends ConsumerState<PrivacyConsentsPage> {
           onChanged: loading
               ? null
               : (bool value) => setState(() => _aiConsent = value),
-          title: const Text('Análises com IA'),
+          title: const Text('Assistente e análises com IA'),
           subtitle: const Text(
-            'A IA ainda não está ativa. Alterar esta preferência não chama Gemini nem envia dados.',
+            'Controla o acesso ao Assistente. Nesta versão, os resumos são determinísticos e nenhum dado é enviado a um serviço de IA. Uma integração futura exigirá política atualizada.',
           ),
         ),
         SwitchListTile(
