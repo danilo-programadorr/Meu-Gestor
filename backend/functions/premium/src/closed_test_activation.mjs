@@ -3,8 +3,8 @@ import {
   createClosedTestGrantId,
   issueClosedTestGrant,
   revokeClosedTestTester,
-} from '../../../subscriptions/src/closed_test_grants.mjs';
-import { deny, requireText, requireUtcInstant } from '../../../subscriptions/src/errors.mjs';
+} from '../.generated/subscriptions/src/closed_test_grants.mjs';
+import { deny, requireText, requireUtcInstant } from '../.generated/subscriptions/src/errors.mjs';
 
 export const CLOSED_TEST_TESTERS_COLLECTION = '_premiumClosedTestTesters';
 export const CLOSED_TEST_GRANTS_COLLECTION = '_premiumClosedTestGrants';

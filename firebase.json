@@ -4,6 +4,9 @@
       "source": "backend/functions/premium",
       "codebase": "premium",
       "runtime": "nodejs22",
+      "predeploy": [
+        "npm --prefix backend/functions/premium run prepare:shared"
+      ],
       "ignore": [
         "node_modules",
         ".git",

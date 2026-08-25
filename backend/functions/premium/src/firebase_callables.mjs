@@ -29,6 +29,13 @@ export const PREMIUM_FUNCTION_OPTIONS = Object.freeze({
   enforceAppCheck: true,
 });
 
+export const CLOSED_TEST_ACTIVATION_FUNCTION_OPTIONS = Object.freeze({
+  ...PREMIUM_FUNCTION_OPTIONS,
+  // O perímetro HTTP precisa aceitar a requisição para que o protocolo
+  // callable valide Firebase Auth e App Check dentro da Function.
+  invoker: 'public',
+});
+
 /// Bootstrap executável em Functions Gen 2. Não conhece compra, token da
 /// Play, RTDN nem grant: estes fluxos continuam indisponíveis e falham antes
 /// de qualquer escrita até o incremento explicitamente autorizado.
@@ -67,7 +74,7 @@ export function createFirebasePremiumCallables({ onCall, HttpsError, firestore, 
     if (typeof closedTestActivation.activate !== 'function') {
       throw new TypeError('Invalid closed test activation dependency.');
     }
-    callables.activateClosedTestPremium = onCall(PREMIUM_FUNCTION_OPTIONS, async (request) => {
+    callables.activateClosedTestPremium = onCall(CLOSED_TEST_ACTIVATION_FUNCTION_OPTIONS, async (request) => {
       const uid = await requireFinancialCaller({ request, HttpsError, firestore });
       requireEmptyData(request.data, HttpsError);
       return closedTestActivation.activate({ ownerId: uid });

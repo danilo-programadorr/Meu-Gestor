@@ -8,6 +8,8 @@
     "node": "22"
   },
   "scripts": {
+    "prepare:shared": "node scripts/prepare-shared-subscriptions.mjs",
+    "pretest": "npm run prepare:shared",
     "check": "node ../../subscriptions/scripts/check.mjs",
     "test": "node --test test/*.test.mjs",
     "test:callables": "node --test test/firebase_callables.test.mjs",

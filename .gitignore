@@ -79,6 +79,7 @@ docs/internal/
 .buildlog/
 migrate_working_dir/
 .codex-tmp/
+backend/functions/premium/.generated/
 
 # Arquivos temporários gerais
 *.class

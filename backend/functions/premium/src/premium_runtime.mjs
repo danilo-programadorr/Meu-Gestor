@@ -1,10 +1,10 @@
-import { deny, requireExactObject, requireText } from '../../../subscriptions/src/errors.mjs';
+import { deny, requireExactObject, requireText } from '../.generated/subscriptions/src/errors.mjs';
 import {
   createClosedTestGrantId,
   expireClosedTestGrants,
   issueClosedTestGrant,
-} from '../../../subscriptions/src/closed_test_grants.mjs';
-import { processRtdn } from '../../../subscriptions/src/rtdn.mjs';
+} from '../.generated/subscriptions/src/closed_test_grants.mjs';
+import { processRtdn } from '../.generated/subscriptions/src/rtdn.mjs';
 
 const PURCHASE_FIELDS = Object.freeze(['purchaseToken']);
 const EMPTY_FIELDS = Object.freeze([]);

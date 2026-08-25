@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createFirebasePremiumCallables, PREMIUM_FUNCTION_OPTIONS } from '../src/firebase_callables.mjs';
+import {
+  CLOSED_TEST_ACTIVATION_FUNCTION_OPTIONS,
+  createFirebasePremiumCallables,
+  PREMIUM_FUNCTION_OPTIONS,
+} from '../src/firebase_callables.mjs';
 
 class FakeHttpsError extends Error {
   constructor(code, message) {
@@ -152,6 +156,15 @@ test('closed test activation is callable only for the authenticated, verified an
     },
   });
   assert.equal(h.calls.length, 4);
+  assert.deepEqual(h.calls.slice(0, 3).map((call) => call.options), [
+    PREMIUM_FUNCTION_OPTIONS,
+    PREMIUM_FUNCTION_OPTIONS,
+    PREMIUM_FUNCTION_OPTIONS,
+  ]);
+  assert.deepEqual(h.calls[3].options, CLOSED_TEST_ACTIVATION_FUNCTION_OPTIONS);
+  assert.equal(h.calls[3].options.invoker, 'public');
+  assert.equal(h.calls[3].options.enforceAppCheck, true);
+  assert.equal(Object.hasOwn(PREMIUM_FUNCTION_OPTIONS, 'invoker'), false);
   assert.deepEqual(
     await h.callables.activateClosedTestPremium(request()),
     { status: 'active', revision: 1, requiresServerRefresh: true },

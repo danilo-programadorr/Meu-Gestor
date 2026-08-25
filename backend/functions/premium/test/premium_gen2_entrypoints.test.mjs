@@ -8,7 +8,7 @@ import {
   SubscriptionError,
   SubscriptionProcessor,
   authorizeClosedTestTester,
-} from '../../../subscriptions/src/index.mjs';
+} from '../.generated/subscriptions/src/index.mjs';
 import { createPremiumGen2Entrypoints } from '../src/gen2_entrypoints.mjs';
 import { createPremiumFunctionsRuntime } from '../src/premium_runtime.mjs';
 import {

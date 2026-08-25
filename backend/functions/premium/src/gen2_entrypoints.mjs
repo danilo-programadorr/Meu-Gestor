@@ -1,4 +1,4 @@
-import { deny } from '../../../subscriptions/src/errors.mjs';
+import { deny } from '../.generated/subscriptions/src/errors.mjs';
 
 /// Composição compatível com Functions Gen 2. `onCall` e `onRequest` serão
 /// importados de firebase-functions/v2 somente em um incremento autorizado;
