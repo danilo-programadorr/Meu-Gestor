@@ -47,13 +47,14 @@ Concluído e validado localmente:
 - acesso owner seguro, confirmado pelo servidor, com Área do proprietário e revalidação;
 - investimentos, proventos, calculadoras e análises disponíveis gratuitamente, incluindo Primeiro milhão por prazo ou aporte e campos com unidades explícitas, sem rota, popup, cobrança ou verificação comercial no fluxo ativo;
 - infraestrutura histórica de entitlement e cobrança preservada de forma inativa e reversível, sem chamadas em runtime;
+- contrato local ASSIST-0 para futuro assistente explicável, com contexto próprio minimizado, consentimento vigente, evidências e nenhuma capacidade de escrita;
 - regras Firestore publicadas em development com isolamento por UID, campos fechados e negação por padrão;
 - testes unitários, de widgets, integração de fluxos e segurança estrutural.
 
 Limites atuais:
 
 - não existem ambiente de produção, assinatura real, cobrança, paywall, produto criado no Play Console, entitlement no Firebase real, backend implantado, Google Play Billing ativo, Stripe ou Mercado Pago;
-- não existem consumo real de IA, transferências, cartões, faturas, recorrências ou parcelamentos;
+- não existem consumo real de IA, memória do assistente, API de provedor, transferências, cartões, faturas, recorrências ou parcelamentos;
 - investimentos não possuem cotação, integração com corretora, Open Finance, agenda automática de proventos, cálculo tributário ou recomendação;
 - notificações, relatórios completos, projeções e integração Open Finance ainda não foram implementados;
 - os documentos jurídicos presentes são provisórios e exclusivos de desenvolvimento;
@@ -62,6 +63,8 @@ Limites atuais:
 ## Diferenciais planejados
 
 O roadmap inclui linha do tempo do saldo, projeções financeiras, recurso “Posso comprar?”, simulador de cenários, alertas, orçamentos, metas, estratégias para dívidas, plano anticrise e assistência financeira com IA explicável. Esses recursos são planejamento, não estado atual do produto.
+
+O [contrato seguro do Assistente Financeiro Pessoal](docs/architecture/ASSISTENTE_FINANCEIRO_PESSOAL.md) já delimita consentimento, fontes, memória e permissões, mas permanece totalmente local e desconectado de qualquer IA.
 
 ## Arquitetura
 
@@ -211,7 +214,7 @@ O papel `owner` recebe capabilities centralizadas para módulos implementados, r
 - [ ] Orçamentos e metas
 - [ ] Notificações
 - [ ] Relatórios
-- [ ] Gemini e plano anticrise
+- [ ] Provedor de IA e plano anticrise, após decisão específica
 - [ ] Produção
 
 ## Contribuição

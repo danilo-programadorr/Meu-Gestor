@@ -17,12 +17,12 @@
 | TEC-002 EF-2 | Usar Authentication, Firestore, Functions, FCM e App Check | P0 | E2-E6 | Cada serviço está configurado por ambiente e coberto por controle de acesso | Emuladores, integração e segurança |
 | TEC-003 EF-2 | Usar Crashlytics sem dados sensíveis | P1 | E2-E6 | Falha controlada é recebida sem PII ou conteúdo financeiro | Integração e inspeção de evento |
 | TEC-004 EF-2 | Usar Analytics com governança de privacidade | P1 | E2-E6 | Somente eventos aprovados são enviados conforme consentimento/base legal | Integração, consentimento e teste negativo |
-| TEC-005 EF-2 | Usar armazenamento seguro local | P0 | E2 | Dados locais permitidos ficam cifrados; segredos Gemini nunca existem no cliente | Unitário, integração Android e inspeção |
+| TEC-005 EF-2 | Usar armazenamento seguro local | P0 | E2 | Dados locais permitidos ficam cifrados; segredos de provedor nunca existem no cliente | Unitário, integração Android e inspeção |
 | TEC-006 EF-2 | Usar notificações locais | P1 | E4 | Alertas locais são agendados, atualizados e cancelados corretamente | Unitário de agenda e integração Android |
 | TEC-007 EF-2 | Funcionar offline e sincronizar depois | P0 | E3 | Leitura cacheada e gravação pendente são indicadas e sincronizam sem duplicação | Integração offline, conflito e reconexão |
 | TEC-008 EF-2 | Entregar Android e preparar Web, Windows e iOS | P0 | E1-E2 | Domínio e aplicação não dependem de Android; build inicial é Android | Revisão de dependências e build Android |
 | TEC-009 EF-2 | Aplicar BRL, R$, dd/MM/yyyy, pt-BR e America/Sao_Paulo | P0 | E2 | Valores e datas são exibidos e calculados no padrão aprovado | Unitários de locale, widget e timezone |
-| TEC-010 EF-2 | Chamar Gemini somente por Cloud Function | P0 | E5 | Cliente não contém chave nem endpoint Gemini direto | Varredura, análise de tráfego e Functions |
+| TEC-010 EF-2 | Chamar IA somente por borda server-side segura | P0 | E5 | Cliente não contém chave nem endpoint direto; fornecedor permanece neutro até decisão aprovada | Varredura, análise de tráfego e Functions |
 | AUT-001 EF-3 | Criar conta por e-mail e senha | P0 | E2 | Conta válida é criada e erros não expõem informação indevida | Widget e integração Auth |
 | AUT-002 EF-3 | Login por e-mail e senha | P0 | E2 | Credenciais válidas iniciam sessão e inválidas falham com mensagem segura | Widget, integração e abuso |
 | AUT-003 EF-3 | Login com Google | P0 | E2 | Fluxo conclui, cancela e associa a identidade correta | Integração Android e OAuth |
@@ -66,7 +66,7 @@
 | SIM-001 EF-11 | Simular os onze tipos de cenário listados | P1 | E4 | Cada tipo altera somente premissas do cenário | Unitários por cenário e widget |
 | SIM-002 EF-11 | Não alterar dados reais antes da confirmação | P0 | E4 | Simulação isolada não grava em coleções reais | Integração, regras e teste negativo |
 | SIM-003 EF-11 | Comparar situação atual, simulada e impactos | P1 | E4 | Comparação mostra diferença mensal, saldo, essenciais e metas | Unitários, widget e integração |
-| IAF-001 EF-12 | Integrar Gemini por Function segura | P0 | E5 | Function exige Auth, App Check e payload válido | Functions, segurança e abuso |
+| IAF-001 EF-12 | Integrar futuro provedor por Function segura | P0 | E5 | Function exige Auth, App Check e payload válido; ASSIST-0 não conecta provedor | Functions, segurança e abuso |
 | IAF-002 EF-12,21 | Minimizar dados pessoais e financeiros enviados | P0 | E5 | Payload contém somente campos aprovados e estruturados | Privacidade, contrato e integração |
 | IAF-003 EF-12 | Analisar os onze grupos de dados listados | P1 | E5 | Análise usa dados disponíveis e declara ausências | Unitário de montagem e integração |
 | IAF-004 EF-12 | Gerar as onze categorias de sugestão listadas | P1 | E5 | Resultado estruturado cobre sugestões aplicáveis sem genericidade | Contrato, integração e avaliação |
@@ -101,7 +101,7 @@
 | FUN-001 EF-20 | Gerar rendas e contas recorrentes | P0 | E3 | Execução repetida não duplica competência | Functions e idempotência |
 | FUN-002 EF-20 | Atualizar atrasos, projeções e resumos mensais | P0 | E3-E4 | Resultados são reconstruíveis e possuem watermark/data | Functions, integração e regressão |
 | FUN-003 EF-20 | Verificar alertas e enviar notificações | P0 | E4 | Apenas eventos elegíveis são enviados uma vez | Functions, FCM e deduplicação |
-| FUN-004 EF-20 | Processar Gemini e limitar solicitações | P0 | E5 | Rate limit, timeout, consentimento e App Check são aplicados | Functions, carga e abuso |
+| FUN-004 EF-20 | Processar IA e limitar solicitações | P0 | E5 | Rate limit, timeout, consentimento e App Check são aplicados ao provedor aprovado | Functions, carga e abuso |
 | FUN-005 EF-20 | Registrar auditoria sem dados sensíveis | P0 | E3-E6 | Eventos críticos têm requestId e nenhum dado proibido | Unitário e inspeção de logs |
 | FUN-006 EF-20 | Excluir dados do usuário com segurança | P0 | E6 | Processo cobre Auth, Firestore, Storage e tokens e pode retomar | Functions, idempotência e falhas parciais |
 | FUN-007 EF-20,29.15 | Reservar extensão futura para exportações grandes | P2 | E6 | Nenhuma Function/Storage é usada na primeira versão; extensão só nasce após nova aprovação | Auditoria de arquitetura e teste negativo de tráfego |
@@ -153,8 +153,8 @@
 | APR-012 EF-29.13 | Aplicar simulação somente após prévia e confirmação | P0 | E4 | Prévia lista criações/alterações e impactos; aplicação é atômica e auditável | Unitário, integração, transação e rollback |
 | APR-013 EF-29.14 | Restringir anexos a PDF/JPEG/PNG, 10 MB e cinco | P0 | E3-E6 | Extensão, MIME e assinatura conferem; executável/compactado/URL pública são negados | Storage Rules, assinatura, limite e acesso cruzado |
 | APR-014 EF-29.15 | Gerar exportações localmente na primeira versão | P1 | E6 | CSV/Excel são locais; PDF local respeita memória; nenhum upload ocorre só para exportar | Formatos, memória, arquivos e inspeção de tráfego |
-| APR-015 EF-29.16 | Aplicar controles Gemini aprovados | P0 | E5 | Auth/App Check, schema, timeout, custo, 10/dia, cerca de 2.000 tokens e minimização funcionam | Functions, carga, abuso, contrato e privacidade |
-| APR-016 EF-29.17 | Usar plano anticrise híbrido | P0 | E5 | Domínio decide valores/prioridades; Gemini só explica, organiza, oferece alternativas e pergunta | Unitários sem IA, contrato e testes adversariais |
+| APR-015 EF-29.16 | Aplicar controles de IA aprovados | P0 | E5 | Auth/App Check, schema, timeout, orçamento, limites configuráveis e minimização funcionam | Functions, carga, abuso, contrato e privacidade |
+| APR-016 EF-29.17 | Usar plano anticrise híbrido | P0 | E5 | Domínio decide valores/prioridades; provedor futuro só explica, organiza, oferece alternativas e pergunta | Unitários sem IA, contrato e testes adversariais |
 | APR-017 EF-29.18 | Desativar Analytics até consentimento e separar consentimento IA | P0 | E2-E6 | Retirada interrompe eventos; IA recusada não bloqueia finanças; logs não contêm dados proibidos | Consentimento, Analytics, Crashlytics e teste negativo |
 | APR-018 EF-29.19 | Aplicar retenções iniciais aprovadas | P0 | E5-E6 | IA/notificações expiram em 90 dias, auditoria em 180 e órfãos em 30 | TTL/limpeza, relógio, Functions e auditoria |
 | APR-019 EF-29.19 | Excluir conta com reautenticação e abrangência aprovada | P0 | E6 | Novas operações param, dados/anexos somem, dispositivos revogam e janela de backup é informada | Functions, falhas parciais, retomada e integração |
@@ -492,6 +492,17 @@
 | INV-UX-302 | Detalhar resultados das ferramentas | P0 | INV-UX-3 | toda ação de cálculo abre modal rolável com entradas, fórmula, resultado, aviso, semântica e fechamento por `X` em 320 px/fonte ampliada | implementado e coberto por widget | domínio determinístico | médio | neutro |
 | FREE-001 | Remover monetização do fluxo ativo | P0 | FREE-1 | investimentos, proventos, calculadoras e análises não consultam entitlement e não exibem tela, rota, popup, cobrança ou teste | implementado localmente; infraestrutura histórica preservada inativa | autenticação, perfil e UID continuam obrigatórios | crítico | reduz leituras e callables comerciais |
 | FREE-002 | Preservar segurança sem capability comercial | P0 | FREE-1 | Auth, e-mail confirmado, perfil jurídico, isolamento por UID, integridade, revisões, vínculos e owner sem bypass permanecem | Rules e testes locais atualizados; publicação não autorizada | Emulator `demo-*` | crítico | elimina leitura de entitlement nas Rules ativas |
+
+## Incremento ASSIST-0 — contrato seguro do Assistente Financeiro Pessoal
+
+| ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |
+|---|---|---:|---:|---|---|---|---|---|
+| ASSIST-001 | Inventariar contexto próprio | P0 | ASSIST-0 | fontes reais, derivadas, globais e futuras ausentes têm classificação fechada; dado inexistente nunca é simulado | implementado localmente | repositórios atuais | crítico | zero externo |
+| ASSIST-002 | Exigir consentimento confirmado | P0 | ASSIST-0 | Auth, App Check, e-mail, perfil, UID próprio e versão vigente são confirmados server-side; owner não ignora | contrato e testes locais | texto jurídico/função futuros | crítico | zero externo |
+| ASSIST-003 | Minimizar e explicar contexto | P0 | ASSIST-0 | fatos tipados usam aliases efêmeros; identidade, IDs persistidos, segredos e dados de terceiros são recusados; resposta cita evidências | domínio e borda ESM local | provedor ainda não escolhido | crítico | zero externo |
+| ASSIST-004 | Governar memória e exclusão | P0 | ASSIST-0 | memória inicia desativada; resumo futuro exige opt-in separado, máximo de 90 dias e política de retirada/reset/exclusão | política local; persistência ausente | PRIV-1 e consentimento futuro | crítico | zero externo |
+| ASSIST-005 | Impedir execução autônoma | P0 | ASSIST-0 | leitura/explicação são permitidas; mutação é somente proposta; privacidade/Auth/owner/entitlement são proibidos | matriz, domínio e testes locais | executor futuro separado | crítico | zero externo |
+| ASSIST-006 | Manter provedor neutro e desconectado | P0 | ASSIST-0 | não existe SDK, endpoint, segredo, Function, Rule ou chamada de IA; gateway é injetado por contrato | implementado e verificado estruturalmente | decisão comercial/técnica futura | alto | zero externo |
 
 ## Incrementos futuros de dados, privacidade e armazenamento
 

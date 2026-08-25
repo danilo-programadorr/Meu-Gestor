@@ -29,7 +29,7 @@ O nome interno do aplicativo vem do perfil Firestore. A tentativa posterior de e
 
 O perfil não contém email, telefone, CPF, endereço, foto, provedor, identificador Google, dispositivo, IP ou dados financeiros. Logs development registram somente operação, categoria, código Firestore, etapa e tipo de exceção.
 
-IA e Analytics não são instalados nem ativados. Os booleanos persistidos representam apenas preferências futuras e independentes.
+IA e Analytics não são instalados nem ativados. Os booleanos persistidos representam apenas preferências futuras e independentes. No ASSIST-0, `aiConsentEnabled` somente participa do contrato local: o uso futuro exigirá também versão da política, timestamp e leitura confirmada pelo servidor. Memória persistente terá consentimento separado e continua indisponível.
 
 ## Offline
 

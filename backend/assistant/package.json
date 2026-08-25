@@ -1,0 +1,10 @@
+{
+  "name": "meu-gestor-financeiro-assistant-contract-local",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "check": "node scripts/check.mjs",
+    "test": "node --test test/*.test.mjs"
+  }
+}

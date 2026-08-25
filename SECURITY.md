@@ -90,6 +90,14 @@ E-mail, senha, UID hardcoded, parâmetro de rota, preferência ou armazenamento 
 
 Capabilities owner liberam funcionalidades do produto e futuros recursos comerciais, mas não ignoram Security Rules, isolamento por UID, autenticação, validações financeiras, concorrência, integridade ou limites técnicos contra abuso. Diagnósticos omitem identidade, conteúdo administrativo, tokens, project ID e dados financeiros.
 
+## Assistente Financeiro Pessoal — ASSIST-0
+
+O contrato local exige Auth, App Check, e-mail verificado, perfil jurídico atual, UID próprio e consentimento IA vigente confirmado pelo servidor. Owner não contorna nenhuma dessas condições. O cliente envia somente a pergunta; UID e contexto são derivados server-side.
+
+O provedor futuro receberá somente fatos tipados e minimizados com aliases efêmeros. UID, e-mail, nome pessoal, IDs persistidos, tokens, segredos, entitlement, grants, owner, locks e operações de privacidade são proibidos. Perguntas com indício de segredo ou dado pessoal de terceiro falham antes do provedor. Toda afirmação factual deve citar evidência do contexto, e fontes inexistentes são declaradas ausentes.
+
+ASSIST-0 não possui API de IA, segredo, memória persistente ou executor. Uma saída pode explicar e propor uma prévia, mas nunca altera dados. Mutações futuras exigirão confirmação explícita e revalidação pelo domínio; reset, exclusão de conta, Auth, owner e entitlement permanecem sempre fora do assistente.
+
 ## Entitlement Premium — SUB-1A/SUB-1B/SUB-1C
 
 O backend de referência SUB-1B permanece exclusivamente local, sem rede, com armazenamento em memória para testes e mapper/repositório Flutter somente leitura. Suas Security Rules foram publicadas anteriormente somente em development, com SHA-256 `F01E52545F2CE88896A48B28B957BF45F8AE79B0173DF2E20449929FF21532B4`. O SUB-1C aplica enforcement apenas no código e nas regras locais; não houve nova publicação, Firebase real ou bloqueio de usuário development. Não existe entitlement real, backend implantado, produto de loja, compra ou paywall.

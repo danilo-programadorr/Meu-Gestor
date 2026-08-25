@@ -352,6 +352,8 @@ Campos obrigatórios: ownerId, analysisType, periodStart, periodEnd, modelName, 
 
 Não guardar chave, prompt bruto, anexos ou identificadores desnecessários. structuredResult é validado e contém problema, evidências, ação, impacto, urgência, riscos, alternativas e dados ausentes. Escrita somente por Cloud Function; usuário pode ler e solicitar exclusão. Limite inicial configurável: 10 análises por usuário/dia e aproximadamente 2.000 tokens máximos de saída.
 
+ASSIST-0 não cria essa coleção nem persiste memória. O contrato local define que um incremento futuro poderá gravar somente resultado estruturado validado e reconstruível, nunca conversa ou prompt bruto. O contexto enviado ao provedor usará aliases efêmeros, fatos tipados e fontes explícitas; UID, e-mail, IDs persistidos, entitlement, owner, operações de privacidade e segredos permanecem fora da fronteira.
+
 ### users/{userId}/monthlySummaries/{summaryId} — MonthlyFinancialSummaryModel
 
 Campos protegidos: ownerId, periodKey, receitas, despesas e saldos em centavos, nominalProjectionCents, conservativeProjectionCents, committedIncomeBasisPoints, freeMoneyCents, riskLevel, riskFacts, totais por categoria, sourceWatermark, calculatedAt e schemaVersion.
@@ -368,7 +370,7 @@ Documento global, autenticado e somente leitura para clientes; escrita administr
 - limiares de risco;
 - média de gasto baseada nos três meses completos anteriores;
 - alerta de gasto acima da média em 20% e diferença mínima de 5.000 centavos;
-- limite Gemini de 10 análises por dia e aproximadamente 2.000 tokens de saída;
+- limites configuráveis de análises e saída para o provedor futuro; a referência histórica de 10 análises/dia e cerca de 2.000 tokens não é configuração ativa no ASSIST-0;
 - versões das regras e data de vigência.
 
 Despesas recorrentes classificadas como assinatura contêm subscriptionReviewStatus e subscriptionLastAskedAt. O sistema apenas pergunta “Você ainda utiliza esta assinatura?” e somente sugere manter/cancelar após resposta.

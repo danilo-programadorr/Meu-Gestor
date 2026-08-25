@@ -9,7 +9,7 @@
 - Data desta revisão: 2 de agosto de 2026.
 - Os comandos públicos usam caminhos relativos à raiz do repositório.
 - A fundação local autorizada da Etapa 2 foi criada e validada nos limites da seção 16.
-- Todas as ações externas de Firebase, Google Cloud e Gemini são exclusivamente manuais pelo solicitante; o agente limita-se a orientar, preparar código autorizado e verificar resultados locais após confirmação.
+- Todas as ações externas de Firebase, Google Cloud e qualquer provedor de IA são exclusivamente manuais pelo solicitante; o agente limita-se a orientar, preparar código autorizado e verificar resultados locais após confirmação. Referências a Gemini nas etapas históricas não representam fornecedor ativo: a ADR-033 exige contrato neutro e nova aprovação antes da escolha.
 
 ## 2. Decisões aprovadas
 
@@ -20,7 +20,7 @@
 5. Flutter, Dart, arquitetura limpa e modular, Riverpod e go_router.
 6. Firebase Authentication com e-mail/senha e Google.
 7. Cloud Firestore, Cloud Functions, Firebase Cloud Messaging, Firebase App Check, Firebase Crashlytics e Firebase Analytics.
-8. Gemini somente por Cloud Function segura.
+8. IA somente por borda server-side segura e neutra de provedor.
 9. Dinheiro armazenado em centavos inteiros.
 10. Ambientes development e production separados.
 11. Cadastro financeiro manual e sem integração bancária automática na primeira versão.
@@ -44,8 +44,8 @@
 29. Aplicação de simulação exige prévia, confirmação, atomicidade e auditoria.
 30. Cloud Storage futuro está aprovado com PDF/JPEG/PNG, 10 MB e cinco anexos, mas ativação/faturamento não.
 31. CSV, Excel e PDF serão gerados localmente na primeira versão dentro dos limites do dispositivo.
-32. Gemini usa Function, Auth, App Check, resposta estruturada, 10 análises/dia e cerca de 2.000 tokens de saída.
-33. Plano anticrise é híbrido: regras decidem e Gemini apenas explica.
+32. Um provedor futuro usa Function, Auth, App Check, resposta estruturada e limites configuráveis de uso/saída.
+33. Plano anticrise é híbrido: regras decidem e o provedor apenas explica.
 34. Analytics começa desativado; IA tem consentimento separado; Crashlytics não registra dados sensíveis.
 35. Retenção inicial: IA/notificações 90 dias, auditoria 180 dias, órfãos 30 dias.
 36. Backups de produção são planejados para 30 dias, sem ativação paga autorizada.
@@ -57,9 +57,9 @@
 42. Antes de `emailVerified=true`, somente confirmação, reenvio, atualização, logout, exclusão e documentos jurídicos são permitidos; Google segue o estado do Firebase Authentication.
 43. Reajustes são fixos ou percentuais, possuem vigência e entidade relacionada, afetam ocorrências futuras e exigem confirmação/auditoria quando retroativos.
 44. Formas iniciais de recebimento e pagamento seguem as enumerações da seção 30 da especificação.
-45. Decisões de Gemini, Firebase, serviços pagos, jurídico, dívida, cartão e Analytics são portões das respectivas etapas e não bloqueiam a fundação local.
+45. Decisões de provedor de IA, Firebase, serviços pagos, jurídico, dívida, cartão e Analytics são portões das respectivas etapas e não bloqueiam a fundação local.
 46. O projeto deve ser operado a partir da raiz do repositório; caminhos absolutos locais não fazem parte da documentação pública.
-47. Firebase, Google Cloud e Gemini serão operados manualmente pelo solicitante; o agente não executa autenticação, seleção/criação de projetos, configuração de serviços, credenciais, faturamento ou deploy e nunca solicita segredos no chat.
+47. Firebase, Google Cloud e qualquer provedor de IA serão operados manualmente pelo solicitante; o agente não executa autenticação, seleção/criação de projetos, configuração de serviços, credenciais, faturamento ou deploy e nunca solicita segredos no chat.
 48. O perfil inicial usa `users/{uid}`, esquema 1, versões jurídicas development `terms-dev-1.0.0` e `privacy-dev-1.0.0` e consentimentos de IA e Analytics separados e desativados por padrão.
 49. A Etapa 3C usa regras Firestore com negação por padrão, exige email confirmado no usuário e no token e mantém subcoleções financeiras bloqueadas.
 50. Publicação de regras é manual e a validação final/APK só ocorre depois da confirmação literal `REGRAS FIRESTORE PUBLICADAS`.
@@ -887,3 +887,14 @@ Situação: implementado e validado somente localmente; Rules não publicadas e 
 - Excluir ativo exige ausência monotônica de histórico, trava por arquivamento, consultas server-only de operações/proventos e transação com revisão. Ativo histórico explica o bloqueio e oferece correção ou arquivamento.
 - Primeiro milhão oferece “Descobrir prazo” e “Descobrir aporte”, com prazo desejado em anos e meses. Todos os resultados de calculadoras exibem entradas, unidade da taxa, prazo, fórmula/premissas e decomposição do resultado.
 - Juros simples usam taxa anual e dias; compostos usam taxa mensal e meses. Porcentagem de aumento/desconto e variação entre valores são operações separadas. Graham e Bazin identificam LPA, VPA, dividendo anual e yield desejado sem produzir recomendação.
+
+## 45. ASSIST-0 — auditoria e contrato seguro do Assistente Financeiro Pessoal
+
+Situação: domínio, contrato server-side neutro, documentação e testes implementados somente localmente. Não há API de IA, Function, segredo, memória, interface, Rules ou recurso externo.
+
+- O inventário distingue fontes próprias disponíveis, agregados derivados, cotação global atrasada e módulos futuros ausentes. Nenhum dado inexistente pode ser simulado.
+- O uso futuro exige Auth, App Check, e-mail verificado, perfil jurídico atual, UID próprio e consentimento IA na versão vigente, confirmado pelo servidor. Owner não possui bypass.
+- O cliente envia somente a pergunta. O servidor monta fatos tipados, troca IDs por aliases efêmeros e bloqueia identidade, segredos, dados de terceiro e informações administrativas.
+- Memória começa desativada. Persistência futura exigirá consentimento separado, retenção máxima de 90 dias e exclusão/invalidação compatível com retirada, reset e exclusão de conta.
+- O assistente pode ler, explicar, comparar e sugerir. Mutações são apenas propostas e dependerão de confirmação exata, recente e revalidação em executor separado. Ações de privacidade, Auth, owner, entitlement e segurança são proibidas.
+- Uma etapa conectada dependerá de seleção aprovada de provedor, texto jurídico, Function/IAM/App Check, orçamento, limites, exclusão no provedor e testes adversariais, todos sob autorização própria.

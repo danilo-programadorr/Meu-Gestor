@@ -8,6 +8,9 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 ### Adicionado
 
+- ASSIST-0 inventaria as fontes próprias do futuro Assistente Financeiro Pessoal e adiciona contratos locais para consentimento, contexto tipado, memória desativada, evidências e propostas que nunca executam mutações sem confirmação;
+- borda ESM neutra de provedor valida Auth/App Check/perfil/consentimento, deriva o UID e o contexto no servidor, bloqueia segredos/dados de terceiros e rejeita afirmações sem fonte, sem conectar API de IA;
+
 - CRUD-AUDIT-1 registra uma matriz completa das ações de todas as entidades e padroniza lápis, lixeira, arquivamento e restauração com tooltip e semântica acessível;
 - ativos de investimento ganham correção de nome, edição de tipo antes do primeiro histórico, arquivamento/restauração e exclusão segura somente quando nunca tiveram operação ou provento;
 - INV-CALC-2 reformula Primeiro milhão com os modos “Descobrir prazo” e “Descobrir aporte”, prazo em anos/meses, decomposição do resultado e unidades explícitas;
