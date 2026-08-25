@@ -69,6 +69,9 @@ class _InvestmentOperationFormPageState
     if (portfolio == null || portfolio.isArchived) {
       return _error('Esta carteira não está disponível para operações.');
     }
+    if (asset.isArchived) {
+      return _error('Restaure este ativo antes de registrar uma operação.');
+    }
     final InvestmentPosition position = workspace
         .projectionForPortfolio(asset.portfolioId)
         .positions

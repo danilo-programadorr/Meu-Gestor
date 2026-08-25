@@ -613,6 +613,96 @@ void main() {
       contains('possui histórico'),
     );
   });
+
+  test('edita, arquiva, restaura e exclui ativo sem histórico', () async {
+    final _Context context = await _context();
+    addTearDown(context.dispose);
+    final InvestmentActionController controller = context.container.read(
+      investmentActionControllerProvider.notifier,
+    );
+    expect(
+      await controller.createPortfolio(
+        const InvestmentPortfolioDraft(name: 'Temporária', description: ''),
+      ),
+      isTrue,
+    );
+    final InvestmentPortfolio portfolio = context.repository.portfolios.single;
+    expect(
+      await controller.createAsset(
+        TrackedInvestmentAssetDraft(
+          portfolioId: portfolio.id,
+          ticker: 'VALE3',
+          name: 'Vale ON',
+          type: TrackedInvestmentAssetType.stock,
+        ),
+      ),
+      isTrue,
+    );
+    TrackedInvestmentAsset asset = context.repository.assets.single;
+    expect(asset.hasHistory, isFalse);
+    expect(
+      await controller.updateAsset(
+        asset: asset,
+        update: const TrackedInvestmentAssetUpdate(
+          name: 'Vale corrigida',
+          type: TrackedInvestmentAssetType.fii,
+        ),
+      ),
+      isTrue,
+    );
+    asset = context.repository.assets.single;
+    expect(asset.name, 'Vale corrigida');
+    expect(asset.type, TrackedInvestmentAssetType.fii);
+    expect(
+      await controller.setAssetArchived(asset: asset, archived: true),
+      isTrue,
+    );
+    asset = context.repository.assets.single;
+    expect(asset.isArchived, isTrue);
+    expect(
+      await controller.setAssetArchived(asset: asset, archived: false),
+      isTrue,
+    );
+    asset = context.repository.assets.single;
+    expect(await controller.deleteEmptyAsset(asset), isTrue);
+    expect(context.repository.assets, isEmpty);
+  });
+
+  test(
+    'ativo histórico permite correção de nome, mas não do tipo ou exclusão',
+    () async {
+      final _Context context = await _context(withAsset: true);
+      addTearDown(context.dispose);
+      final InvestmentActionController controller = context.container.read(
+        investmentActionControllerProvider.notifier,
+      );
+      final TrackedInvestmentAsset asset = context.repository.assets.single;
+      expect(
+        await controller.updateAsset(
+          asset: asset,
+          update: TrackedInvestmentAssetUpdate(
+            name: 'Nome corrigido',
+            type: asset.type,
+          ),
+        ),
+        isTrue,
+      );
+      final TrackedInvestmentAsset corrected = context.repository.assets.single;
+      expect(corrected.name, 'Nome corrigido');
+      expect(
+        await controller.updateAsset(
+          asset: corrected,
+          update: const TrackedInvestmentAssetUpdate(
+            name: 'Nome corrigido',
+            type: TrackedInvestmentAssetType.fii,
+          ),
+        ),
+        isFalse,
+      );
+      expect(await controller.deleteEmptyAsset(corrected), isFalse);
+      expect(context.repository.assets, hasLength(1));
+    },
+  );
 }
 
 InvestmentIncomeDraft _incomeDraft({int grossCents = 1000}) =>

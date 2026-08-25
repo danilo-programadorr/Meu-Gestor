@@ -1075,10 +1075,10 @@ service cloud.firestore {
     function hasExactInvestmentPortfolioFields(data) {
       return data.schemaVersion == 1
         ? data.keys().hasAll(investmentPortfolioFieldsV1())
-          && data.keys().hasOnly(investmentPortfolioFieldsV1())
+          && data.keys().size() == 9
         : data.schemaVersion == 2
           && data.keys().hasAll(investmentPortfolioFieldsV2())
-          && data.keys().hasOnly(investmentPortfolioFieldsV2());
+          && data.keys().size() == 10;
     }
 
     function isValidInvestmentPortfolio(data, userId) {
@@ -1107,47 +1107,62 @@ service cloud.firestore {
 
     function isValidInvestmentPortfolioCreate(userId) {
       let data = request.resource.data;
-      return isValidInvestmentPortfolio(data, userId)
-        && data.schemaVersion == 2
+      return data.schemaVersion == 2
         && data.hasHistory == false
         && data.isArchived == false
         && data.archivedAt == null
         && data.createdAt == request.time
         && data.updatedAt == request.time
-        && data.revision == 1;
+        && data.revision == 1
+        && isValidInvestmentPortfolio(data, userId);
     }
 
     function isValidInvestmentPortfolioUpdate(userId) {
       let data = request.resource.data;
       let changed = data.diff(resource.data).affectedKeys();
-      return isValidInvestmentPortfolio(data, userId)
-        && data.ownerId == resource.data.ownerId
-        && data.createdAt == resource.data.createdAt
-        && data.schemaVersion == resource.data.schemaVersion
-        && data.updatedAt == request.time
-        && data.revision == resource.data.revision + 1
-        && changed.hasAny([
-          'name', 'description', 'isArchived', 'hasHistory'
-        ])
-        && changed.hasOnly([
-          'name', 'description', 'isArchived', 'archivedAt', 'updatedAt',
-          'revision', 'hasHistory'
-        ])
-        && (
-          data.schemaVersion == 1
-          || data.hasHistory == resource.data.hasHistory
-          || resource.data.hasHistory == false && data.hasHistory == true
-        )
-        && (
-          data.isArchived == resource.data.isArchived
-            ? data.archivedAt == resource.data.archivedAt
-            : resource.data.isArchived == false
-              ? data.isArchived == true && data.archivedAt == request.time
-              : data.isArchived == false && data.archivedAt == null
-        );
+      return resource.data.schemaVersion == 2
+          && resource.data.hasHistory == false
+          && changed.hasOnly(['hasHistory', 'updatedAt', 'revision'])
+        ? data.keys().hasAll(investmentPortfolioFieldsV2())
+          && data.keys().size() == 10
+          && data.ownerId == userId
+          && data.ownerId == resource.data.ownerId
+          && data.name == resource.data.name
+          && data.description == resource.data.description
+          && data.isArchived == resource.data.isArchived
+          && data.archivedAt == resource.data.archivedAt
+          && data.createdAt == resource.data.createdAt
+          && data.schemaVersion == 2
+          && data.hasHistory == true
+          && data.updatedAt == request.time
+          && data.revision == resource.data.revision + 1
+        : data.ownerId == resource.data.ownerId
+          && data.createdAt == resource.data.createdAt
+          && data.schemaVersion == resource.data.schemaVersion
+          && data.updatedAt == request.time
+          && data.revision == resource.data.revision + 1
+          && changed.hasAny([
+            'name', 'description', 'isArchived', 'hasHistory'
+          ])
+          && changed.hasOnly([
+            'name', 'description', 'isArchived', 'archivedAt', 'updatedAt',
+            'revision', 'hasHistory'
+          ])
+          && (
+            data.schemaVersion == 1
+            || data.hasHistory == resource.data.hasHistory
+          )
+          && (
+            data.isArchived == resource.data.isArchived
+              ? data.archivedAt == resource.data.archivedAt
+              : resource.data.isArchived == false
+                ? data.isArchived == true && data.archivedAt == request.time
+                : data.isArchived == false && data.archivedAt == null
+          )
+          && isValidInvestmentPortfolio(data, userId);
     }
 
-    function investmentAssetFields() {
+    function investmentAssetFieldsV1() {
       return [
         'ownerId', 'portfolioId', 'ticker', 'name', 'assetType',
         'currencyCode', 'currentQuantityScaled', 'lastOperationId',
@@ -1156,9 +1171,31 @@ service cloud.firestore {
       ];
     }
 
+    function investmentAssetFieldsV2() {
+      return investmentAssetFieldsV1().concat([
+        'isArchived', 'archivedAt', 'hasHistory'
+      ]);
+    }
+
+    function hasExactInvestmentAssetFields(data) {
+      return data.schemaVersion == 1
+        ? data.keys().hasAll(investmentAssetFieldsV1())
+          && data.keys().size() == 13
+        : data.schemaVersion == 2
+          && data.keys().hasAll(investmentAssetFieldsV2())
+          && data.keys().size() == 16;
+    }
+
+    function investmentAssetIsArchived(data) {
+      return data.schemaVersion == 1 ? false : data.isArchived;
+    }
+
+    function investmentAssetHasHistory(data) {
+      return data.schemaVersion == 1 ? true : data.hasHistory;
+    }
+
     function isValidInvestmentAsset(data, userId, assetId) {
-      return data.keys().hasAll(investmentAssetFields())
-        && data.keys().hasOnly(investmentAssetFields())
+      return hasExactInvestmentAssetFields(data)
         && data.ownerId == userId
         && data.portfolioId is string
         && data.portfolioId.size() >= 1
@@ -1182,7 +1219,14 @@ service cloud.firestore {
         && (data.lastOperationId == null) == (data.lastOperationAt == null)
         && data.createdAt is timestamp
         && data.updatedAt is timestamp
-        && data.schemaVersion == 1
+        && data.schemaVersion in [1, 2]
+        && (
+          data.schemaVersion == 1
+          || data.isArchived is bool
+            && (data.archivedAt == null || data.archivedAt is timestamp)
+            && data.isArchived == (data.archivedAt != null)
+            && data.hasHistory is bool
+        )
         && data.revision is int
         && data.revision >= 1;
     }
@@ -1212,14 +1256,18 @@ service cloud.firestore {
 
     function isValidInvestmentAssetCreate(userId, assetId) {
       let data = request.resource.data;
-      return isValidInvestmentAsset(data, userId, assetId)
+      return data.schemaVersion == 2
+        && data.isArchived == false
+        && data.archivedAt == null
+        && data.hasHistory == false
         && data.currentQuantityScaled == 0
         && data.lastOperationId == null
         && data.lastOperationAt == null
         && data.createdAt == request.time
         && data.updatedAt == request.time
         && data.revision == 1
-        && isActiveInvestmentPortfolio(userId, data.portfolioId);
+        && isActiveInvestmentPortfolio(userId, data.portfolioId)
+        && isValidInvestmentAsset(data, userId, assetId);
     }
 
     function investmentOperationFields() {
@@ -1304,6 +1352,8 @@ service cloud.firestore {
         && get(assetPath).data.lastOperationAt == data.previousOperationAt
         && getAfter(assetPath).data.lastOperationId == operationId
         && getAfter(assetPath).data.lastOperationAt == data.occurredAt
+        && investmentAssetIsArchived(getAfter(assetPath).data) == false
+        && investmentAssetHasHistory(getAfter(assetPath).data) == true
         && isOperationQuantityTransition(
           get(assetPath).data,
           getAfter(assetPath).data,
@@ -1344,24 +1394,81 @@ service cloud.firestore {
         );
     }
 
-    function isValidInvestmentAssetUpdate(userId, assetId) {
-      let data = request.resource.data;
-      let changed = data.diff(resource.data).affectedKeys();
-      return isValidInvestmentAsset(data, userId, assetId)
-        && data.ownerId == resource.data.ownerId
+    function hasImmutableInvestmentAssetIdentity(data) {
+      return data.ownerId == resource.data.ownerId
         && data.portfolioId == resource.data.portfolioId
         && data.ticker == resource.data.ticker
+        && data.currencyCode == resource.data.currencyCode
+        && data.createdAt == resource.data.createdAt;
+    }
+
+    function isValidInvestmentAssetMetadataEdit(data, changed) {
+      return investmentAssetIsArchived(resource.data) == false
+        && investmentAssetIsArchived(data) == false
+        && investmentAssetHasHistory(data) == investmentAssetHasHistory(resource.data)
+        && data.currentQuantityScaled == resource.data.currentQuantityScaled
+        && data.lastOperationId == resource.data.lastOperationId
+        && data.lastOperationAt == resource.data.lastOperationAt
+        && data.schemaVersion == resource.data.schemaVersion
+        && changed.hasAny(['name', 'assetType'])
+        && changed.hasOnly(['name', 'assetType', 'updatedAt', 'revision'])
+        && (
+          data.assetType == resource.data.assetType
+          || investmentAssetHasHistory(resource.data) == false
+        );
+    }
+
+    function isValidInvestmentAssetArchive(userId, data, changed) {
+      return data.currentQuantityScaled == resource.data.currentQuantityScaled
+        && data.lastOperationId == resource.data.lastOperationId
+        && data.lastOperationAt == resource.data.lastOperationAt
         && data.name == resource.data.name
         && data.assetType == resource.data.assetType
-        && data.currencyCode == resource.data.currencyCode
-        && data.createdAt == resource.data.createdAt
+        && data.schemaVersion == 2
+        && investmentAssetHasHistory(data) == investmentAssetHasHistory(resource.data)
+        && data.isArchived != investmentAssetIsArchived(resource.data)
+        && changed.hasAll(['isArchived', 'archivedAt', 'revision'])
+        && changed.hasOnly([
+          'isArchived', 'archivedAt', 'hasHistory', 'schemaVersion',
+          'updatedAt', 'revision'
+        ])
+        && (
+          data.isArchived == true && data.archivedAt == request.time
+          || data.isArchived == false
+            && data.archivedAt == null
+            && isActiveInvestmentPortfolio(userId, data.portfolioId)
+        );
+    }
+
+    function isValidInvestmentAssetHistoryMark(data, changed) {
+      return data.schemaVersion == 2
+        && resource.data.schemaVersion == 2
+        && resource.data.hasHistory == false
+        && data.hasHistory == true
+        && data.isArchived == false
+        && resource.data.isArchived == false
+        && data.name == resource.data.name
+        && data.assetType == resource.data.assetType
+        && data.currentQuantityScaled == resource.data.currentQuantityScaled
+        && data.lastOperationId == resource.data.lastOperationId
+        && data.lastOperationAt == resource.data.lastOperationAt
+        && changed.hasAll(['hasHistory', 'revision'])
+        && changed.hasOnly(['hasHistory', 'updatedAt', 'revision']);
+    }
+
+    function isValidInvestmentAssetOperationMutation(userId, assetId, data, changed) {
+      return data.name == resource.data.name
+        && data.assetType == resource.data.assetType
         && data.schemaVersion == resource.data.schemaVersion
-        && data.updatedAt == request.time
-        && data.revision == resource.data.revision + 1
-        && changed.hasAll(['currentQuantityScaled', 'lastOperationId', 'revision'])
+        && investmentAssetIsArchived(resource.data) == false
+        && investmentAssetIsArchived(data) == false
+        && investmentAssetHasHistory(data) == true
+        && changed.hasAll([
+          'currentQuantityScaled', 'lastOperationId', 'revision'
+        ])
         && changed.hasOnly([
           'currentQuantityScaled', 'lastOperationId', 'lastOperationAt',
-          'updatedAt', 'revision'
+          'hasHistory', 'updatedAt', 'revision'
         ])
         && isActiveInvestmentPortfolio(userId, data.portfolioId)
         && (
@@ -1371,6 +1478,29 @@ service cloud.firestore {
           || resource.data.lastOperationId != null
             && isValidInvestmentAssetOperationVoid(userId, assetId, data)
         );
+    }
+
+    function isValidInvestmentAssetUpdate(userId, assetId) {
+      let data = request.resource.data;
+      let changed = data.diff(resource.data).affectedKeys();
+      return hasImmutableInvestmentAssetIdentity(data)
+        && data.updatedAt == request.time
+        && data.revision == resource.data.revision + 1
+        && (
+          changed.hasAny(['currentQuantityScaled', 'lastOperationId'])
+            ? isValidInvestmentAssetOperationMutation(
+              userId,
+              assetId,
+              data,
+              changed
+            )
+            : changed.hasAny(['isArchived', 'archivedAt', 'schemaVersion'])
+              ? isValidInvestmentAssetArchive(userId, data, changed)
+              : changed.hasAny(['hasHistory'])
+                ? isValidInvestmentAssetHistoryMark(data, changed)
+                : isValidInvestmentAssetMetadataEdit(data, changed)
+        )
+        && isValidInvestmentAsset(data, userId, assetId);
     }
 
     function isValidInvestmentOperationVoid(userId, operationId) {
@@ -1511,6 +1641,8 @@ service cloud.firestore {
         && getAfter(portfolioPath).data.isArchived == false
         && getAfter(assetPath).data.ownerId == userId
         && getAfter(assetPath).data.portfolioId == data.portfolioId
+        && investmentAssetIsArchived(getAfter(assetPath).data) == false
+        && investmentAssetHasHistory(getAfter(assetPath).data) == true
         && isCompatibleInvestmentIncome(
           getAfter(assetPath).data.assetType,
           data.incomeType
@@ -1899,7 +2031,11 @@ service cloud.firestore {
           && isValidAccountCreate(userId);
         allow update: if hasFinancialMutationAccess(userId)
           && isValidAccountUpdate(userId);
-        allow delete: if false;
+        allow delete: if hasFinancialMutationAccess(userId)
+          && isValidInvestmentAsset(resource.data, userId, assetId)
+          && resource.data.schemaVersion == 2
+          && resource.data.hasHistory == false
+          && resource.data.isArchived == true;
 
         match /{document=**} {
           allow read, write: if false;
@@ -2001,11 +2137,18 @@ service cloud.firestore {
 
       match /investmentAssets/{assetId} {
         allow get, list: if hasFinancialAccess(userId);
-        allow create: if hasFinancialMutationAccess(userId)
+        allow create: if request.resource.data.get('schemaVersion', 0) == 2
+          && hasFinancialMutationAccess(userId)
           && isValidInvestmentAssetCreate(userId, assetId);
-        allow update: if hasFinancialMutationAccess(userId)
+        allow update: if request.resource.data.get('revision', 0)
+            == resource.data.get('revision', 0) + 1
+          && hasFinancialMutationAccess(userId)
           && isValidInvestmentAssetUpdate(userId, assetId);
-        allow delete: if false;
+        allow delete: if hasFinancialMutationAccess(userId)
+          && isValidInvestmentAsset(resource.data, userId, assetId)
+          && resource.data.schemaVersion == 2
+          && resource.data.hasHistory == false
+          && resource.data.isArchived == true;
 
         match /{document=**} {
           allow read, write: if false;

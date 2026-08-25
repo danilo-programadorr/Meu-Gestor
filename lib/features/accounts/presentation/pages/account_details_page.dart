@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:meu_gestor_financeiro/app/routing/app_routes.dart';
 import 'package:meu_gestor_financeiro/app/routing/safe_back_navigation.dart';
 import 'package:meu_gestor_financeiro/app/theme/app_spacing.dart';
+import 'package:meu_gestor_financeiro/app/widgets/entity_action_icon_button.dart';
 import 'package:meu_gestor_financeiro/core/money/money.dart';
 import 'package:meu_gestor_financeiro/core/money/money_formatter.dart';
 import 'package:meu_gestor_financeiro/features/accounts/domain/financial_account.dart';
@@ -115,12 +116,12 @@ class _DetailsContent extends ConsumerWidget {
           title: const Text('Detalhes da conta'),
           actions: <Widget>[
             if (!account.isArchived)
-              IconButton(
-                tooltip: 'Editar conta',
+              EntityActionIconButton(
+                action: EntityActionIcon.edit,
+                entityName: 'conta',
                 onPressed: action.isLoading
                     ? null
                     : () => context.push(AppRoutes.editAccount(account.id)),
-                icon: const Icon(Icons.edit_outlined),
               ),
           ],
         ),

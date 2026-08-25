@@ -14,6 +14,13 @@ Escopo: `investmentPortfolios`, `investmentAssets`, `investmentOperations` e `in
 | criar primeiro ativo sem elevar `hasHistory` no mesmo batch | negar |
 | criar primeiro ativo e elevar `hasHistory` para `true` atomicamente | permitir; reversão posterior é negada |
 | ativo com carteira ausente/arquivada, ticker inválido ou ID não determinístico | negar |
+| editar nome e tipo de ativo schema 2 sem histórico | permitir com revisão; ticker permanece imutável |
+| editar tipo de ativo histórico ou legado | negar; correção de nome permanece disponível quando ativo |
+| arquivar/restaurar ativo válido | permitir, preservando operações e proventos e bloqueando novos registros enquanto arquivado |
+| excluir ativo schema 2 sem histórico ainda ativo | negar; o repositório precisa arquivar como trava |
+| excluir ativo schema 2 arquivado e sem histórico | permitir após revalidação server-only; histórico/legado continua negado |
+| criar primeira operação ou primeiro provento sem marcar histórico do ativo | negar |
+| criar primeira operação ou provento e elevar `hasHistory` no mesmo batch | permitir; marcador nunca regride |
 | compra sem atualização do ativo ou projeção sem operação | negar |
 | compra atômica com vínculo, quantidade e topo corretos | permitir |
 | venda zero, futura, fora de ordem, acima da posição ou com taxa superior ao valor bruto | negar |
@@ -40,4 +47,4 @@ O log é auditado contra limite de 1.000 expressões, excesso de leituras de reg
 
 Situação do INV-PROV-1: 50 testes aprovados em nove suites; regras compiladas e publicadas com sucesso exclusivamente em development, sem acesso a production, com SHA-256 `8B689BA72FE05B1C04409E00083644D83B2EEACFDDA67A7C8D003B843E102FBE`. O APK debug development foi gerado e aprovado manualmente; commit e push permaneciam pendentes nesta atualização documental.
 
-Situação local FREE-1/INV-UX-3: 71/71 testes em 14 suites aprovados no Emulator `demo-meu-gestor-financeiro`; auditoria do log sem limite de expressões, excesso de leituras, avaliação interrompida, erro nulo ou falha interna. Estas Rules não foram publicadas.
+Situação local FREE-1/INV-UX-3/CRUD-AUDIT-1: 74/74 testes em 14 suites aprovados no Emulator `demo-meu-gestor-financeiro`; auditoria do log sem limite de expressões, excesso de leituras, avaliação interrompida, erro nulo ou falha interna. Estas Rules não foram publicadas.

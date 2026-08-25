@@ -6,6 +6,7 @@ import 'package:meu_gestor_financeiro/app/routing/safe_back_navigation.dart';
 import 'package:meu_gestor_financeiro/app/theme/app_radius.dart';
 import 'package:meu_gestor_financeiro/app/theme/app_spacing.dart';
 import 'package:meu_gestor_financeiro/app/theme/app_theme_colors.dart';
+import 'package:meu_gestor_financeiro/app/widgets/entity_action_icon_button.dart';
 import 'package:meu_gestor_financeiro/core/privacy/financial_privacy_controller.dart';
 import 'package:meu_gestor_financeiro/features/investments/data/investment_providers.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_operation.dart';
@@ -419,8 +420,9 @@ class _InvestmentsPageState extends ConsumerState<InvestmentsPage>
                                   trailing: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: <Widget>[
-                                      IconButton(
-                                        tooltip: 'Editar ${portfolio.name}',
+                                      EntityActionIconButton(
+                                        action: EntityActionIcon.edit,
+                                        entityName: portfolio.name,
                                         onPressed: () async {
                                           Navigator.of(sheetContext).pop();
                                           await context.push(
@@ -429,25 +431,20 @@ class _InvestmentsPageState extends ConsumerState<InvestmentsPage>
                                             ),
                                           );
                                         },
-                                        icon: const Icon(Icons.edit_outlined),
                                       ),
-                                      IconButton(
+                                      EntityActionIconButton(
                                         key: ValueKey<String>(
                                           'delete-investment-portfolio-${portfolio.id}',
                                         ),
-                                        tooltip: 'Excluir ${portfolio.name}',
+                                        action: EntityActionIcon.delete,
+                                        entityName: portfolio.name,
+                                        destructive: true,
                                         onPressed: () async {
                                           Navigator.of(sheetContext).pop();
                                           await _confirmDeletePortfolio(
                                             portfolio,
                                           );
                                         },
-                                        icon: Icon(
-                                          Icons.delete_outline_rounded,
-                                          color: Theme.of(
-                                            sheetContext,
-                                          ).colorScheme.error,
-                                        ),
                                       ),
                                     ],
                                   ),
@@ -1311,6 +1308,11 @@ class _PositionCard extends StatelessWidget {
               runSpacing: AppSpacing.xs,
               children: <Widget>[
                 Chip(label: Text(position.asset.type.label)),
+                if (position.asset.isArchived)
+                  const Chip(
+                    avatar: Icon(Icons.archive_outlined, size: 18),
+                    label: Text('Arquivado'),
+                  ),
                 Chip(
                   avatar: Icon(
                     position.isClosed

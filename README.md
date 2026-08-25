@@ -42,10 +42,10 @@ Concluído e validado localmente:
 - filtros por tipo, conta e categoria, além de edição descritiva e cancelamento irreversível de lançamentos;
 - contas a pagar e receber com atraso derivado, liquidação/anulação atômicas e vínculo bidirecional ao lançamento;
 - dashboard analítico responsivo com filtros locais, indicadores reais, gráficos acessíveis e menu agrupado;
-- acompanhamento manual local de ações e fundos imobiliários por carteiras, compras e vendas, sem alterar o saldo;
+- acompanhamento manual local de ações e fundos imobiliários por carteiras, compras e vendas, com correção/arquivamento de ativos e exclusão somente antes de existir histórico, sem alterar o saldo;
 - proventos manuais previstos, recebidos, cancelados ou anulados, com dividendos, JCP e rendimentos de FII separados do núcleo financeiro;
 - acesso owner seguro, confirmado pelo servidor, com Área do proprietário e revalidação;
-- investimentos, proventos, calculadoras e análises disponíveis gratuitamente, sem rota, popup, cobrança ou verificação comercial no fluxo ativo;
+- investimentos, proventos, calculadoras e análises disponíveis gratuitamente, incluindo Primeiro milhão por prazo ou aporte e campos com unidades explícitas, sem rota, popup, cobrança ou verificação comercial no fluxo ativo;
 - infraestrutura histórica de entitlement e cobrança preservada de forma inativa e reversível, sem chamadas em runtime;
 - regras Firestore publicadas em development com isolamento por UID, campos fechados e negação por padrão;
 - testes unitários, de widgets, integração de fluxos e segurança estrutural.

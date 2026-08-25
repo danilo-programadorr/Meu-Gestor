@@ -227,9 +227,12 @@ final class FakeInvestmentRepository implements InvestmentRepository {
       currentQuantityScaled: 0,
       lastOperationId: null,
       lastOperationAt: null,
+      isArchived: false,
+      archivedAt: null,
+      hasHistory: false,
       createdAt: now,
       updatedAt: now,
-      schemaVersion: 1,
+      schemaVersion: TrackedInvestmentAsset.currentSchemaVersion,
       revision: 1,
     );
     final int portfolioIndex = portfolios.indexWhere(
@@ -256,6 +259,94 @@ final class FakeInvestmentRepository implements InvestmentRepository {
   }
 
   @override
+  Future<TrackedInvestmentAsset> updateAsset({
+    required String ownerId,
+    required String assetId,
+    required int expectedRevision,
+    required TrackedInvestmentAssetUpdate update,
+  }) async {
+    _throwIfNeeded();
+    final int index = assets.indexWhere((value) => value.id == assetId);
+    final TrackedInvestmentAsset current = assets[index];
+    final TrackedInvestmentAssetUpdate normalized = update.normalized();
+    if (current.revision != expectedRevision || current.isArchived) {
+      throw const InvestmentFailure(
+        kind: InvestmentFailureKind.aborted,
+        safeMessage: 'Conflito ao atualizar o ativo.',
+      );
+    }
+    if (current.hasHistory && normalized.type != current.type) {
+      throw const InvestmentFailure(
+        kind: InvestmentFailureKind.historicalCorrectionBlocked,
+        safeMessage: 'O tipo não pode mudar quando há histórico.',
+      );
+    }
+    final TrackedInvestmentAsset value = _copyAsset(
+      current,
+      quantity: current.currentQuantityScaled,
+      lastOperationId: current.lastOperationId,
+      lastOperationAt: current.lastOperationAt,
+      name: normalized.name,
+      type: normalized.type,
+    );
+    assets[index] = value;
+    return value;
+  }
+
+  @override
+  Future<TrackedInvestmentAsset> setAssetArchived({
+    required String ownerId,
+    required String assetId,
+    required int expectedRevision,
+    required bool archived,
+  }) async {
+    _throwIfNeeded();
+    final int index = assets.indexWhere((value) => value.id == assetId);
+    final TrackedInvestmentAsset current = assets[index];
+    if (current.revision != expectedRevision) {
+      throw const InvestmentFailure(
+        kind: InvestmentFailureKind.aborted,
+        safeMessage: 'Conflito ao arquivar o ativo.',
+      );
+    }
+    final TrackedInvestmentAsset value = _copyAsset(
+      current,
+      quantity: current.currentQuantityScaled,
+      lastOperationId: current.lastOperationId,
+      lastOperationAt: current.lastOperationAt,
+      isArchived: archived,
+      archivedAt: archived ? DateTime.utc(2026, 8, 4, 12) : null,
+      schemaVersion: TrackedInvestmentAsset.currentSchemaVersion,
+    );
+    assets[index] = value;
+    return value;
+  }
+
+  @override
+  Future<void> deleteEmptyAsset({
+    required String ownerId,
+    required String assetId,
+    required int expectedRevision,
+  }) async {
+    _throwIfNeeded();
+    final int index = assets.indexWhere((value) => value.id == assetId);
+    final TrackedInvestmentAsset current = assets[index];
+    final bool hasReferences =
+        operations.any((value) => value.assetId == assetId) ||
+        incomeEvents.any((value) => value.assetId == assetId);
+    if (current.revision != expectedRevision ||
+        current.hasHistory ||
+        hasReferences ||
+        current.schemaVersion != TrackedInvestmentAsset.currentSchemaVersion) {
+      throw const InvestmentFailure(
+        kind: InvestmentFailureKind.failedPrecondition,
+        safeMessage: 'Este ativo possui histórico e não pode ser excluído.',
+      );
+    }
+    assets.removeAt(index);
+  }
+
+  @override
   Future<InvestmentOperation> createOperation({
     required String ownerId,
     required String operationId,
@@ -270,6 +361,12 @@ final class FakeInvestmentRepository implements InvestmentRepository {
       (TrackedInvestmentAsset value) => value.id == normalized.assetId,
     );
     final TrackedInvestmentAsset asset = assets[assetIndex];
+    if (asset.isArchived) {
+      throw const InvestmentFailure(
+        kind: InvestmentFailureKind.failedPrecondition,
+        safeMessage: 'Restaure o ativo antes de registrar uma operação.',
+      );
+    }
     final int quantity = normalized.kind == InvestmentOperationKind.buy
         ? asset.currentQuantityScaled + normalized.quantityScaled
         : asset.currentQuantityScaled - normalized.quantityScaled;
@@ -301,6 +398,7 @@ final class FakeInvestmentRepository implements InvestmentRepository {
       quantity: quantity,
       lastOperationId: operationId,
       lastOperationAt: normalized.occurredAt,
+      hasHistory: true,
     );
     return value;
   }
@@ -370,6 +468,12 @@ final class FakeInvestmentRepository implements InvestmentRepository {
       draft.portfolioId,
       draft.assetId,
     );
+    if (asset.isArchived) {
+      throw const InvestmentFailure(
+        kind: InvestmentFailureKind.failedPrecondition,
+        safeMessage: 'Restaure o ativo antes de registrar um provento.',
+      );
+    }
     final InvestmentIncomeDraft normalized = draft.normalized(
       assetType: asset.type,
     );
@@ -408,6 +512,16 @@ final class FakeInvestmentRepository implements InvestmentRepository {
       revision: 1,
     );
     incomeEvents.add(value);
+    final int assetIndex = assets.indexWhere((item) => item.id == asset.id);
+    if (!asset.hasHistory) {
+      assets[assetIndex] = _copyAsset(
+        asset,
+        quantity: asset.currentQuantityScaled,
+        lastOperationId: asset.lastOperationId,
+        lastOperationAt: asset.lastOperationAt,
+        hasHistory: true,
+      );
+    }
     _throwIncomeFailureAfterWrite();
     return value;
   }
@@ -586,20 +700,29 @@ final class FakeInvestmentRepository implements InvestmentRepository {
     required int quantity,
     required String? lastOperationId,
     required DateTime? lastOperationAt,
+    String? name,
+    TrackedInvestmentAssetType? type,
+    bool? isArchived,
+    DateTime? archivedAt,
+    bool? hasHistory,
+    int? schemaVersion,
   }) => TrackedInvestmentAsset(
     id: asset.id,
     ownerId: asset.ownerId,
     portfolioId: asset.portfolioId,
     ticker: asset.ticker,
-    name: asset.name,
-    type: asset.type,
+    name: name ?? asset.name,
+    type: type ?? asset.type,
     currencyCode: asset.currencyCode,
     currentQuantityScaled: quantity,
     lastOperationId: lastOperationId,
     lastOperationAt: lastOperationAt,
+    isArchived: isArchived ?? asset.isArchived,
+    archivedAt: isArchived == false ? null : archivedAt ?? asset.archivedAt,
+    hasHistory: hasHistory ?? asset.hasHistory,
     createdAt: asset.createdAt,
     updatedAt: DateTime.utc(2026, 8, 4, 12),
-    schemaVersion: 1,
+    schemaVersion: schemaVersion ?? asset.schemaVersion,
     revision: asset.revision + 1,
   );
 

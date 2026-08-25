@@ -119,15 +119,19 @@ class _InvestmentIncomeFormPageState
       );
     }
     final String portfolioId = event?.portfolioId ?? widget.portfolioId ?? '';
-    final List<TrackedInvestmentAsset> assets = data.assetsForPortfolio(
-      portfolioId,
-    );
+    final List<TrackedInvestmentAsset> assets = data
+        .assetsForPortfolio(portfolioId)
+        .where(
+          (TrackedInvestmentAsset asset) =>
+              !asset.isArchived || asset.id == event?.assetId,
+        )
+        .toList(growable: false);
     if (assets.isEmpty) {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(AppSpacing.lg),
           child: Text(
-            'Cadastre um ativo nesta carteira antes de registrar proventos.',
+            'Cadastre ou restaure um ativo nesta carteira antes de registrar proventos.',
             textAlign: TextAlign.center,
           ),
         ),

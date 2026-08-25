@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:meu_gestor_financeiro/app/routing/app_routes.dart';
 import 'package:meu_gestor_financeiro/app/routing/safe_back_navigation.dart';
 import 'package:meu_gestor_financeiro/app/theme/app_spacing.dart';
+import 'package:meu_gestor_financeiro/app/widgets/entity_action_icon_button.dart';
 import 'package:meu_gestor_financeiro/features/categories/domain/financial_category.dart';
 import 'package:meu_gestor_financeiro/features/categories/presentation/controllers/financial_categories_controller.dart';
 import 'package:meu_gestor_financeiro/features/categories/presentation/controllers/financial_category_action_controller.dart';
@@ -91,8 +92,9 @@ class ArchivedCategoriesPage extends ConsumerWidget {
                       leading: Icon(categoryIconData(category.icon)),
                       title: Text(category.name),
                       subtitle: Text(category.kind.label),
-                      trailing: IconButton(
-                        tooltip: 'Restaurar categoria',
+                      trailing: EntityActionIconButton(
+                        action: EntityActionIcon.restore,
+                        entityName: 'categoria',
                         onPressed:
                             ref
                                 .watch(
@@ -109,7 +111,6 @@ class ArchivedCategoriesPage extends ConsumerWidget {
                                     categoryId: category.id,
                                     archived: false,
                                   ),
-                        icon: const Icon(Icons.restore_rounded),
                       ),
                     ),
                   );

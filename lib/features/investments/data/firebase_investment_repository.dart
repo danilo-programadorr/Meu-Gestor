@@ -490,6 +490,209 @@ final class FirebaseInvestmentRepository implements InvestmentRepository {
   }
 
   @override
+  Future<TrackedInvestmentAsset> updateAsset({
+    required String ownerId,
+    required String assetId,
+    required int expectedRevision,
+    required TrackedInvestmentAssetUpdate update,
+  }) async {
+    final TrackedInvestmentAssetUpdate normalized = update.normalized();
+    final DocumentReference<Map<String, dynamic>> reference = _assets(
+      ownerId,
+    ).doc(assetId);
+    try {
+      await _firestore
+          .runTransaction<void>((Transaction transaction) async {
+            final TrackedInvestmentAsset asset = _assetFromSnapshot(
+              await transaction.get(reference),
+              ownerId,
+            );
+            if (asset.revision != expectedRevision) {
+              throw _concurrencyFailure();
+            }
+            if (asset.isArchived) {
+              throw const InvestmentFailure(
+                kind: InvestmentFailureKind.failedPrecondition,
+                safeMessage: 'Restaure o ativo antes de corrigir seus dados.',
+                code: 'investment_asset_archived',
+              );
+            }
+            if (asset.hasHistory && normalized.type != asset.type) {
+              throw const InvestmentFailure(
+                kind: InvestmentFailureKind.historicalCorrectionBlocked,
+                safeMessage:
+                    'O tipo não pode mudar porque o ativo possui operações ou proventos. Corrija apenas o nome ou arquive-o.',
+                code: 'investment_asset_type_history_locked',
+              );
+            }
+            transaction.update(
+              reference,
+              FirestoreTrackedInvestmentAssetMapper.updateMap(
+                asset: asset,
+                update: normalized,
+              ),
+            );
+          })
+          .timeout(_timeout);
+      return _readAsset(ownerId, assetId);
+    } on Object catch (error) {
+      throw _mapAndRecord('update_investment_asset', 'transaction', error);
+    }
+  }
+
+  @override
+  Future<TrackedInvestmentAsset> setAssetArchived({
+    required String ownerId,
+    required String assetId,
+    required int expectedRevision,
+    required bool archived,
+  }) async {
+    final DocumentReference<Map<String, dynamic>> reference = _assets(
+      ownerId,
+    ).doc(assetId);
+    try {
+      await _firestore
+          .runTransaction<void>((Transaction transaction) async {
+            final TrackedInvestmentAsset asset = _assetFromSnapshot(
+              await transaction.get(reference),
+              ownerId,
+            );
+            if (asset.revision != expectedRevision) {
+              throw _concurrencyFailure();
+            }
+            if (asset.isArchived == archived) {
+              return;
+            }
+            if (!archived) {
+              final InvestmentPortfolio portfolio = _portfolioFromSnapshot(
+                await transaction.get(
+                  _portfolios(ownerId).doc(asset.portfolioId),
+                ),
+                ownerId,
+              );
+              if (portfolio.isArchived) {
+                throw const InvestmentFailure(
+                  kind: InvestmentFailureKind.failedPrecondition,
+                  safeMessage:
+                      'Restaure a carteira antes de restaurar este ativo.',
+                  code: 'investment_asset_restore_portfolio_archived',
+                );
+              }
+            }
+            transaction.update(reference, <String, Object?>{
+              'isArchived': archived,
+              'archivedAt': archived ? FieldValue.serverTimestamp() : null,
+              'hasHistory': asset.hasHistory,
+              'schemaVersion': TrackedInvestmentAsset.currentSchemaVersion,
+              'updatedAt': FieldValue.serverTimestamp(),
+              'revision': asset.revision + 1,
+            });
+          })
+          .timeout(_timeout);
+      return _readAsset(ownerId, assetId);
+    } on Object catch (error) {
+      throw _mapAndRecord('archive_investment_asset', 'transaction', error);
+    }
+  }
+
+  @override
+  Future<void> deleteEmptyAsset({
+    required String ownerId,
+    required String assetId,
+    required int expectedRevision,
+  }) async {
+    final DocumentReference<Map<String, dynamic>> reference = _assets(
+      ownerId,
+    ).doc(assetId);
+    try {
+      TrackedInvestmentAsset current = await _readAsset(ownerId, assetId);
+      if (current.revision != expectedRevision) {
+        throw _concurrencyFailure();
+      }
+      if (current.schemaVersion !=
+              TrackedInvestmentAsset.currentSchemaVersion ||
+          current.hasHistory) {
+        throw const InvestmentFailure(
+          kind: InvestmentFailureKind.failedPrecondition,
+          safeMessage:
+              'Este ativo possui ou pode possuir histórico. Corrija o nome ou arquive-o para preservar a integridade financeira.',
+          code: 'investment_asset_delete_history_marker',
+        );
+      }
+      await _requireAssetEmpty(ownerId, assetId);
+      if (!current.isArchived) {
+        current = await setAssetArchived(
+          ownerId: ownerId,
+          assetId: assetId,
+          expectedRevision: current.revision,
+          archived: true,
+        );
+      }
+      await _requireAssetEmpty(ownerId, assetId);
+      await _firestore
+          .runTransaction<void>((Transaction transaction) async {
+            final TrackedInvestmentAsset locked = _assetFromSnapshot(
+              await transaction.get(reference),
+              ownerId,
+            );
+            if (!locked.isArchived ||
+                locked.hasHistory ||
+                locked.revision != current.revision) {
+              throw _concurrencyFailure();
+            }
+            transaction.delete(reference);
+          })
+          .timeout(_timeout);
+    } on Object catch (error) {
+      if (_isUncertain(error) &&
+          await _tryReadAsset(ownerId, assetId) == null) {
+        return;
+      }
+      throw _mapAndRecord(
+        'delete_empty_investment_asset',
+        'locked_server_check',
+        error,
+      );
+    }
+  }
+
+  Future<void> _requireAssetEmpty(String ownerId, String assetId) async {
+    const GetOptions options = GetOptions(source: Source.server);
+    final List<QuerySnapshot<Map<String, dynamic>>> references =
+        await Future.wait<QuerySnapshot<Map<String, dynamic>>>(
+          <Future<QuerySnapshot<Map<String, dynamic>>>>[
+            _operations(
+              ownerId,
+            ).where('assetId', isEqualTo: assetId).limit(1).get(options),
+            _incomeEvents(
+              ownerId,
+            ).where('assetId', isEqualTo: assetId).limit(1).get(options),
+          ],
+        ).timeout(_timeout);
+    if (references.any(
+      (QuerySnapshot<Map<String, dynamic>> value) =>
+          value.metadata.isFromCache || value.metadata.hasPendingWrites,
+    )) {
+      throw const InvestmentFailure(
+        kind: InvestmentFailureKind.failedPrecondition,
+        safeMessage:
+            'Não foi possível confirmar no servidor que o ativo está sem histórico.',
+        code: 'investment_asset_delete_server_confirmation_required',
+      );
+    }
+    if (references.any(
+      (QuerySnapshot<Map<String, dynamic>> value) => value.docs.isNotEmpty,
+    )) {
+      throw const InvestmentFailure(
+        kind: InvestmentFailureKind.failedPrecondition,
+        safeMessage:
+            'Este ativo possui operações ou proventos. Use correção ou arquivamento; o histórico não pode ser apagado.',
+        code: 'investment_asset_delete_has_history',
+      );
+    }
+  }
+
+  @override
   Future<InvestmentOperation> createOperation({
     required String ownerId,
     required String operationId,
@@ -534,6 +737,7 @@ final class FirebaseInvestmentRepository implements InvestmentRepository {
               ownerId,
             );
             if (portfolio.isArchived ||
+                asset.isArchived ||
                 asset.portfolioId != portfolio.id ||
                 asset.id != normalized.assetId) {
               throw const InvestmentFailure(
@@ -586,6 +790,9 @@ final class FirebaseInvestmentRepository implements InvestmentRepository {
               'lastOperationAt': Timestamp.fromDate(normalized.occurredAt),
               'updatedAt': FieldValue.serverTimestamp(),
               'revision': asset.revision + 1,
+              if (asset.schemaVersion ==
+                  TrackedInvestmentAsset.currentSchemaVersion)
+                'hasHistory': true,
             });
           })
           .timeout(_timeout);
@@ -724,6 +931,13 @@ final class FirebaseInvestmentRepository implements InvestmentRepository {
               requireActivePortfolio: true,
             );
             normalized = draft.normalized(assetType: asset.type);
+            if (asset.isArchived) {
+              throw const InvestmentFailure(
+                kind: InvestmentFailureKind.failedPrecondition,
+                safeMessage: 'Restaure o ativo antes de registrar um provento.',
+                code: 'investment_income_asset_archived',
+              );
+            }
             if (existing.exists) {
               final InvestmentIncomeEvent event = _incomeFromSnapshot(
                 existing,
@@ -751,6 +965,16 @@ final class FirebaseInvestmentRepository implements InvestmentRepository {
                 draft: normalized!,
               ),
             );
+            if (asset.schemaVersion ==
+                    TrackedInvestmentAsset.currentSchemaVersion &&
+                !asset.hasHistory) {
+              transaction
+                  .update(_assets(ownerId).doc(asset.id), <String, Object>{
+                    'hasHistory': true,
+                    'updatedAt': FieldValue.serverTimestamp(),
+                    'revision': asset.revision + 1,
+                  });
+            }
           })
           .timeout(_timeout);
       return _readIncomeEvent(ownerId, eventId);
@@ -1081,6 +1305,17 @@ final class FirebaseInvestmentRepository implements InvestmentRepository {
   ) async {
     try {
       return await _readOperation(ownerId, id);
+    } on Object {
+      return null;
+    }
+  }
+
+  Future<TrackedInvestmentAsset?> _tryReadAsset(
+    String ownerId,
+    String id,
+  ) async {
+    try {
+      return await _readAsset(ownerId, id);
     } on Object {
       return null;
     }

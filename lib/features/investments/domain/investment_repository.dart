@@ -66,6 +66,27 @@ abstract interface class InvestmentRepository {
     required TrackedInvestmentAssetDraft draft,
   });
 
+  Future<TrackedInvestmentAsset> updateAsset({
+    required String ownerId,
+    required String assetId,
+    required int expectedRevision,
+    required TrackedInvestmentAssetUpdate update,
+  });
+
+  Future<TrackedInvestmentAsset> setAssetArchived({
+    required String ownerId,
+    required String assetId,
+    required int expectedRevision,
+    required bool archived,
+  });
+
+  /// Exclui definitivamente apenas um ativo sem operações nem proventos.
+  Future<void> deleteEmptyAsset({
+    required String ownerId,
+    required String assetId,
+    required int expectedRevision,
+  });
+
   Future<InvestmentOperation> createOperation({
     required String ownerId,
     required String operationId,

@@ -127,6 +127,101 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+    'ativo histórico oferece correção e arquivamento em vez de exclusão',
+    (WidgetTester tester) async {
+      final _WidgetContext context = await _context(withAsset: true);
+      addTearDown(context.dispose);
+      await _pump(
+        tester,
+        context,
+        const InvestmentAssetDetailsPage(assetId: 'portfolio-1__PETR4'),
+      );
+
+      expect(find.byTooltip('Editar PETR4'), findsOneWidget);
+      expect(find.byTooltip('Excluir PETR4'), findsOneWidget);
+      expect(find.byTooltip('Mais ações do ativo PETR4'), findsOneWidget);
+      await tester.tap(
+        find.byKey(const ValueKey<String>('delete-investment-asset')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Este ativo não pode ser excluído'), findsOneWidget);
+      expect(find.textContaining('trilha financeira'), findsOneWidget);
+      expect(find.text('Corrigir dados'), findsOneWidget);
+      expect(find.text('Arquivar'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('ativo vazio exige frase antes da exclusão permanente', (
+    WidgetTester tester,
+  ) async {
+    final _WidgetContext context = await _context(
+      withAsset: true,
+      assetHasHistory: false,
+    );
+    addTearDown(context.dispose);
+    await _pump(
+      tester,
+      context,
+      const InvestmentAssetDetailsPage(assetId: 'portfolio-1__PETR4'),
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('delete-investment-asset')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Excluir PETR4?'), findsOneWidget);
+    final FilledButton deleteButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Excluir permanentemente'),
+    );
+    expect(deleteButton.onPressed, isNull);
+
+    await tester.enterText(
+      find.byKey(
+        const ValueKey<String>('delete-investment-asset-confirmation'),
+      ),
+      'EXCLUIR',
+    );
+    await tester.pump();
+    await tester.tap(
+      find.widgetWithText(FilledButton, 'Excluir permanentemente'),
+    );
+    await tester.pumpAndSettle();
+
+    expect(context.repository.assets, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('edição do ativo histórico mantém ticker e tipo bloqueados', (
+    WidgetTester tester,
+  ) async {
+    final _WidgetContext context = await _context(withAsset: true);
+    addTearDown(context.dispose);
+    await _pump(
+      tester,
+      context,
+      const InvestmentAssetFormPage(assetId: 'portfolio-1__PETR4'),
+    );
+
+    expect(find.text('Corrigir ativo'), findsOneWidget);
+    expect(
+      find.textContaining('ticker e o tipo ficam bloqueados'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('nome pode ser corrigido'), findsOneWidget);
+    final Iterable<TextFormField> fields = tester.widgetList<TextFormField>(
+      find.byType(TextFormField),
+    );
+    expect(
+      fields.where((TextFormField field) => field.enabled == false),
+      hasLength(1),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('formulário de carteira apresenta validação compreensível', (
     WidgetTester tester,
   ) async {
@@ -877,6 +972,7 @@ final class _WidgetContext {
 
 Future<_WidgetContext> _context({
   bool withAsset = false,
+  bool assetHasHistory = true,
   bool withOperations = false,
   bool withIncome = false,
   Completer<void>? readBarrier,
@@ -934,8 +1030,13 @@ Future<_WidgetContext> _context({
             : null,
         createdAt: now,
         updatedAt: now,
-        schemaVersion: 1,
+        schemaVersion: assetHasHistory
+            ? 1
+            : TrackedInvestmentAsset.currentSchemaVersion,
         revision: 1,
+        isArchived: false,
+        archivedAt: null,
+        hasHistory: assetHasHistory,
       ),
     );
     if (withOperations) {

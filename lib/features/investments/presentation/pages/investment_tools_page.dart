@@ -7,6 +7,8 @@ import 'package:meu_gestor_financeiro/core/privacy/financial_privacy_controller.
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_tools.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/widgets/investment_view_support.dart';
 
+enum _FirstMillionMode { discoverTerm, discoverContribution }
+
 class InvestmentToolsPage extends ConsumerStatefulWidget {
   const InvestmentToolsPage({super.key});
   @override
@@ -15,25 +17,38 @@ class InvestmentToolsPage extends ConsumerStatefulWidget {
 }
 
 class _InvestmentToolsPageState extends ConsumerState<InvestmentToolsPage> {
+  static const String _firstMillionExplanation =
+      'A taxa mensal é aplicada ao saldo e o aporte entra ao fim de cada mês. O cálculo é uma simulação matemática: não garante rentabilidade e não considera inflação, impostos, taxas, perdas ou mudanças no aporte.';
   final Map<String, TextEditingController> _fields =
       <String, TextEditingController>{
         for (final String name in <String>[
-          'principal',
-          'rate',
-          'periods',
-          'contribution',
+          'firstMillionInitial',
+          'firstMillionContribution',
+          'firstMillionRate',
+          'firstMillionYears',
+          'firstMillionMonths',
+          'simplePrincipal',
+          'simpleRate',
+          'simpleDays',
+          'compoundPrincipal',
+          'compoundRate',
+          'compoundMonths',
+          'compoundContribution',
           'eps',
           'vpa',
           'dividend',
           'yield',
-          'base',
-          'percentage',
+          'percentageBase',
+          'percentageRate',
+          'variationInitial',
+          'variationFinal',
           'firstAsset',
           'secondAsset',
         ])
           name: TextEditingController(),
       };
   PercentageOperation _percentageOperation = PercentageOperation.increase;
+  _FirstMillionMode _firstMillionMode = _FirstMillionMode.discoverTerm;
   ManualAssetKind _assetKind = ManualAssetKind.stock;
   bool _positive = false;
   bool _attention = false;
@@ -50,6 +65,17 @@ class _InvestmentToolsPageState extends ConsumerState<InvestmentToolsPage> {
   }
 
   int? _number(String name) => int.tryParse(_fields[name]!.text.trim());
+
+  int? _percentageBasisPoints(String name) {
+    final String raw = _fields[name]!.text.trim().replaceAll(',', '.');
+    final RegExpMatch? match = RegExp(
+      r'^(\d+)(?:\.(\d{1,2}))?$',
+    ).firstMatch(raw);
+    if (match == null) return null;
+    return int.parse(match.group(1)!) * 100 +
+        int.parse((match.group(2) ?? '').padRight(2, '0'));
+  }
+
   int? _money(String name) {
     final String raw = _fields[name]!.text
         .trim()
@@ -97,122 +123,299 @@ class _InvestmentToolsPageState extends ConsumerState<InvestmentToolsPage> {
               const SizedBox(height: AppSpacing.md),
               _ToolCard(
                 title: 'Primeiro milhão',
-                subtitle: 'Simula aportes mensais até R\$ 1.000.000,00.',
+                subtitle:
+                    'Descubra o prazo ou o aporte mensal necessário para alcançar R\$ 1.000.000,00.',
                 children: <Widget>[
-                  _moneyField('Valor inicial', 'principal'),
-                  _moneyField('Aporte mensal', 'contribution'),
-                  _integerField(
-                    'Rentabilidade mensal (%)',
-                    'rate',
-                    suffix: 'Use pontos-base: 100 = 1%',
+                  SegmentedButton<_FirstMillionMode>(
+                    segments: const <ButtonSegment<_FirstMillionMode>>[
+                      ButtonSegment<_FirstMillionMode>(
+                        value: _FirstMillionMode.discoverTerm,
+                        icon: Icon(Icons.schedule_outlined),
+                        label: Text('Descobrir prazo'),
+                      ),
+                      ButtonSegment<_FirstMillionMode>(
+                        value: _FirstMillionMode.discoverContribution,
+                        icon: Icon(Icons.savings_outlined),
+                        label: Text('Descobrir aporte'),
+                      ),
+                    ],
+                    selected: <_FirstMillionMode>{_firstMillionMode},
+                    onSelectionChanged: (Set<_FirstMillionMode> values) =>
+                        setState(() => _firstMillionMode = values.single),
                   ),
+                  const SizedBox(height: AppSpacing.md),
+                  _moneyField(
+                    'Valor inicial (R\$)',
+                    'firstMillionInitial',
+                    helper: 'Valor já disponível no início da simulação.',
+                  ),
+                  if (_firstMillionMode == _FirstMillionMode.discoverTerm)
+                    _moneyField(
+                      'Aporte mensal (R\$)',
+                      'firstMillionContribution',
+                      helper: 'Aporte realizado ao fim de cada mês.',
+                    ),
+                  _percentageField(
+                    'Rentabilidade mensal estimada (%)',
+                    'firstMillionRate',
+                    helper: 'Ex.: 0,80 significa 0,80% ao mês.',
+                  ),
+                  if (_firstMillionMode ==
+                      _FirstMillionMode.discoverContribution) ...<Widget>[
+                    _integerField(
+                      'Prazo desejado — anos',
+                      'firstMillionYears',
+                      suffix: 'Informe zero se o prazo tiver menos de um ano.',
+                    ),
+                    _integerField(
+                      'Prazo adicional — meses',
+                      'firstMillionMonths',
+                      suffix: 'De 0 a 11 meses.',
+                    ),
+                  ],
                   _resultButton('Primeiro milhão', () {
-                    final p = _money('principal');
-                    final c = _money('contribution');
-                    final r = _number('rate');
-                    if (p == null || c == null || r == null) return null;
-                    final v = InvestmentTools.firstMillion(
-                      initialCents: p,
-                      monthlyContributionCents: c,
-                      monthlyRateBasisPoints: r,
+                    final int? initial = _money('firstMillionInitial');
+                    final int? rate = _percentageBasisPoints(
+                      'firstMillionRate',
                     );
-                    final int years = v.periods ~/ 12;
-                    final int remainingMonths = v.periods % 12;
+                    if (initial == null || rate == null) return null;
+                    if (_firstMillionMode == _FirstMillionMode.discoverTerm) {
+                      final int? contribution = _money(
+                        'firstMillionContribution',
+                      );
+                      if (contribution == null ||
+                          (initial == 0 && contribution == 0)) {
+                        return null;
+                      }
+                      final InvestmentProjection result =
+                          InvestmentTools.firstMillion(
+                            initialCents: initial,
+                            monthlyContributionCents: contribution,
+                            monthlyRateBasisPoints: rate,
+                          );
+                      final int contributed =
+                          initial + contribution * result.periods;
+                      final int earnings = result.amountCents - contributed;
+                      final bool reached = result.amountCents >= 100000000;
+                      return _ToolCalculationResult(
+                        title: 'Resultado — prazo para o primeiro milhão',
+                        summary: reached
+                            ? 'Com os valores informados, a meta é alcançada em ${_duration(result.periods)}.'
+                            : 'A meta não foi alcançada no limite de 100 anos da simulação.',
+                        details: <_ToolResultDetail>[
+                          const _ToolResultDetail('Meta', 'R\$ 1.000.000,00'),
+                          _ToolResultDetail(
+                            'Valor inicial',
+                            _moneyText(initial, visible),
+                          ),
+                          _ToolResultDetail(
+                            'Aporte ao fim de cada mês',
+                            _moneyText(contribution, visible),
+                          ),
+                          _ToolResultDetail(
+                            'Rentabilidade mensal estimada',
+                            _basisPoints(rate),
+                          ),
+                          _ToolResultDetail(
+                            'Prazo estimado',
+                            _duration(result.periods),
+                          ),
+                          _ToolResultDetail(
+                            'Total colocado por você',
+                            _moneyText(contributed, visible),
+                          ),
+                          _ToolResultDetail(
+                            'Rendimento matemático estimado',
+                            _moneyText(earnings < 0 ? 0 : earnings, visible),
+                          ),
+                          _ToolResultDetail(
+                            'Saldo final estimado',
+                            _moneyText(result.amountCents, visible),
+                          ),
+                        ],
+                        explanation: _firstMillionExplanation,
+                      );
+                    }
+                    final int? years = _number('firstMillionYears');
+                    final int? additionalMonths = _number('firstMillionMonths');
+                    if (years == null ||
+                        additionalMonths == null ||
+                        years < 0 ||
+                        additionalMonths < 0 ||
+                        additionalMonths > 11) {
+                      return null;
+                    }
+                    final int months = years * 12 + additionalMonths;
+                    if (months <= 0) return null;
+                    final RequiredContributionResult result =
+                        InvestmentTools.firstMillionRequiredContribution(
+                          initialCents: initial,
+                          monthlyRateBasisPoints: rate,
+                          months: months,
+                        );
+                    final int contributed =
+                        initial + result.monthlyContributionCents * months;
+                    final int earnings = result.amountCents - contributed;
                     return _ToolCalculationResult(
-                      title: 'Resultado — primeiro milhão',
-                      summary: v.periods >= 1200 && v.amountCents < 100000000
-                          ? 'A meta não foi atingida no limite de 100 anos da simulação.'
-                          : 'Meta estimada em ${v.periods} meses.',
+                      title: 'Resultado — aporte para o primeiro milhão',
+                      summary:
+                          'Para buscar a meta em ${_duration(months)}, o aporte mínimo estimado é ${_moneyText(result.monthlyContributionCents, visible)} por mês.',
                       details: <_ToolResultDetail>[
+                        const _ToolResultDetail('Meta', 'R\$ 1.000.000,00'),
                         _ToolResultDetail(
                           'Valor inicial',
-                          _moneyText(p, visible),
+                          _moneyText(initial, visible),
+                        ),
+                        _ToolResultDetail('Prazo desejado', _duration(months)),
+                        _ToolResultDetail(
+                          'Rentabilidade mensal estimada',
+                          _basisPoints(rate),
                         ),
                         _ToolResultDetail(
-                          'Aporte mensal',
-                          _moneyText(c, visible),
-                        ),
-                        _ToolResultDetail('Taxa mensal', _basisPoints(r)),
-                        _ToolResultDetail(
-                          'Prazo',
-                          '$years anos e $remainingMonths meses',
+                          'Aporte mínimo ao fim de cada mês',
+                          _moneyText(result.monthlyContributionCents, visible),
                         ),
                         _ToolResultDetail(
-                          'Saldo estimado',
-                          _moneyText(v.amountCents, visible),
+                          'Total colocado por você',
+                          _moneyText(contributed, visible),
+                        ),
+                        _ToolResultDetail(
+                          'Rendimento matemático estimado',
+                          _moneyText(earnings < 0 ? 0 : earnings, visible),
+                        ),
+                        _ToolResultDetail(
+                          'Saldo final estimado',
+                          _moneyText(result.amountCents, visible),
                         ),
                       ],
-                      explanation:
-                          'A simulação aplica a taxa ao saldo e depois soma o aporte a cada mês. Não considera impostos, inflação, taxas ou variação de mercado.',
+                      explanation: _firstMillionExplanation,
                     );
                   }),
                 ],
               ),
               _ToolCard(
-                title: 'Juros simples e compostos',
-                subtitle:
-                    'Cálculo determinístico por períodos. Juros compostos usam taxa mensal.',
+                title: 'Juros simples',
+                subtitle: 'Taxa anual proporcional ao número exato de dias.',
                 children: <Widget>[
-                  _moneyField('Capital inicial', 'principal'),
-                  _integerField(
-                    'Taxa (pontos-base)',
-                    'rate',
-                    suffix: '100 = 1%',
+                  _moneyField('Capital inicial (R\$)', 'simplePrincipal'),
+                  _percentageField(
+                    'Taxa anual (%)',
+                    'simpleRate',
+                    helper: 'Ex.: 12,00 significa 12% ao ano.',
                   ),
-                  _integerField('Períodos', 'periods'),
-                  _moneyField('Aporte mensal (opcional)', 'contribution'),
-                  _resultButton('Juros simples e compostos', () {
-                    final p = _money('principal');
-                    final r = _number('rate');
-                    final n = _number('periods');
-                    if (p == null || r == null || n == null || n <= 0) {
+                  _integerField(
+                    'Prazo (dias)',
+                    'simpleDays',
+                    suffix: 'Base de cálculo: 365 dias por ano.',
+                  ),
+                  _resultButton('Juros simples', () {
+                    final int? principal = _money('simplePrincipal');
+                    final int? rate = _percentageBasisPoints('simpleRate');
+                    final int? days = _number('simpleDays');
+                    if (principal == null ||
+                        rate == null ||
+                        days == null ||
+                        days <= 0) {
                       return null;
                     }
-                    final simple = InvestmentTools.simpleInterest(
-                      principalCents: p,
-                      annualRateBasisPoints: r,
-                      days: n,
-                    );
-                    final compound = InvestmentTools.compoundInterest(
-                      principalCents: p,
-                      monthlyRateBasisPoints: r,
-                      months: n,
-                      monthlyContributionCents: _money('contribution') ?? 0,
-                    );
-                    final int contribution = _money('contribution') ?? 0;
+                    final InterestResult result =
+                        InvestmentTools.simpleInterest(
+                          principalCents: principal,
+                          annualRateBasisPoints: rate,
+                          days: days,
+                        );
                     return _ToolCalculationResult(
-                      title: 'Resultado — juros',
+                      title: 'Resultado — juros simples',
                       summary:
-                          'Comparação matemática com a mesma taxa informada em duas periodicidades distintas.',
+                          'Juros proporcionais de ${_basisPoints(rate)} ao ano durante $days dias.',
                       details: <_ToolResultDetail>[
                         _ToolResultDetail(
                           'Capital inicial',
-                          _moneyText(p, visible),
+                          _moneyText(principal, visible),
                         ),
-                        _ToolResultDetail('Taxa informada', _basisPoints(r)),
+                        _ToolResultDetail('Taxa anual', _basisPoints(rate)),
+                        _ToolResultDetail('Prazo', '$days dias'),
                         _ToolResultDetail(
-                          'Juros simples',
-                          _moneyText(simple.interestCents, visible),
-                        ),
-                        _ToolResultDetail(
-                          'Total simples',
-                          _moneyText(simple.totalCents, visible),
+                          'Juros estimados',
+                          _moneyText(result.interestCents, visible),
                         ),
                         _ToolResultDetail(
-                          'Aporte mensal',
-                          _moneyText(contribution, visible),
-                        ),
-                        _ToolResultDetail(
-                          'Juros compostos',
-                          _moneyText(compound.interestCents, visible),
-                        ),
-                        _ToolResultDetail(
-                          'Total composto',
-                          _moneyText(compound.totalCents, visible),
+                          'Montante final',
+                          _moneyText(result.totalCents, visible),
                         ),
                       ],
                       explanation:
-                          'No cálculo simples, a taxa é anual e o número informado representa dias. No composto, a taxa é mensal e o mesmo número representa meses; os aportes entram ao fim de cada mês.',
+                          'Fórmula: capital × taxa anual × dias ÷ 365. Não há capitalização nem aportes.',
+                    );
+                  }),
+                ],
+              ),
+              _ToolCard(
+                title: 'Juros compostos',
+                subtitle:
+                    'Capitalização mensal com aporte opcional ao fim de cada mês.',
+                children: <Widget>[
+                  _moneyField('Capital inicial (R\$)', 'compoundPrincipal'),
+                  _percentageField(
+                    'Taxa mensal (%)',
+                    'compoundRate',
+                    helper: 'Ex.: 0,80 significa 0,80% ao mês.',
+                  ),
+                  _integerField('Prazo (meses)', 'compoundMonths'),
+                  _moneyField(
+                    'Aporte mensal opcional (R\$)',
+                    'compoundContribution',
+                    helper: 'Deixe vazio para considerar R\$ 0,00.',
+                  ),
+                  _resultButton('Juros compostos', () {
+                    final int? principal = _money('compoundPrincipal');
+                    final int? rate = _percentageBasisPoints('compoundRate');
+                    final int? months = _number('compoundMonths');
+                    final int contribution =
+                        _money('compoundContribution') ?? 0;
+                    if (principal == null ||
+                        rate == null ||
+                        months == null ||
+                        months <= 0) {
+                      return null;
+                    }
+                    final InterestResult result =
+                        InvestmentTools.compoundInterest(
+                          principalCents: principal,
+                          monthlyRateBasisPoints: rate,
+                          months: months,
+                          monthlyContributionCents: contribution,
+                        );
+                    return _ToolCalculationResult(
+                      title: 'Resultado — juros compostos',
+                      summary:
+                          'Capitalização de ${_basisPoints(rate)} ao mês por ${_duration(months)}.',
+                      details: <_ToolResultDetail>[
+                        _ToolResultDetail(
+                          'Capital inicial',
+                          _moneyText(principal, visible),
+                        ),
+                        _ToolResultDetail('Taxa mensal', _basisPoints(rate)),
+                        _ToolResultDetail('Prazo', _duration(months)),
+                        _ToolResultDetail(
+                          'Aporte ao fim de cada mês',
+                          _moneyText(contribution, visible),
+                        ),
+                        _ToolResultDetail(
+                          'Total aportado',
+                          _moneyText(contribution * months, visible),
+                        ),
+                        _ToolResultDetail(
+                          'Juros estimados',
+                          _moneyText(result.interestCents, visible),
+                        ),
+                        _ToolResultDetail(
+                          'Montante final',
+                          _moneyText(result.totalCents, visible),
+                        ),
+                      ],
+                      explanation:
+                          'A taxa é aplicada ao saldo acumulado e o aporte entra ao fim de cada mês. Impostos, inflação e custos não são considerados.',
                     );
                   }),
                 ],
@@ -221,11 +424,11 @@ class _InvestmentToolsPageState extends ConsumerState<InvestmentToolsPage> {
                 title: 'Porcentagem',
                 subtitle: 'Aumento, desconto e variação sobre um valor manual.',
                 children: <Widget>[
-                  _moneyField('Valor-base', 'base'),
-                  _integerField(
-                    'Percentual (pontos-base)',
-                    'percentage',
-                    suffix: '100 = 1%',
+                  _moneyField('Valor-base (R\$)', 'percentageBase'),
+                  _percentageField(
+                    'Percentual (%)',
+                    'percentageRate',
+                    helper: 'Ex.: 10,50 significa 10,50%.',
                   ),
                   DropdownButtonFormField<PercentageOperation>(
                     initialValue: _percentageOperation,
@@ -244,8 +447,8 @@ class _InvestmentToolsPageState extends ConsumerState<InvestmentToolsPage> {
                     onChanged: (v) => setState(() => _percentageOperation = v!),
                   ),
                   _resultButton('Porcentagem', () {
-                    final b = _money('base');
-                    final r = _number('percentage');
+                    final b = _money('percentageBase');
+                    final r = _percentageBasisPoints('percentageRate');
                     if (b == null || r == null) return null;
                     final v = InvestmentTools.percentage(
                       baseCents: b,
@@ -280,61 +483,154 @@ class _InvestmentToolsPageState extends ConsumerState<InvestmentToolsPage> {
                 ],
               ),
               _ToolCard(
-                title: 'Preço justo de Graham e preço-teto de Bazin',
+                title: 'Variação percentual',
                 subtitle:
-                    'Fórmulas de referência, não recomendação ou cotação.',
+                    'Compara um valor inicial com um valor final, indicando alta, queda ou estabilidade.',
                 children: <Widget>[
-                  _moneyField('LPA — lucro por ação', 'eps'),
-                  _moneyField('VPA — valor patrimonial por ação', 'vpa'),
-                  _moneyField('Dividendo anual por cota', 'dividend'),
-                  _integerField(
-                    'Yield desejado (pontos-base)',
-                    'yield',
-                    suffix: '600 = 6%',
+                  _moneyField('Valor inicial (R\$)', 'variationInitial'),
+                  _moneyField('Valor final (R\$)', 'variationFinal'),
+                  _resultButton('Variação percentual', () {
+                    final int? initial = _money('variationInitial');
+                    final int? finalValue = _money('variationFinal');
+                    if (initial == null || finalValue == null || initial <= 0) {
+                      return null;
+                    }
+                    final PercentageVariationResult result =
+                        InvestmentTools.percentageVariation(
+                          initialCents: initial,
+                          finalCents: finalValue,
+                        );
+                    final String direction = result.differenceCents > 0
+                        ? 'Aumento'
+                        : result.differenceCents < 0
+                        ? 'Redução'
+                        : 'Sem variação';
+                    return _ToolCalculationResult(
+                      title: 'Resultado — variação percentual',
+                      summary:
+                          '$direction de ${_signedBasisPoints(result.variationBasisPoints)} entre os valores informados.',
+                      details: <_ToolResultDetail>[
+                        _ToolResultDetail(
+                          'Valor inicial',
+                          _moneyText(initial, visible),
+                        ),
+                        _ToolResultDetail(
+                          'Valor final',
+                          _moneyText(finalValue, visible),
+                        ),
+                        _ToolResultDetail('Direção', direction),
+                        _ToolResultDetail(
+                          'Diferença nominal',
+                          _signedMoney(result.differenceCents, visible),
+                        ),
+                        _ToolResultDetail(
+                          'Variação sobre o valor inicial',
+                          _signedBasisPoints(result.variationBasisPoints),
+                        ),
+                      ],
+                      explanation:
+                          'Fórmula: (valor final − valor inicial) ÷ valor inicial × 100. O valor inicial precisa ser maior que zero.',
+                    );
+                  }),
+                ],
+              ),
+              _ToolCard(
+                title: 'Preço justo de Graham',
+                subtitle:
+                    'Referência matemática para ações com LPA e VPA positivos; não é cotação nem recomendação.',
+                children: <Widget>[
+                  _moneyField(
+                    'LPA — lucro por ação (R\$)',
+                    'eps',
+                    helper: 'Lucro líquido por ação do período analisado.',
                   ),
-                  _resultButton('Graham e Bazin', () {
+                  _moneyField(
+                    'VPA — valor patrimonial por ação (R\$)',
+                    'vpa',
+                    helper: 'Patrimônio líquido por ação.',
+                  ),
+                  _resultButton('Preço justo de Graham', () {
                     final eps = _money('eps');
                     final vpa = _money('vpa');
-                    final d = _money('dividend');
-                    final y = _number('yield');
-                    final List<_ToolResultDetail> values =
-                        <_ToolResultDetail>[];
-                    if (eps != null && vpa != null && eps > 0 && vpa > 0) {
-                      values.add(
-                        _ToolResultDetail(
-                          'Preço justo de Graham',
-                          _moneyText(
-                            InvestmentTools.grahamFairPriceCents(
-                              earningsPerShareCents: eps,
-                              bookValuePerShareCents: vpa,
-                            ),
-                            visible,
-                          ),
-                        ),
-                      );
+                    if (eps == null || vpa == null || eps <= 0 || vpa <= 0) {
+                      return null;
                     }
-                    if (d != null && y != null && d > 0 && y > 0) {
-                      values.add(
-                        _ToolResultDetail(
-                          'Preço-teto de Bazin',
-                          _moneyText(
-                            InvestmentTools.bazinCeilingPriceCents(
-                              annualDividendPerShareCents: d,
-                              desiredYieldBasisPoints: y,
-                            ),
-                            visible,
-                          ),
-                        ),
-                      );
-                    }
-                    if (values.isEmpty) return null;
+                    final int result = InvestmentTools.grahamFairPriceCents(
+                      earningsPerShareCents: eps,
+                      bookValuePerShareCents: vpa,
+                    );
                     return _ToolCalculationResult(
-                      title: 'Resultado — Graham e Bazin',
+                      title: 'Resultado — fórmula de Graham',
                       summary:
-                          'Referências matemáticas calculadas apenas com os dados manuais válidos.',
-                      details: values,
+                          'Preço de referência calculado somente pelos dados manuais informados.',
+                      details: <_ToolResultDetail>[
+                        _ToolResultDetail(
+                          'LPA informado',
+                          _moneyText(eps, visible),
+                        ),
+                        _ToolResultDetail(
+                          'VPA informado',
+                          _moneyText(vpa, visible),
+                        ),
+                        _ToolResultDetail(
+                          'Resultado da fórmula',
+                          _moneyText(result, visible),
+                        ),
+                      ],
                       explanation:
-                          'Graham usa √(22,5 × LPA × VPA). Bazin divide o dividendo anual por cota pelo yield desejado. As fórmulas não avaliam qualidade, risco, liquidez ou preço de mercado e não constituem recomendação.',
+                          'Fórmula: √(22,5 × LPA × VPA). Exige LPA e VPA positivos e não considera qualidade, dívida, risco, liquidez ou preço de mercado.',
+                    );
+                  }),
+                ],
+              ),
+              _ToolCard(
+                title: 'Preço-teto de Bazin',
+                subtitle:
+                    'Referência matemática baseada em provento anual e retorno desejado; não é cotação nem recomendação.',
+                children: <Widget>[
+                  _moneyField(
+                    'Provento anual por ação ou cota (R\$)',
+                    'dividend',
+                    helper: 'Soma anual por unidade, informada manualmente.',
+                  ),
+                  _percentageField(
+                    'Retorno anual desejado (%)',
+                    'yield',
+                    helper: 'Ex.: 6,00 significa 6% ao ano.',
+                  ),
+                  _resultButton('Preço-teto de Bazin', () {
+                    final int? dividend = _money('dividend');
+                    final int? desiredYield = _percentageBasisPoints('yield');
+                    if (dividend == null ||
+                        desiredYield == null ||
+                        dividend <= 0 ||
+                        desiredYield <= 0) {
+                      return null;
+                    }
+                    final int result = InvestmentTools.bazinCeilingPriceCents(
+                      annualDividendPerShareCents: dividend,
+                      desiredYieldBasisPoints: desiredYield,
+                    );
+                    return _ToolCalculationResult(
+                      title: 'Resultado — fórmula de Bazin',
+                      summary:
+                          'Preço de referência para o retorno anual desejado informado.',
+                      details: <_ToolResultDetail>[
+                        _ToolResultDetail(
+                          'Provento anual por unidade',
+                          _moneyText(dividend, visible),
+                        ),
+                        _ToolResultDetail(
+                          'Retorno anual desejado',
+                          _basisPoints(desiredYield),
+                        ),
+                        _ToolResultDetail(
+                          'Resultado da fórmula',
+                          _moneyText(result, visible),
+                        ),
+                      ],
+                      explanation:
+                          'Fórmula: provento anual por unidade ÷ retorno anual desejado. Não avalia sustentabilidade dos proventos, risco, crescimento ou preço de mercado.',
                     );
                   }),
                 ],
@@ -476,13 +772,17 @@ class _InvestmentToolsPageState extends ConsumerState<InvestmentToolsPage> {
     );
   }
 
-  Widget _moneyField(String label, String name) => Padding(
+  Widget _moneyField(String label, String name, {String? helper}) => Padding(
     padding: const EdgeInsets.only(bottom: AppSpacing.sm),
     child: TextField(
       key: ValueKey<String>('investment-tool-field-$label'),
       controller: _fields[name],
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      decoration: InputDecoration(labelText: label, hintText: '0,00'),
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: '0,00',
+        helperText: helper,
+      ),
     ),
   );
 
@@ -525,9 +825,55 @@ class _InvestmentToolsPageState extends ConsumerState<InvestmentToolsPage> {
       decoration: InputDecoration(labelText: label, helperText: suffix),
     ),
   );
+
+  Widget _percentageField(
+    String label,
+    String name, {
+    required String helper,
+  }) => Padding(
+    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+    child: TextField(
+      key: ValueKey<String>('investment-tool-field-$label'),
+      controller: _fields[name],
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: '0,00',
+        helperText: helper,
+        suffixText: '%',
+      ),
+    ),
+  );
+
+  String _duration(int months) {
+    final int years = months ~/ 12;
+    final int remaining = months % 12;
+    final List<String> parts = <String>[
+      if (years > 0) '$years ${years == 1 ? 'ano' : 'anos'}',
+      if (remaining > 0 || years == 0)
+        '$remaining ${remaining == 1 ? 'mês' : 'meses'}',
+    ];
+    return parts.join(' e ');
+  }
+
   String _basisPoints(int value) {
-    final String percentage = (value / 100).toStringAsFixed(2);
-    return '${percentage.replaceAll('.', ',')}%';
+    final int absolute = value.abs();
+    final String whole = '${absolute ~/ 100}';
+    final String decimal = '${absolute % 100}'.padLeft(2, '0');
+    return '${value < 0 ? '-' : ''}$whole,$decimal%';
+  }
+
+  String _signedBasisPoints(int value) =>
+      value > 0 ? '+${_basisPoints(value)}' : _basisPoints(value);
+
+  String _signedMoney(int cents, bool visible) {
+    if (!visible) return InvestmentViewSupport.money(0, visible: false);
+    final String amount = _moneyText(cents.abs(), true);
+    return cents > 0
+        ? '+$amount'
+        : cents < 0
+        ? '-$amount'
+        : amount;
   }
 
   String _findingLabel(InvestmentFindingKind kind) => switch (kind) {
@@ -542,6 +888,7 @@ class _InvestmentToolsPageState extends ConsumerState<InvestmentToolsPage> {
   ) => Align(
     alignment: Alignment.centerLeft,
     child: FilledButton.tonalIcon(
+      key: ValueKey<String>('investment-tool-calculate-$title'),
       onPressed: () async {
         _ToolCalculationResult? result;
         try {

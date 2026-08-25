@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:meu_gestor_financeiro/app/theme/app_spacing.dart';
+import 'package:meu_gestor_financeiro/app/widgets/entity_action_icon_button.dart';
 import 'package:meu_gestor_financeiro/features/categories/domain/financial_category.dart';
 import 'package:meu_gestor_financeiro/features/categories/presentation/widgets/category_visuals.dart';
 
@@ -46,15 +47,15 @@ class CategoryCard extends StatelessWidget {
                 ],
               ),
             ),
-            IconButton(
-              tooltip: 'Editar categoria',
+            EntityActionIconButton(
+              action: EntityActionIcon.edit,
+              entityName: 'categoria',
               onPressed: actionsEnabled ? onEdit : null,
-              icon: const Icon(Icons.edit_outlined),
             ),
-            IconButton(
-              tooltip: 'Arquivar categoria',
+            EntityActionIconButton(
+              action: EntityActionIcon.archive,
+              entityName: 'categoria',
               onPressed: actionsEnabled ? onArchive : null,
-              icon: const Icon(Icons.archive_outlined),
             ),
           ],
         ),

@@ -220,6 +220,16 @@ function investmentAsset(uid, overrides = {}) {
   };
 }
 
+function investmentAssetV2(uid, overrides = {}) {
+  return investmentAsset(uid, {
+    isArchived: false,
+    archivedAt: null,
+    hasHistory: false,
+    schemaVersion: 2,
+    ...overrides,
+  });
+}
+
 function investmentOperation(uid, overrides = {}) {
   return {
     ownerId: uid,
@@ -1001,7 +1011,7 @@ describe('regressão de estabilidade temporal', () => {
 describe('INV-1A carteiras e ativos de acompanhamento', () => {
   beforeEach(async () => seedPremium());
 
-  test('cria, edita, arquiva e restaura carteira; delete ativo é negado', async () => {
+  test('cria, edita, arquiva e restaura carteira; delete histórico é negado', async () => {
     const db = verifiedDb();
     await assertSucceeds(setDoc(investmentPortfolioRef(db), investmentPortfolio(ownerId, {
       hasHistory: false,
@@ -1102,10 +1112,167 @@ describe('INV-1A carteiras e ativos de acompanhamento', () => {
         updatedAt: serverTimestamp(),
       }),
     ));
-    await assertSucceeds(setDoc(investmentAssetRef(db), investmentAsset(ownerId, {
+    await assertFails(setDoc(investmentAssetRef(db), investmentAsset(ownerId, {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     })));
+    await assertSucceeds(setDoc(
+      investmentAssetRef(db),
+      investmentAssetV2(ownerId, {
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      }),
+    ));
+  });
+
+  test('ativo novo permite correção, arquivamento, restauração e exclusão vazia', async () => {
+    const db = verifiedDb();
+    const portfolioRef = investmentPortfolioRef(db);
+    const assetRef = investmentAssetRef(db);
+    await assertSucceeds(setDoc(portfolioRef, investmentPortfolio(ownerId, {
+      hasHistory: false,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      schemaVersion: 2,
+    })));
+    const creation = writeBatch(db);
+    creation.update(portfolioRef, {
+      hasHistory: true,
+      updatedAt: serverTimestamp(),
+      revision: 2,
+    });
+    creation.set(assetRef, investmentAssetV2(ownerId, {
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }));
+    await assertSucceeds(creation.commit());
+
+    await assertSucceeds(updateDoc(assetRef, {
+      name: 'Nome corrigido',
+      assetType: 'fii',
+      updatedAt: serverTimestamp(),
+      revision: 2,
+    }));
+    await assertFails(deleteDoc(assetRef));
+    await assertSucceeds(updateDoc(assetRef, {
+      isArchived: true,
+      archivedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      revision: 3,
+    }));
+    await assertSucceeds(updateDoc(assetRef, {
+      isArchived: false,
+      archivedAt: null,
+      updatedAt: serverTimestamp(),
+      revision: 4,
+    }));
+    await assertSucceeds(updateDoc(assetRef, {
+      isArchived: true,
+      archivedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      revision: 5,
+    }));
+    await assertSucceeds(deleteDoc(assetRef));
+  });
+
+  test('histórico do ativo é monotônico e impede exclusão e troca de tipo', async () => {
+    const db = verifiedDb();
+    const portfolioRef = investmentPortfolioRef(db);
+    const assetRef = investmentAssetRef(db);
+    await assertSucceeds(setDoc(portfolioRef, investmentPortfolio(ownerId, {
+      hasHistory: false,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      schemaVersion: 2,
+    })));
+    const creation = writeBatch(db);
+    creation.update(portfolioRef, {
+      hasHistory: true,
+      updatedAt: serverTimestamp(),
+      revision: 2,
+    });
+    creation.set(assetRef, investmentAssetV2(ownerId, {
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }));
+    await assertSucceeds(creation.commit());
+
+    await assertFails(setDoc(
+      investmentOperationRef(db),
+      investmentOperation(ownerId),
+    ));
+    await assertSucceeds(appendInvestmentOperation(db, {
+      assetOverrides: { hasHistory: true },
+    }));
+    await assertFails(updateDoc(assetRef, {
+      hasHistory: false,
+      updatedAt: serverTimestamp(),
+      revision: 3,
+    }));
+    await assertSucceeds(updateDoc(assetRef, {
+      name: 'Petrobras PN corrigido',
+      updatedAt: serverTimestamp(),
+      revision: 3,
+    }));
+    await assertFails(updateDoc(assetRef, {
+      assetType: 'fii',
+      updatedAt: serverTimestamp(),
+      revision: 4,
+    }));
+    await assertSucceeds(updateDoc(assetRef, {
+      isArchived: true,
+      archivedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      revision: 4,
+    }));
+    await assertFails(deleteDoc(assetRef));
+    await assertFails(setDoc(
+      investmentOperationRef(db, 'operation-2'),
+      investmentOperation(ownerId, { mutationId: 'operation-2' }),
+    ));
+  });
+
+  test('primeiro provento marca histórico atomicamente e ativo arquivado bloqueia novos', async () => {
+    const db = verifiedDb();
+    const portfolioRef = investmentPortfolioRef(db);
+    const assetRef = investmentAssetRef(db);
+    await assertSucceeds(setDoc(portfolioRef, investmentPortfolio(ownerId, {
+      hasHistory: false,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      schemaVersion: 2,
+    })));
+    const creation = writeBatch(db);
+    creation.update(portfolioRef, {
+      hasHistory: true,
+      updatedAt: serverTimestamp(),
+      revision: 2,
+    });
+    creation.set(assetRef, investmentAssetV2(ownerId, {
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }));
+    await assertSucceeds(creation.commit());
+
+    await assertFails(setDoc(investmentIncomeRef(db), investmentIncome(ownerId)));
+    const firstIncome = writeBatch(db);
+    firstIncome.update(assetRef, {
+      hasHistory: true,
+      updatedAt: serverTimestamp(),
+      revision: 2,
+    });
+    firstIncome.set(investmentIncomeRef(db), investmentIncome(ownerId));
+    await assertSucceeds(firstIncome.commit());
+    await assertSucceeds(updateDoc(assetRef, {
+      isArchived: true,
+      archivedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      revision: 3,
+    }));
+    await assertFails(setDoc(
+      investmentIncomeRef(db, 'income-2'),
+      investmentIncome(ownerId, { mutationId: 'income-2' }),
+    ));
   });
 });
 
@@ -1756,7 +1923,7 @@ describe('FREE-1 investimentos gratuitos com integridade preservada', () => {
     const db = verifiedDb();
     const emptyRef = investmentPortfolioRef(db, 'portfolio-empty');
     const assetRef = investmentAssetRef(db, 'portfolio-empty__PETR4');
-    const asset = investmentAsset(ownerId, {
+    const asset = investmentAssetV2(ownerId, {
       portfolioId: 'portfolio-empty',
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),

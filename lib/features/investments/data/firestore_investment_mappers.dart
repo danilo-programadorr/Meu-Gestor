@@ -89,7 +89,7 @@ abstract final class FirestoreInvestmentPortfolioMapper {
 }
 
 abstract final class FirestoreTrackedInvestmentAssetMapper {
-  static const Set<String> fieldNames = <String>{
+  static const Set<String> fieldNamesV1 = <String>{
     'ownerId',
     'portfolioId',
     'ticker',
@@ -105,13 +105,24 @@ abstract final class FirestoreTrackedInvestmentAssetMapper {
     'revision',
   };
 
+  static const Set<String> fieldNamesV2 = <String>{
+    ...fieldNamesV1,
+    'isArchived',
+    'archivedAt',
+    'hasHistory',
+  };
+
   static TrackedInvestmentAsset fromMap({
     required Map<String, dynamic> data,
     required String documentId,
     required String expectedOwnerId,
   }) {
     try {
-      _requireExactFields(data, fieldNames);
+      final int schemaVersion = _integer(data, 'schemaVersion');
+      _requireExactFields(
+        data,
+        schemaVersion == 1 ? fieldNamesV1 : fieldNamesV2,
+      );
       final TrackedInvestmentAsset asset = TrackedInvestmentAsset(
         id: documentId,
         ownerId: _string(data, 'ownerId'),
@@ -125,9 +136,14 @@ abstract final class FirestoreTrackedInvestmentAssetMapper {
         currentQuantityScaled: _integer(data, 'currentQuantityScaled'),
         lastOperationId: _nullableString(data, 'lastOperationId'),
         lastOperationAt: _nullableDateTime(data, 'lastOperationAt'),
+        isArchived: schemaVersion == 1 ? false : _boolean(data, 'isArchived'),
+        archivedAt: schemaVersion == 1
+            ? null
+            : _nullableDateTime(data, 'archivedAt'),
+        hasHistory: schemaVersion == 1 ? true : _boolean(data, 'hasHistory'),
         createdAt: _dateTime(data, 'createdAt'),
         updatedAt: _dateTime(data, 'updatedAt'),
-        schemaVersion: _integer(data, 'schemaVersion'),
+        schemaVersion: schemaVersion,
         revision: _integer(data, 'revision'),
       );
       if (asset.ownerId != expectedOwnerId) {
@@ -157,10 +173,26 @@ abstract final class FirestoreTrackedInvestmentAssetMapper {
       'currentQuantityScaled': 0,
       'lastOperationId': null,
       'lastOperationAt': null,
+      'isArchived': false,
+      'archivedAt': null,
+      'hasHistory': false,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
       'schemaVersion': TrackedInvestmentAsset.currentSchemaVersion,
       'revision': 1,
+    };
+  }
+
+  static Map<String, Object?> updateMap({
+    required TrackedInvestmentAsset asset,
+    required TrackedInvestmentAssetUpdate update,
+  }) {
+    final TrackedInvestmentAssetUpdate normalized = update.normalized();
+    return <String, Object?>{
+      'name': normalized.name,
+      'assetType': normalized.type.name,
+      'updatedAt': FieldValue.serverTimestamp(),
+      'revision': asset.revision + 1,
     };
   }
 }

@@ -148,6 +148,48 @@ final class InvestmentActionController extends Notifier<InvestmentActionState> {
         ),
       );
 
+  Future<bool> updateAsset({
+    required TrackedInvestmentAsset asset,
+    required TrackedInvestmentAssetUpdate update,
+  }) => _runForCurrentOwner(
+    successMessage: 'Ativo atualizado e confirmado pelo servidor.',
+    operation: (String ownerId) => _repository.updateAsset(
+      ownerId: ownerId,
+      assetId: asset.id,
+      expectedRevision: asset.revision,
+      update: update.normalized(),
+    ),
+  );
+
+  Future<bool> setAssetArchived({
+    required TrackedInvestmentAsset asset,
+    required bool archived,
+  }) => _runForCurrentOwner(
+    successMessage: archived
+        ? 'Ativo arquivado. Operações e proventos foram preservados.'
+        : 'Ativo restaurado e confirmado pelo servidor.',
+    operation: (String ownerId) => _repository.setAssetArchived(
+      ownerId: ownerId,
+      assetId: asset.id,
+      expectedRevision: asset.revision,
+      archived: archived,
+    ),
+  );
+
+  Future<bool> deleteEmptyAsset(TrackedInvestmentAsset asset) =>
+      _runForCurrentOwner(
+        successMessage: 'Ativo sem histórico excluído permanentemente.',
+        refreshOnFailure: true,
+        operation: (String ownerId) async {
+          await _repository.deleteEmptyAsset(
+            ownerId: ownerId,
+            assetId: asset.id,
+            expectedRevision: asset.revision,
+          );
+          return true;
+        },
+      );
+
   Future<bool> createOperation(InvestmentOperationDraft draft) async {
     if (state.isLoading) {
       return false;

@@ -82,6 +82,9 @@ abstract final class AppRoutes {
   static String investmentAssetDetails(String assetId) =>
       '/investimentos/ativo/${Uri.encodeComponent(assetId)}';
 
+  static String editInvestmentAsset(String assetId) =>
+      '${investmentAssetDetails(assetId)}/editar';
+
   static String newInvestmentOperation(
     String assetId,
     InvestmentOperationKind kind,

@@ -30,6 +30,39 @@ void main() {
       expect(result.periods, 10);
       expect(result.amountCents, 100000000);
     });
+    test('descobre o aporte mínimo para o prazo sem usar ponto flutuante', () {
+      final result = InvestmentTools.firstMillionRequiredContribution(
+        initialCents: 0,
+        monthlyRateBasisPoints: 0,
+        months: 10,
+      );
+      expect(result.monthlyContributionCents, 10000000);
+      expect(result.amountCents, 100000000);
+      expect(
+        InvestmentTools.firstMillionRequiredContribution(
+          initialCents: 100000000,
+          monthlyRateBasisPoints: 100,
+          months: 12,
+        ).monthlyContributionCents,
+        0,
+      );
+    });
+    test('calcula variação percentual positiva e negativa', () {
+      expect(
+        InvestmentTools.percentageVariation(
+          initialCents: 10000,
+          finalCents: 12500,
+        ).variationBasisPoints,
+        2500,
+      );
+      final PercentageVariationResult decrease =
+          InvestmentTools.percentageVariation(
+            initialCents: 10000,
+            finalCents: 7500,
+          );
+      expect(decrease.differenceCents, -2500);
+      expect(decrease.variationBasisPoints, -2500);
+    });
     test('calcula aumento, desconto, Graham e Bazin deterministicamente', () {
       expect(
         InvestmentTools.percentage(
@@ -69,6 +102,19 @@ void main() {
           annualRateBasisPoints: 1,
           days: 1,
         ),
+        throwsArgumentError,
+      );
+      expect(
+        () => InvestmentTools.firstMillionRequiredContribution(
+          initialCents: 0,
+          monthlyRateBasisPoints: 0,
+          months: 0,
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () =>
+            InvestmentTools.percentageVariation(initialCents: 0, finalCents: 1),
         throwsArgumentError,
       );
       expect(

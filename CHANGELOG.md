@@ -8,6 +8,20 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 ### Adicionado
 
+- CRUD-AUDIT-1 registra uma matriz completa das ações de todas as entidades e padroniza lápis, lixeira, arquivamento e restauração com tooltip e semântica acessível;
+- ativos de investimento ganham correção de nome, edição de tipo antes do primeiro histórico, arquivamento/restauração e exclusão segura somente quando nunca tiveram operação ou provento;
+- INV-CALC-2 reformula Primeiro milhão com os modos “Descobrir prazo” e “Descobrir aporte”, prazo em anos/meses, decomposição do resultado e unidades explícitas;
+- juros simples/compostos, porcentagem, variação percentual, Graham e Bazin passam a usar campos independentes, taxas identificadas e explicações sem ambiguidade;
+
+- CRUD-AUDIT-1 registra uma matriz completa das ações de todas as entidades e padroniza lápis, lixeira, arquivamento e restauração com tooltip e semântica acessível;
+- ativos de investimento ganham correção de nome, edição de tipo antes do primeiro histórico, arquivamento/restauração e exclusão segura somente quando nunca tiveram operação ou provento;
+- INV-CALC-2 reformula Primeiro milhão com os modos “Descobrir prazo” e “Descobrir aporte”, prazo em anos/meses, decomposição do resultado e unidades explícitas;
+- juros simples/compostos, porcentagem, variação percentual, Graham e Bazin passam a usar campos independentes, taxas identificadas e explicações sem ambiguidade;
+
+- CRUD-AUDIT-1 registra uma matriz completa das ações de todas as entidades e padroniza lápis, lixeira, arquivamento e restauração com tooltip e semântica acessível;
+- ativos de investimento ganham correção de nome, edição de tipo antes do primeiro histórico, arquivamento/restauração e exclusão segura somente quando nunca tiveram operação ou provento;
+- INV-CALC-2 reformula Primeiro milhão com os modos “Descobrir prazo” e “Descobrir aporte”, prazo em anos/meses, decomposição do resultado e unidades explícitas;
+- juros simples/compostos, porcentagem, variação percentual, Graham e Bazin passam a usar campos independentes, taxas identificadas e explicações sem ambiguidade;
 - INV-UX-3 adiciona lixeira ao lado da edição para excluir exclusivamente carteiras schema 2 nunca utilizadas, com frase exata, trava por arquivamento, confirmação server-only e marcador monotônico de histórico;
 - resultados rápidos de todas as calculadoras e análises passam a modal acessível e rolável, com entradas, premissas, resultado, aviso financeiro e fechamento explícito por `X`;
 - FREE-1 torna investimentos, proventos, calculadoras e análises gratuitos, removendo do fluxo ativo telas, rotas, popups e verificações comerciais; a infraestrutura anterior permanece isolada como histórico inativo e reversível.

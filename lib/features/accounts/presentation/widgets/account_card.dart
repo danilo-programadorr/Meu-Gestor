@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:meu_gestor_financeiro/app/theme/app_radius.dart';
 import 'package:meu_gestor_financeiro/app/theme/app_spacing.dart';
 import 'package:meu_gestor_financeiro/app/theme/app_theme_colors.dart';
+import 'package:meu_gestor_financeiro/app/widgets/entity_action_icon_button.dart';
 import 'package:meu_gestor_financeiro/core/money/money.dart';
 import 'package:meu_gestor_financeiro/core/money/money_formatter.dart';
 import 'package:meu_gestor_financeiro/features/accounts/domain/financial_account.dart';
@@ -194,46 +195,25 @@ class AccountCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: <Widget>[
                   if (onEdit != null)
-                    Semantics(
-                      button: true,
-                      enabled: actionsEnabled,
-                      label: 'Editar conta',
-                      child: ExcludeSemantics(
-                        child: IconButton(
-                          tooltip: 'Editar conta',
-                          onPressed: actionsEnabled ? onEdit : null,
-                          icon: const Icon(Icons.edit_outlined),
-                        ),
-                      ),
+                    EntityActionIconButton(
+                      action: EntityActionIcon.edit,
+                      entityName: 'conta',
+                      onPressed: actionsEnabled ? onEdit : null,
                     ),
                   if (onEdit != null &&
                       (onArchive != null || onRestore != null))
                     const SizedBox(width: AppSpacing.xs),
                   if (onArchive != null)
-                    Semantics(
-                      button: true,
-                      enabled: actionsEnabled,
-                      label: 'Arquivar conta',
-                      child: ExcludeSemantics(
-                        child: IconButton(
-                          tooltip: 'Arquivar conta',
-                          onPressed: actionsEnabled ? onArchive : null,
-                          icon: const Icon(Icons.archive_outlined),
-                        ),
-                      ),
+                    EntityActionIconButton(
+                      action: EntityActionIcon.archive,
+                      entityName: 'conta',
+                      onPressed: actionsEnabled ? onArchive : null,
                     ),
                   if (onRestore != null)
-                    Semantics(
-                      button: true,
-                      enabled: actionsEnabled,
-                      label: 'Restaurar conta',
-                      child: ExcludeSemantics(
-                        child: IconButton(
-                          tooltip: 'Restaurar conta',
-                          onPressed: actionsEnabled ? onRestore : null,
-                          icon: const Icon(Icons.restore_rounded),
-                        ),
-                      ),
+                    EntityActionIconButton(
+                      action: EntityActionIcon.restore,
+                      entityName: 'conta',
+                      onPressed: actionsEnabled ? onRestore : null,
                     ),
                 ],
               ),

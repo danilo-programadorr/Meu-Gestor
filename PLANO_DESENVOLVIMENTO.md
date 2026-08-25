@@ -850,7 +850,7 @@ Situação histórica: integração retirada do runtime ativo pelo FREE-1. O có
 
 ## 41. INV-2A — Calculadoras e análises manuais
 
-Situação: implementação local em andamento, sem API, cotação, Firebase ou escrita na carteira.
+Situação: implementado localmente, sem API, cotação, Firebase ou escrita na carteira.
 
 - As calculadoras usam somente entradas manuais: primeiro milhão, juros simples e compostos, porcentagem, Graham e Bazin. Valores monetários permanecem em centavos inteiros; percentuais usam pontos-base e as fórmulas/arredondamentos são determinísticos.
 - Análises de ações e FIIs, checklist Buy and Hold e comparação exibem somente pontos positivos, atenção ou dados insuficientes conforme marcações manuais. Não há cotação, indicador inventado nem recomendação de compra, venda ou manutenção.
@@ -876,3 +876,14 @@ Situação: preparada localmente, sem deploy, publicação de Rules, Function, S
 - Rules locais permitem somente `get` por ticker a usuário autenticado, com e-mail confirmado e perfil jurídico atual; listagem, escrita e acesso a internos são negados, inclusive para owner. Nenhuma capability comercial é consultada. Não há índice composto porque a consulta atual é por ID; qualquer índice futuro será guiado por consulta aprovada.
 - A tela recebe somente snapshots server-only já confirmados e preserva estados atrasado, fechado, indisponível, inválido, possível evento corporativo e cobertura parcial. Patrimônio/resultado estimados não substituem custo, operação, provento, conta, saldo ou resumo mensal.
 - Antes de ativar: aprovar licença/cobertura e limite do provedor, criar segredo no cofre, configurar identidade runtime e Scheduler interno, revisar custos, publicar Function/Rules em autorização independente e validar com dados não pessoais. B3 e corretoras seguem canceladas como integração.
+
+## 44. CRUD-AUDIT-1 + INV-CALC-2 — ações completas e calculadoras inequívocas
+
+Situação: implementado e validado somente localmente; Rules não publicadas e nenhuma ação externa executada.
+
+- A matriz de ações cobre autenticação, perfil, consentimentos, aparência, núcleo financeiro, compromissos, investimentos, cotações, privacidade e infraestruturas internas. Exclusão, arquivamento, cancelamento e anulação permanecem conceitos distintos.
+- Ações somente com ícone usam lápis, lixeira, arquivar e restaurar canônicos, com tooltip, rótulo semântico específico e bloqueio durante processamento. A lixeira não representa cancelamento ou anulação.
+- Ativos novos usam schema 2 e `hasHistory=false`. A primeira operação ou provento eleva o marcador atomicamente; documentos schema 1 são históricos por compatibilidade. Nome sempre pode ser corrigido após restauração, tipo só antes do histórico e ticker segue imutável.
+- Excluir ativo exige ausência monotônica de histórico, trava por arquivamento, consultas server-only de operações/proventos e transação com revisão. Ativo histórico explica o bloqueio e oferece correção ou arquivamento.
+- Primeiro milhão oferece “Descobrir prazo” e “Descobrir aporte”, com prazo desejado em anos e meses. Todos os resultados de calculadoras exibem entradas, unidade da taxa, prazo, fórmula/premissas e decomposição do resultado.
+- Juros simples usam taxa anual e dias; compostos usam taxa mensal e meses. Porcentagem de aumento/desconto e variação entre valores são operações separadas. Graham e Bazin identificam LPA, VPA, dividendo anual e yield desejado sem produzir recomendação.

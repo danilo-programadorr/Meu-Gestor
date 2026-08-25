@@ -10,9 +10,11 @@ import 'package:meu_gestor_financeiro/features/investments/presentation/controll
 import 'package:meu_gestor_financeiro/features/investments/presentation/controllers/investments_controller.dart';
 
 class InvestmentAssetFormPage extends ConsumerStatefulWidget {
-  const InvestmentAssetFormPage({required this.portfolioId, super.key});
+  const InvestmentAssetFormPage({this.portfolioId, this.assetId, super.key})
+    : assert((portfolioId == null) != (assetId == null));
 
-  final String portfolioId;
+  final String? portfolioId;
+  final String? assetId;
 
   @override
   ConsumerState<InvestmentAssetFormPage> createState() =>
@@ -25,6 +27,7 @@ class _InvestmentAssetFormPageState
   final TextEditingController _tickerController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
   TrackedInvestmentAssetType _type = TrackedInvestmentAssetType.stock;
+  String? _initializedAssetId;
 
   @override
   void dispose() {
@@ -41,9 +44,28 @@ class _InvestmentAssetFormPageState
     final InvestmentActionState action = ref.watch(
       investmentActionControllerProvider,
     );
-    final portfolio = workspace?.portfolioById(widget.portfolioId);
+    final TrackedInvestmentAsset? asset = widget.assetId == null
+        ? null
+        : workspace?.assetById(widget.assetId!);
+    if (asset != null && _initializedAssetId != asset.id) {
+      _initializedAssetId = asset.id;
+      _tickerController.text = asset.ticker;
+      _nameController.text = asset.name;
+      _type = asset.type;
+    }
+    final String portfolioId = asset?.portfolioId ?? widget.portfolioId ?? '';
+    final portfolio = workspace?.portfolioById(portfolioId);
+    final bool editing = widget.assetId != null;
     if (workspace == null || portfolio == null || portfolio.isArchived) {
-      return _error('Esta carteira não está disponível para novos ativos.');
+      return _error(
+        editing
+            ? 'Este ativo não está disponível para correção.'
+            : 'Esta carteira não está disponível para novos ativos.',
+        editing: editing,
+      );
+    }
+    if (editing && asset == null) {
+      return _error('Este ativo não está mais disponível.', editing: true);
     }
     return SafeBackScope(
       fallbackLocation: AppRoutes.investments,
@@ -52,7 +74,7 @@ class _InvestmentAssetFormPageState
           leading: const SafeBackButton(
             fallbackLocation: AppRoutes.investments,
           ),
-          title: const Text('Adicionar ativo'),
+          title: Text(editing ? 'Corrigir ativo' : 'Adicionar ativo'),
         ),
         body: SafeArea(
           child: SingleChildScrollView(
@@ -81,7 +103,8 @@ class _InvestmentAssetFormPageState
                             )
                             .toList(growable: false),
                         selected: <TrackedInvestmentAssetType>{_type},
-                        onSelectionChanged: action.isLoading
+                        onSelectionChanged:
+                            action.isLoading || (asset?.hasHistory ?? false)
                             ? null
                             : (Set<TrackedInvestmentAssetType> values) =>
                                   setState(() => _type = values.single),
@@ -89,7 +112,7 @@ class _InvestmentAssetFormPageState
                       const SizedBox(height: AppSpacing.md),
                       TextFormField(
                         controller: _tickerController,
-                        enabled: !action.isLoading,
+                        enabled: !action.isLoading && !editing,
                         textCapitalization: TextCapitalization.characters,
                         inputFormatters: <TextInputFormatter>[
                           FilteringTextInputFormatter.allow(
@@ -116,9 +139,12 @@ class _InvestmentAssetFormPageState
                         validator: (String? value) => _validateName(value),
                       ),
                       const SizedBox(height: AppSpacing.lg),
-                      FilledButton(
+                      FilledButton.icon(
                         onPressed: action.isLoading ? null : _submit,
-                        child: action.isLoading
+                        icon: Icon(
+                          editing ? Icons.save_outlined : Icons.add_rounded,
+                        ),
+                        label: action.isLoading
                             ? const SizedBox.square(
                                 dimension: 22,
                                 child: CircularProgressIndicator(
@@ -126,11 +152,17 @@ class _InvestmentAssetFormPageState
                                   semanticsLabel: 'Adicionando ativo',
                                 ),
                               )
-                            : const Text('Adicionar ativo'),
+                            : Text(
+                                editing ? 'Salvar correção' : 'Adicionar ativo',
+                              ),
                       ),
                       const SizedBox(height: AppSpacing.md),
-                      const Text(
-                        'Este cadastro é manual. Nenhum catálogo, cotação ou corretora será consultado.',
+                      Text(
+                        editing && asset!.hasHistory
+                            ? 'O ticker e o tipo ficam bloqueados porque este ativo possui operações ou proventos. O nome pode ser corrigido sem alterar o histórico.'
+                            : editing
+                            ? 'O ticker identifica o documento e não pode ser alterado. Como ainda não há histórico, nome e tipo podem ser corrigidos.'
+                            : 'Este cadastro é manual. Nenhum catálogo, cotação ou corretora será consultado.',
                         textAlign: TextAlign.center,
                       ),
                       if (action.status == InvestmentActionStatus.failure &&
@@ -159,16 +191,29 @@ class _InvestmentAssetFormPageState
     if (!(_formKey.currentState?.validate() ?? false)) {
       return;
     }
-    final bool success = await ref
-        .read(investmentActionControllerProvider.notifier)
-        .createAsset(
-          TrackedInvestmentAssetDraft(
-            portfolioId: widget.portfolioId,
-            ticker: _tickerController.text,
-            name: _nameController.text,
-            type: _type,
-          ),
-        );
+    final InvestmentsState? workspace = ref
+        .read(investmentsControllerProvider)
+        .value;
+    final TrackedInvestmentAsset? asset = widget.assetId == null
+        ? null
+        : workspace?.assetById(widget.assetId!);
+    final controller = ref.read(investmentActionControllerProvider.notifier);
+    final bool success = asset == null
+        ? await controller.createAsset(
+            TrackedInvestmentAssetDraft(
+              portfolioId: widget.portfolioId ?? '',
+              ticker: _tickerController.text,
+              name: _nameController.text,
+              type: _type,
+            ),
+          )
+        : await controller.updateAsset(
+            asset: asset,
+            update: TrackedInvestmentAssetUpdate(
+              name: _nameController.text,
+              type: _type,
+            ),
+          );
     if (success && mounted) {
       Navigator.of(context).pop();
     }
@@ -192,12 +237,12 @@ class _InvestmentAssetFormPageState
     }
   }
 
-  Widget _error(String message) => SafeBackScope(
+  Widget _error(String message, {bool editing = false}) => SafeBackScope(
     fallbackLocation: AppRoutes.investments,
     child: Scaffold(
       appBar: AppBar(
         leading: const SafeBackButton(fallbackLocation: AppRoutes.investments),
-        title: const Text('Adicionar ativo'),
+        title: Text(editing ? 'Corrigir ativo' : 'Adicionar ativo'),
       ),
       body: Center(
         child: Padding(

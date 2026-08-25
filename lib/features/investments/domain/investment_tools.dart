@@ -26,6 +26,66 @@ abstract final class InvestmentTools {
     return InvestmentProjection(amountCents: balance, periods: maximumMonths);
   }
 
+  static RequiredContributionResult firstMillionRequiredContribution({
+    required int initialCents,
+    required int monthlyRateBasisPoints,
+    required int months,
+    int targetCents = 100000000,
+  }) {
+    _nonNegative(initialCents, 'initialCents');
+    _nonNegative(monthlyRateBasisPoints, 'monthlyRateBasisPoints');
+    _positive(months, 'months');
+    _positive(targetCents, 'targetCents');
+    if (initialCents >= targetCents) {
+      return RequiredContributionResult(
+        monthlyContributionCents: 0,
+        amountCents: initialCents,
+        periods: months,
+      );
+    }
+    var low = 0;
+    var high = targetCents;
+    while (low < high) {
+      final int middle = (low + high) ~/ 2;
+      final InvestmentProjection projection = _projectMonthly(
+        initialCents: initialCents,
+        monthlyContributionCents: middle,
+        monthlyRateBasisPoints: monthlyRateBasisPoints,
+        months: months,
+      );
+      if (projection.amountCents >= targetCents) {
+        high = middle;
+      } else {
+        low = middle + 1;
+      }
+    }
+    final InvestmentProjection projection = _projectMonthly(
+      initialCents: initialCents,
+      monthlyContributionCents: low,
+      monthlyRateBasisPoints: monthlyRateBasisPoints,
+      months: months,
+    );
+    return RequiredContributionResult(
+      monthlyContributionCents: low,
+      amountCents: projection.amountCents,
+      periods: months,
+    );
+  }
+
+  static InvestmentProjection _projectMonthly({
+    required int initialCents,
+    required int monthlyContributionCents,
+    required int monthlyRateBasisPoints,
+    required int months,
+  }) {
+    var balance = initialCents;
+    for (var month = 0; month < months; month++) {
+      balance += _multiplyDivide(balance, monthlyRateBasisPoints, _rateScale);
+      balance += monthlyContributionCents;
+    }
+    return InvestmentProjection(amountCents: balance, periods: months);
+  }
+
   static InterestResult simpleInterest({
     required int principalCents,
     required int annualRateBasisPoints,
@@ -81,6 +141,26 @@ abstract final class InvestmentTools {
         ? baseCents - delta
         : 0;
     return PercentageResult(deltaCents: delta, resultCents: result);
+  }
+
+  static PercentageVariationResult percentageVariation({
+    required int initialCents,
+    required int finalCents,
+  }) {
+    _positive(initialCents, 'initialCents');
+    _nonNegative(finalCents, 'finalCents');
+    final int differenceCents = finalCents - initialCents;
+    final int magnitudeBasisPoints = _multiplyDivide(
+      differenceCents.abs(),
+      _rateScale,
+      initialCents,
+    );
+    return PercentageVariationResult(
+      differenceCents: differenceCents,
+      variationBasisPoints: differenceCents < 0
+          ? -magnitudeBasisPoints
+          : magnitudeBasisPoints,
+    );
   }
 
   /// Graham: sqrt(22,5 × LPA × VPA), com LPA/VPA em centavos por ação.
@@ -153,6 +233,17 @@ final class InvestmentProjection {
   final int periods;
 }
 
+final class RequiredContributionResult {
+  const RequiredContributionResult({
+    required this.monthlyContributionCents,
+    required this.amountCents,
+    required this.periods,
+  });
+  final int monthlyContributionCents;
+  final int amountCents;
+  final int periods;
+}
+
 final class InterestResult {
   const InterestResult({required this.interestCents, required this.totalCents});
   final int interestCents;
@@ -163,6 +254,15 @@ final class PercentageResult {
   const PercentageResult({required this.deltaCents, required this.resultCents});
   final int deltaCents;
   final int resultCents;
+}
+
+final class PercentageVariationResult {
+  const PercentageVariationResult({
+    required this.differenceCents,
+    required this.variationBasisPoints,
+  });
+  final int differenceCents;
+  final int variationBasisPoints;
 }
 
 enum ManualAssetKind { stock, fii }

@@ -27,13 +27,16 @@ final class TrackedInvestmentAsset {
     required this.currentQuantityScaled,
     required this.lastOperationId,
     required this.lastOperationAt,
+    this.isArchived = false,
+    this.archivedAt,
+    this.hasHistory = true,
     required this.createdAt,
     required this.updatedAt,
     required this.schemaVersion,
     required this.revision,
   });
 
-  static const int currentSchemaVersion = 1;
+  static const int currentSchemaVersion = 2;
   static const String supportedCurrencyCode = 'BRL';
   static final RegExp tickerPattern = RegExp(r'^[A-Z]{4}[0-9]{1,2}$');
 
@@ -47,6 +50,9 @@ final class TrackedInvestmentAsset {
   final int currentQuantityScaled;
   final String? lastOperationId;
   final DateTime? lastOperationAt;
+  final bool isArchived;
+  final DateTime? archivedAt;
+  final bool hasHistory;
   final DateTime createdAt;
   final DateTime updatedAt;
   final int schemaVersion;
@@ -91,9 +97,11 @@ final class TrackedInvestmentAsset {
         asset.currencyCode != supportedCurrencyCode ||
         asset.currentQuantityScaled < 0 ||
         asset.currentQuantityScaled > InvestmentScale.maximumQuantityScaled ||
-        asset.schemaVersion != currentSchemaVersion ||
+        !<int>{1, currentSchemaVersion}.contains(asset.schemaVersion) ||
         asset.revision < 1 ||
-        (asset.lastOperationId == null) != (asset.lastOperationAt == null)) {
+        (asset.lastOperationId == null) != (asset.lastOperationAt == null) ||
+        asset.isArchived != (asset.archivedAt != null) ||
+        (asset.schemaVersion == 1 && (asset.isArchived || !asset.hasHistory))) {
       throw const InvestmentFailure(
         kind: InvestmentFailureKind.incompatible,
         safeMessage: 'Encontramos uma inconsistência neste ativo.',
@@ -101,6 +109,18 @@ final class TrackedInvestmentAsset {
       );
     }
   }
+}
+
+final class TrackedInvestmentAssetUpdate {
+  const TrackedInvestmentAssetUpdate({required this.name, required this.type});
+
+  final String name;
+  final TrackedInvestmentAssetType type;
+
+  TrackedInvestmentAssetUpdate normalized() => TrackedInvestmentAssetUpdate(
+    name: TrackedInvestmentAsset.requireName(name),
+    type: type,
+  );
 }
 
 final class TrackedInvestmentAssetDraft {

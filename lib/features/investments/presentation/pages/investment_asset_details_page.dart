@@ -6,6 +6,7 @@ import 'package:meu_gestor_financeiro/app/routing/safe_back_navigation.dart';
 import 'package:meu_gestor_financeiro/app/theme/app_radius.dart';
 import 'package:meu_gestor_financeiro/app/theme/app_spacing.dart';
 import 'package:meu_gestor_financeiro/app/theme/app_theme_colors.dart';
+import 'package:meu_gestor_financeiro/app/widgets/entity_action_icon_button.dart';
 import 'package:meu_gestor_financeiro/core/privacy/financial_privacy_controller.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_operation.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_position.dart';
@@ -13,6 +14,8 @@ import 'package:meu_gestor_financeiro/features/investments/domain/tracked_invest
 import 'package:meu_gestor_financeiro/features/investments/presentation/controllers/investment_action_controller.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/controllers/investments_controller.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/widgets/investment_view_support.dart';
+
+enum _AssetContextAction { archive, restore }
 
 class InvestmentAssetDetailsPage extends ConsumerWidget {
   const InvestmentAssetDetailsPage({required this.assetId, super.key});
@@ -25,6 +28,12 @@ class InvestmentAssetDetailsPage extends ConsumerWidget {
       investmentsControllerProvider,
     );
     final bool valuesVisible = ref.watch(financialPrivacyControllerProvider);
+    final TrackedInvestmentAsset? currentAsset = workspace.value?.assetById(
+      assetId,
+    );
+    final InvestmentActionState action = ref.watch(
+      investmentActionControllerProvider,
+    );
     return SafeBackScope(
       fallbackLocation: AppRoutes.investments,
       child: Scaffold(
@@ -40,6 +49,58 @@ class InvestmentAssetDetailsPage extends ConsumerWidget {
                   .read(financialPrivacyControllerProvider.notifier)
                   .toggle(),
             ),
+            if (currentAsset != null) ...<Widget>[
+              EntityActionIconButton(
+                action: EntityActionIcon.edit,
+                entityName: currentAsset.ticker,
+                onPressed: action.isLoading || currentAsset.isArchived
+                    ? null
+                    : () => context.push(
+                        AppRoutes.editInvestmentAsset(currentAsset.id),
+                      ),
+              ),
+              EntityActionIconButton(
+                key: const ValueKey<String>('delete-investment-asset'),
+                action: EntityActionIcon.delete,
+                entityName: currentAsset.ticker,
+                destructive: true,
+                onPressed: action.isLoading
+                    ? null
+                    : () => _requestAssetDeletion(context, ref, currentAsset),
+              ),
+              PopupMenuButton<_AssetContextAction>(
+                tooltip: 'Mais ações do ativo ${currentAsset.ticker}',
+                enabled: !action.isLoading,
+                onSelected: (_AssetContextAction selected) =>
+                    _changeArchivedState(
+                      context,
+                      ref,
+                      currentAsset,
+                      archived: selected == _AssetContextAction.archive,
+                    ),
+                itemBuilder: (BuildContext context) =>
+                    <PopupMenuEntry<_AssetContextAction>>[
+                      PopupMenuItem<_AssetContextAction>(
+                        value: currentAsset.isArchived
+                            ? _AssetContextAction.restore
+                            : _AssetContextAction.archive,
+                        child: ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(
+                            currentAsset.isArchived
+                                ? Icons.unarchive_outlined
+                                : Icons.archive_outlined,
+                          ),
+                          title: Text(
+                            currentAsset.isArchived
+                                ? 'Restaurar ativo'
+                                : 'Arquivar ativo',
+                          ),
+                        ),
+                      ),
+                    ],
+              ),
+            ],
           ],
         ),
         body: SafeArea(
@@ -147,7 +208,11 @@ class InvestmentAssetDetailsPage extends ConsumerWidget {
                 ),
                 Chip(
                   label: Text(
-                    position.isClosed ? 'Posição zerada' : 'Posição ativa',
+                    asset.isArchived
+                        ? 'Arquivado'
+                        : position.isClosed
+                        ? 'Posição zerada'
+                        : 'Posição ativa',
                   ),
                 ),
               ],
@@ -192,7 +257,7 @@ class InvestmentAssetDetailsPage extends ConsumerWidget {
                 runSpacing: AppSpacing.sm,
                 children: <Widget>[
                   FilledButton.icon(
-                    onPressed: action.isLoading
+                    onPressed: action.isLoading || asset.isArchived
                         ? null
                         : () => context.push(
                             AppRoutes.newInvestmentOperation(
@@ -204,7 +269,10 @@ class InvestmentAssetDetailsPage extends ConsumerWidget {
                     label: const Text('Registrar compra'),
                   ),
                   OutlinedButton.icon(
-                    onPressed: action.isLoading || position.quantityScaled == 0
+                    onPressed:
+                        action.isLoading ||
+                            asset.isArchived ||
+                            position.quantityScaled == 0
                         ? null
                         : () => context.push(
                             AppRoutes.newInvestmentOperation(
@@ -217,6 +285,12 @@ class InvestmentAssetDetailsPage extends ConsumerWidget {
                   ),
                 ],
               ),
+            if (asset.isArchived) ...<Widget>[
+              const SizedBox(height: AppSpacing.sm),
+              const Text(
+                'Ativo arquivado: o histórico permanece visível, mas novas operações e proventos ficam bloqueados até a restauração.',
+              ),
+            ],
             const SizedBox(height: AppSpacing.xl),
             Text(
               'Histórico de operações',
@@ -253,6 +327,118 @@ class InvestmentAssetDetailsPage extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _requestAssetDeletion(
+    BuildContext context,
+    WidgetRef ref,
+    TrackedInvestmentAsset asset,
+  ) async {
+    if (asset.hasHistory ||
+        asset.schemaVersion != TrackedInvestmentAsset.currentSchemaVersion) {
+      final String? choice = await showDialog<String>(
+        context: context,
+        builder: (BuildContext dialogContext) => AlertDialog(
+          title: const Text('Este ativo não pode ser excluído'),
+          content: const Text(
+            'Existem operações ou proventos vinculados, ou o documento é anterior ao marcador seguro de histórico. Apagar o ativo quebraria a trilha financeira. Você pode corrigir o nome ou arquivar o ativo sem perder dados.',
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Fechar'),
+            ),
+            TextButton.icon(
+              onPressed: asset.isArchived
+                  ? null
+                  : () => Navigator.of(dialogContext).pop('edit'),
+              icon: const Icon(Icons.edit_outlined),
+              label: const Text('Corrigir dados'),
+            ),
+            FilledButton.tonalIcon(
+              onPressed: asset.isArchived
+                  ? null
+                  : () => Navigator.of(dialogContext).pop('archive'),
+              icon: const Icon(Icons.archive_outlined),
+              label: const Text('Arquivar'),
+            ),
+          ],
+        ),
+      );
+      if (!context.mounted) return;
+      if (choice == 'edit') {
+        await context.push(AppRoutes.editInvestmentAsset(asset.id));
+      } else if (choice == 'archive') {
+        await _changeArchivedState(context, ref, asset, archived: true);
+      }
+      return;
+    }
+
+    final bool confirmed =
+        await showDialog<bool>(
+          context: context,
+          builder: (BuildContext dialogContext) =>
+              _DeleteAssetConfirmationDialog(ticker: asset.ticker),
+        ) ??
+        false;
+    if (!confirmed || !context.mounted) return;
+    final bool success = await ref
+        .read(investmentActionControllerProvider.notifier)
+        .deleteEmptyAsset(asset);
+    if (!context.mounted) return;
+    final String message =
+        ref.read(investmentActionControllerProvider).message ??
+        (success
+            ? 'Ativo sem histórico excluído permanentemente.'
+            : 'Não foi possível excluir o ativo.');
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+    if (success && context.mounted) context.go(AppRoutes.investments);
+  }
+
+  Future<void> _changeArchivedState(
+    BuildContext context,
+    WidgetRef ref,
+    TrackedInvestmentAsset asset, {
+    required bool archived,
+  }) async {
+    if (archived) {
+      final bool confirmed =
+          await showDialog<bool>(
+            context: context,
+            builder: (BuildContext dialogContext) => AlertDialog(
+              title: Text('Arquivar ${asset.ticker}?'),
+              content: const Text(
+                'O ativo e todo o histórico continuarão visíveis. Novas operações e proventos ficarão bloqueados até a restauração.',
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('Voltar'),
+                ),
+                FilledButton.tonal(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  child: const Text('Arquivar ativo'),
+                ),
+              ],
+            ),
+          ) ??
+          false;
+      if (!confirmed || !context.mounted) return;
+    }
+    await ref
+        .read(investmentActionControllerProvider.notifier)
+        .setAssetArchived(asset: asset, archived: archived);
+    if (!context.mounted) return;
+    final String? message = ref
+        .read(investmentActionControllerProvider)
+        .message;
+    if (message != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    }
   }
 
   Future<void> _confirmVoid(
@@ -398,6 +584,65 @@ class _Metric extends StatelessWidget {
         Text(value, style: Theme.of(context).textTheme.titleMedium),
       ],
     ),
+  );
+}
+
+class _DeleteAssetConfirmationDialog extends StatefulWidget {
+  const _DeleteAssetConfirmationDialog({required this.ticker});
+
+  final String ticker;
+
+  @override
+  State<_DeleteAssetConfirmationDialog> createState() =>
+      _DeleteAssetConfirmationDialogState();
+}
+
+class _DeleteAssetConfirmationDialogState
+    extends State<_DeleteAssetConfirmationDialog> {
+  final TextEditingController _confirmation = TextEditingController();
+
+  @override
+  void dispose() {
+    _confirmation.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: Text('Excluir ${widget.ticker}?'),
+    content: SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          const Text(
+            'O servidor confirmará novamente que não existem operações nem proventos. A exclusão é permanente.',
+          ),
+          const SizedBox(height: AppSpacing.md),
+          const Text('Digite EXCLUIR para confirmar.'),
+          TextField(
+            key: const ValueKey<String>('delete-investment-asset-confirmation'),
+            controller: _confirmation,
+            autocorrect: false,
+            textCapitalization: TextCapitalization.characters,
+            onChanged: (_) => setState(() {}),
+            decoration: const InputDecoration(labelText: 'Confirmação'),
+          ),
+        ],
+      ),
+    ),
+    actions: <Widget>[
+      TextButton(
+        onPressed: () => Navigator.of(context).pop(false),
+        child: const Text('Cancelar'),
+      ),
+      FilledButton(
+        onPressed: _confirmation.text.trim() == 'EXCLUIR'
+            ? () => Navigator.of(context).pop(true)
+            : null,
+        child: const Text('Excluir permanentemente'),
+      ),
+    ],
   );
 }
 

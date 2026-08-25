@@ -339,6 +339,11 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((Ref ref) {
         ),
       ),
       GoRoute(
+        path: '/investimentos/ativo/:assetId/editar',
+        builder: (context, state) =>
+            InvestmentAssetFormPage(assetId: state.pathParameters['assetId']),
+      ),
+      GoRoute(
         path: '/investimentos/ativo/:assetId/operacao/nova',
         builder: (context, state) => InvestmentOperationFormPage(
           assetId: state.pathParameters['assetId'] ?? '',

@@ -41,13 +41,14 @@ O arquivo público `firestore.rules` protege o perfil `users/{uid}`, as subcole�
 - `_premiumClosedTestTesters/{uid}` e `_premiumClosedTestGrants/{grantId}` são diretório e auditoria internos do teste fechado: negam `get`, `list` e toda escrita ao cliente, inclusive owner; não armazenam e-mail;
 - FREE-1 remove entitlement e capability das decisões ativas de investimentos e cotações; Auth, e-mail confirmado, perfil jurídico e UID próprio continuam obrigatórios;
 - mutações preservam contratos, referências, revisões e atomicidade; o marcador `hasHistory` só transita de falso para verdadeiro e impede exclusão de histórico;
+- ativos schema 2 sem histórico podem ser corrigidos, arquivados/restaurados e excluídos; primeiro uso marca histórico atomicamente, e ativo histórico ou legado nunca é excluído nem troca de tipo;
 - owner não possui bypass e a infraestrutura Premium interna continua integralmente inacessível ao cliente.
 
 ## Validação local e publicação
 
-As regras são exercitadas no Emulator Suite com projeto isolado `demo-*`, incluindo acessos negados, transições, concorrência, regressões do núcleo financeiro e auditoria do log. O conjunto SUB-1B foi publicado anteriormente somente em development com SHA-256 `F01E52545F2CE88896A48B28B957BF45F8AE79B0173DF2E20449929FF21532B4`. As alterações FREE-1 e INV-UX-3 permanecem exclusivamente locais: não houve deploy nem acesso Firebase neste checkpoint.
+As regras são exercitadas no Emulator Suite com projeto isolado `demo-*`, incluindo acessos negados, transições, concorrência, regressões do núcleo financeiro e auditoria do log. O conjunto SUB-1B foi publicado anteriormente somente em development com SHA-256 `F01E52545F2CE88896A48B28B957BF45F8AE79B0173DF2E20449929FF21532B4`. As alterações FREE-1, INV-UX-3 e CRUD-AUDIT-1 permanecem exclusivamente locais: não houve deploy nem acesso Firebase neste checkpoint.
 
-Para manter operações complexas abaixo de 1.000 expressões, leituras validam o contrato completo do entitlement; mutações validam o conjunto exato de campos e os atributos determinantes de autorização. Validações duplicadas em transições de proventos foram eliminadas sem mudar campos, estados ou transições aceitos. A matriz local cobre também excesso de leituras, avaliação interrompida e erros internos.
+Para manter operações complexas abaixo de 1.000 expressões, leituras validam contratos completos e mutações usam curto-circuito pela transição funcional. O marcador de carteira tem ramo estrito próprio e alterações do ativo são classificadas em metadados, arquivamento, primeiro histórico ou projeção atômica antes das validações completas. Campos exatos, referências, UID, perfil e integridade não foram removidos. A matriz local cobre também excesso de leituras, avaliação interrompida e erros internos.
 
 ## Publicação
 

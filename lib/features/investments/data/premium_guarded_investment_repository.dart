@@ -123,6 +123,52 @@ final class PremiumGuardedInvestmentRepository implements InvestmentRepository {
   }
 
   @override
+  Future<TrackedInvestmentAsset> updateAsset({
+    required String ownerId,
+    required String assetId,
+    required int expectedRevision,
+    required TrackedInvestmentAssetUpdate update,
+  }) {
+    _requireMutation(PremiumCapability.investmentsManual);
+    return _delegate.updateAsset(
+      ownerId: ownerId,
+      assetId: assetId,
+      expectedRevision: expectedRevision,
+      update: update,
+    );
+  }
+
+  @override
+  Future<TrackedInvestmentAsset> setAssetArchived({
+    required String ownerId,
+    required String assetId,
+    required int expectedRevision,
+    required bool archived,
+  }) {
+    _requireMutation(PremiumCapability.investmentsManual);
+    return _delegate.setAssetArchived(
+      ownerId: ownerId,
+      assetId: assetId,
+      expectedRevision: expectedRevision,
+      archived: archived,
+    );
+  }
+
+  @override
+  Future<void> deleteEmptyAsset({
+    required String ownerId,
+    required String assetId,
+    required int expectedRevision,
+  }) {
+    _requireMutation(PremiumCapability.investmentsManual);
+    return _delegate.deleteEmptyAsset(
+      ownerId: ownerId,
+      assetId: assetId,
+      expectedRevision: expectedRevision,
+    );
+  }
+
+  @override
   Future<InvestmentOperation> createOperation({
     required String ownerId,
     required String operationId,

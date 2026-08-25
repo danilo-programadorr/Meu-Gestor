@@ -102,6 +102,46 @@ void main() {
     );
   });
 
+  test(
+    'mapper de ativo schema 2 trata histórico e arquivamento estritamente',
+    () {
+      final Map<String, dynamic> data = <String, dynamic>{
+        'ownerId': 'owner',
+        'portfolioId': 'portfolio-1',
+        'ticker': 'PETR4',
+        'name': 'Petrobras PN',
+        'assetType': 'stock',
+        'currencyCode': 'BRL',
+        'currentQuantityScaled': 0,
+        'lastOperationId': null,
+        'lastOperationAt': null,
+        'isArchived': true,
+        'archivedAt': time,
+        'hasHistory': false,
+        'createdAt': time,
+        'updatedAt': time,
+        'schemaVersion': TrackedInvestmentAsset.currentSchemaVersion,
+        'revision': 2,
+      };
+      final TrackedInvestmentAsset asset =
+          FirestoreTrackedInvestmentAssetMapper.fromMap(
+            data: data,
+            documentId: 'portfolio-1__PETR4',
+            expectedOwnerId: 'owner',
+          );
+      expect(asset.isArchived, isTrue);
+      expect(asset.hasHistory, isFalse);
+      expect(
+        () => FirestoreTrackedInvestmentAssetMapper.fromMap(
+          data: <String, dynamic>{...data}..remove('hasHistory'),
+          documentId: 'portfolio-1__PETR4',
+          expectedOwnerId: 'owner',
+        ),
+        throwsException,
+      );
+    },
+  );
+
   test('mapper de operação preserva cadeia anterior e inteiros escalados', () {
     final Map<String, dynamic> data = <String, dynamic>{
       'ownerId': 'owner',
@@ -180,17 +220,23 @@ void main() {
       portfolioMap['schemaVersion'],
       InvestmentPortfolio.currentSchemaVersion,
     );
+    final Map<String, Object?> assetMap =
+        FirestoreTrackedInvestmentAssetMapper.creationMap(
+          ownerId: 'owner',
+          draft: const TrackedInvestmentAssetDraft(
+            portfolioId: 'portfolio-1',
+            ticker: 'petr4',
+            name: ' Petrobras   PN ',
+            type: TrackedInvestmentAssetType.stock,
+          ),
+        );
+    expect(assetMap['ticker'], 'PETR4');
     expect(
-      FirestoreTrackedInvestmentAssetMapper.creationMap(
-        ownerId: 'owner',
-        draft: const TrackedInvestmentAssetDraft(
-          portfolioId: 'portfolio-1',
-          ticker: 'petr4',
-          name: ' Petrobras   PN ',
-          type: TrackedInvestmentAssetType.stock,
-        ),
-      )['ticker'],
-      'PETR4',
+      assetMap['schemaVersion'],
+      TrackedInvestmentAsset.currentSchemaVersion,
     );
+    expect(assetMap['hasHistory'], isFalse);
+    expect(assetMap['isArchived'], isFalse);
+    expect(assetMap['archivedAt'], isNull);
   });
 }
