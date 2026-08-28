@@ -921,3 +921,14 @@ Situação em 25/08/2026: auditoria documental local concluída com fontes ofici
 - A ordem recomendada para um benchmark futuro é Vertex AI como primeira prova operacional, OpenAI como principal comparador de custo/estrutura e Anthropic como comparador de qualidade pt-BR e segurança. Isso não constitui escolha.
 - A próxima decisão exige benchmark exclusivamente sintético, DPA/base legal, consentimento versionado, retenção efetiva, exclusão, controles de gasto, limites internos e testes adversariais.
 - Qualquer credencial futura permanecerá somente no backend/Secret Manager; APK, Firestore, Git e logs nunca armazenam chave de provedor.
+
+## 48. ASSIST-1B-1A + ASSIST-VOICE-1A — roteamento neutro e voz local
+
+Situação em 25/08/2026: implementado somente localmente sobre `f9094c1`. Nenhum provedor, API, Function, segredo, Rule, cobrança ou recurso externo foi ativado.
+
+- Flash é o tier lógico padrão. Pro depende exclusivamente de classificação backend com múltiplos sinais de complexidade, contexto permitido, limite de chamadas e orçamento em unidades abstratas.
+- O cliente não seleciona modelo. Limite excedido falha antes do gateway, e uma análise complexa não é rebaixada silenciosamente.
+- Todos os gateways continuam fakes com fixtures sintéticas; não existe resposta real de IA nem envio de contexto financeiro.
+- A opção “Responder em voz” é opt-in, usa TTS nativo `pt-BR`, mantém o texto e oferece pausar, continuar, repetir, parar e velocidade.
+- Privacidade financeira, saída da tela, bloqueio/suspensão e troca de conta interrompem a fala. Nenhum áudio, microfone ou memória é criado.
+- `flutter_tts 4.2.5` foi fixado após auditoria de finalidade, licença MIT e compatibilidade. Falhas ou ausência de voz não bloqueiam a resposta escrita.

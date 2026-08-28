@@ -511,6 +511,11 @@
 | ASSIST-111 | Comparar capacidades e português | P0 | ASSIST-1B-0 | suporte multilíngue, structured output, tool calling e limitações são rastreados sem chamada de API | auditoria documental local | benchmark sintético futuro | alto | zero externo |
 | ASSIST-112 | Comparar custo e controles | P0 | ASSIST-1B-0 | preços públicos datados, rate limits, alertas e tetos são comparados sem criar cobrança; custo real depende de medição | auditoria documental local | perfil de carga e orçamento futuros | alto | zero externo |
 | ASSIST-113 | Preservar neutralidade e segredo server-side | P0 | ASSIST-1B-0 | nenhum provedor é selecionado; chave futura permanece no backend/Secret Manager e nunca no APK, Firestore ou Git | documentado e não ativado | autorização externa separada | crítico | zero externo |
+| ASSIST-120 | Rotear tiers sem escolha do cliente | P0 | ASSIST-1B-1A | Flash é padrão; Pro exige sinais múltiplos e decisão backend; campo de modelo do cliente é recusado | implementado localmente com fake | provedor futuro não selecionado | alto | unidades abstratas, zero externo |
+| ASSIST-121 | Limitar contexto, escalonamento e custo | P0 | ASSIST-1B-1A | contexto, chamadas Pro e unidades de custo têm tetos; excesso falha antes do gateway e sem rebaixamento silencioso | implementado e testado | medição/preço reais futuros | crítico | zero externo |
+| ASSIST-130 | Ler resposta em voz por opt-in | P0 | ASSIST-VOICE-1A | desligada por padrão; pt-BR nativo; texto visível; pausar, continuar, repetir, parar e velocidade | implementado localmente | voz instalada no Android | médio | zero externo |
+| ASSIST-131 | Interromper voz em fronteiras de privacidade | P0 | ASSIST-VOICE-1A | privacidade, saída, bloqueio/suspensão e troca de conta param; valores ocultos nunca são enviados ao TTS | implementado e testado | controle global e ciclo de vida | crítico | zero externo |
+| ASSIST-132 | Não captar nem persistir áudio | P0 | ASSIST-VOICE-1A | sem microfone, gravação, arquivo, memória ou serviço de voz em nuvem; falha nativa é sanitizada | implementado estruturalmente | flutter_tts 4.2.5 MIT | crítico | zero externo |
 
 ## Incrementos futuros de dados, privacidade e armazenamento
 

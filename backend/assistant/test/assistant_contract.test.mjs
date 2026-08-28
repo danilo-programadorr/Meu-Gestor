@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { ASSISTANT_POLICY_VERSION, AssistantContractError, AssistantService } from '../src/index.mjs';
+import { ASSISTANT_POLICY_VERSION, AssistantContractError, AssistantModelRouter, AssistantService } from '../src/index.mjs';
 
 const authorization = (overrides = {}) => ({
   authenticated: true,
@@ -59,6 +59,13 @@ const createHarness = ({ contextValue = context(), providerResponse = response()
           return providerResponse;
         },
       },
+      modelRouter: new AssistantModelRouter(),
+      usageRepository: {
+        async readOwnWindow(uid) {
+          assert.equal(uid, 'own-user');
+          return { costUnitsInWindow: 0, proCallsInWindow: 0 };
+        },
+      },
     }),
   };
 };
@@ -74,6 +81,7 @@ test('monta contexto próprio minimizado e não oferece mutação ao provedor', 
   assert.equal(harness.calls.provider, 1);
   assert.equal(harness.calls.request.memoryMode, 'none');
   assert.equal(harness.calls.request.responseContract.mutationsAllowed, false);
+  assert.equal(harness.calls.request.routing.tier, 'flash');
   const serialized = JSON.stringify(harness.calls.request);
   assert.doesNotMatch(serialized, /own-user|uid|email|token|ownerId/);
 });

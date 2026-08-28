@@ -1,8 +1,27 @@
-# Assistente Financeiro Pessoal — arquitetura ASSIST-0/ASSIST-1A/ASSIST-1B-0
+# Assistente Financeiro Pessoal — arquitetura ASSIST-0 a ASSIST-VOICE-1A
 
 ## Estado do incremento
 
-ASSIST-0 implementa domínio, contrato server-side neutro, políticas e testes. O ASSIST-1A acrescenta interface local, consentimento visível, quatro perguntas guiadas e resumos determinísticos. O ASSIST-1B-0 compara provedores somente por documentação oficial e não seleciona nem ativa nenhum deles. Não há Function, API de IA, segredo, memória persistida, coleção nova, regra publicada ou chamada externa.
+ASSIST-0 implementa domínio, contrato server-side neutro, políticas e testes. O ASSIST-1A acrescenta interface local, consentimento visível, quatro perguntas guiadas e resumos determinísticos. O ASSIST-1B-0 compara provedores somente por documentação oficial. ASSIST-1B-1A prepara tiers lógicos e ASSIST-VOICE-1A acrescenta leitura pelo sintetizador nativo. Nenhum provedor foi selecionado ou ativado; não há Function, API de IA, segredo, memória persistida, coleção nova, regra publicada ou chamada externa.
+
+## Roteamento neutro ASSIST-1B-1A
+
+- `flash` é o tier lógico padrão para conversa e explicações comuns;
+- `pro` só é escolhido no backend quando há ao menos dois sinais fechados de complexidade e limites de contexto, chamadas e custo disponíveis;
+- o request público aceita apenas a pergunta, portanto o usuário não escolhe modelo nem injeta contexto;
+- unidades de custo são guardrails abstratos e não simulam preço de provedor;
+- limites excedidos falham antes do gateway; análise complexa não é rebaixada silenciosamente;
+- o gateway desta etapa permanece fake, sem endpoint, SDK, chave ou resposta real de IA.
+
+## Voz local ASSIST-VOICE-1A
+
+- a opção aparece antes de `Consultar`, começa desligada e não substitui a resposta textual;
+- o adaptador `AssistantTtsEngine` isola `flutter_tts` e permite testes sem canal de plataforma;
+- idioma `pt-BR`, velocidade lenta/normal/rápida e controles pausar, continuar, repetir e parar;
+- privacidade financeira oculta interrompe a voz e descarta o conteúdo repetível;
+- saída da tela, suspensão/bloqueio e troca de conta interrompem o mecanismo;
+- não há microfone, gravação, memória de voz, arquivo de áudio nem nuvem;
+- voz ausente ou falha nativa produz mensagem segura e conserva a leitura visual.
 
 ## Auditoria ASSIST-1B-0
 

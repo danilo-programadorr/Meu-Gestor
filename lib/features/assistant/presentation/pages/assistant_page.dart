@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,14 +10,66 @@ import 'package:meu_gestor_financeiro/core/money/money_formatter.dart';
 import 'package:meu_gestor_financeiro/core/privacy/financial_privacy_controller.dart';
 import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_context.dart';
 import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_summary.dart';
+import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_voice.dart';
 import 'package:meu_gestor_financeiro/features/assistant/presentation/controllers/assistant_summary_provider.dart';
+import 'package:meu_gestor_financeiro/features/assistant/presentation/controllers/assistant_voice_controller.dart';
+import 'package:meu_gestor_financeiro/features/authentication/data/auth_providers.dart';
+import 'package:meu_gestor_financeiro/features/authentication/domain/auth_user.dart';
 import 'package:meu_gestor_financeiro/features/profile/presentation/controllers/profile_gate_controller.dart';
 
-class AssistantPage extends ConsumerWidget {
+class AssistantPage extends ConsumerStatefulWidget {
   const AssistantPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AssistantPage> createState() => _AssistantPageState();
+}
+
+class _AssistantPageState extends ConsumerState<AssistantPage>
+    with WidgetsBindingObserver {
+  late final AssistantVoiceController _voiceController;
+
+  @override
+  void initState() {
+    super.initState();
+    _voiceController = ref.read(assistantVoiceControllerProvider.notifier);
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    unawaited(_voiceController.interrupt(AssistantVoiceInterruption.routeExit));
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) {
+      unawaited(
+        _voiceController.interrupt(AssistantVoiceInterruption.appInactive),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen<AsyncValue<AuthUser?>>(authStateProvider, (previous, next) {
+      if (previous?.value?.id != next.value?.id) {
+        unawaited(
+          _voiceController.interrupt(AssistantVoiceInterruption.accountChanged),
+        );
+      }
+    });
+    ref.listen<bool>(financialPrivacyControllerProvider, (previous, next) {
+      if (previous == true && !next) {
+        unawaited(
+          _voiceController.interrupt(
+            AssistantVoiceInterruption.financialPrivacy,
+          ),
+        );
+      }
+    });
+    ref.watch(assistantVoiceControllerProvider);
     final ProfileGateState? gate = ref
         .watch(profileGateControllerProvider)
         .value;
@@ -128,16 +182,32 @@ class AssistantDataExperience extends ConsumerStatefulWidget {
 
 class _AssistantDataExperienceState
     extends ConsumerState<AssistantDataExperience> {
+  late final AssistantVoiceController _voiceController;
   AssistantGuidedQuestion _question = AssistantGuidedQuestion.monthlyOverview;
+  AssistantGuidedQuestion? _submittedQuestion;
+
+  @override
+  void initState() {
+    super.initState();
+    _voiceController = ref.read(assistantVoiceControllerProvider.notifier);
+  }
+
+  @override
+  void dispose() {
+    unawaited(_voiceController.interrupt(AssistantVoiceInterruption.routeExit));
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final AssistantReadModel model = ref.watch(assistantReadModelProvider);
-    final AssistantDeterministicSummary summary =
-        AssistantDeterministicSummaryBuilder.build(
-          question: _question,
-          snapshot: model.snapshot,
-        );
+    final AssistantGuidedQuestion? submittedQuestion = _submittedQuestion;
+    final AssistantDeterministicSummary? summary = submittedQuestion == null
+        ? null
+        : AssistantDeterministicSummaryBuilder.build(
+            question: submittedQuestion,
+            snapshot: model.snapshot,
+          );
     final bool valuesVisible =
         widget.valuesVisibleOverride ??
         ref.watch(financialPrivacyControllerProvider);
@@ -160,13 +230,182 @@ class _AssistantDataExperienceState
             setState(() => _question = value);
           },
         ),
+        const SizedBox(height: AppSpacing.sm),
+        _VoicePreference(
+          valuesVisible: valuesVisible,
+          state: ref.watch(assistantVoiceControllerProvider),
+          onChanged: (bool enabled) => ref
+              .read(assistantVoiceControllerProvider.notifier)
+              .setEnabled(enabled, valuesVisible: valuesVisible),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        FilledButton.icon(
+          key: const ValueKey<String>('assistant-submit-question'),
+          onPressed: model.isLoading
+              ? null
+              : () async {
+                  final AssistantDeterministicSummary nextSummary =
+                      AssistantDeterministicSummaryBuilder.build(
+                        question: _question,
+                        snapshot: model.snapshot,
+                      );
+                  setState(() => _submittedQuestion = _question);
+                  await ref
+                      .read(assistantVoiceControllerProvider.notifier)
+                      .speak(
+                        AssistantSpeechFormatter.format(nextSummary),
+                        valuesVisible: valuesVisible,
+                      );
+                },
+          icon: const Icon(Icons.send_outlined),
+          label: const Text('Consultar'),
+        ),
         const SizedBox(height: AppSpacing.md),
         if (model.isLoading)
           const LinearProgressIndicator(
             key: ValueKey<String>('assistant-loading'),
           ),
-        _SummaryCard(summary: summary, valuesVisible: valuesVisible),
+        if (summary != null) ...<Widget>[
+          _SummaryCard(summary: summary, valuesVisible: valuesVisible),
+          const SizedBox(height: AppSpacing.sm),
+          _VoiceControls(
+            state: ref.watch(assistantVoiceControllerProvider),
+            valuesVisible: valuesVisible,
+          ),
+        ] else
+          const _WaitingForQuestion(),
       ],
+    );
+  }
+}
+
+class _VoicePreference extends StatelessWidget {
+  const _VoicePreference({
+    required this.valuesVisible,
+    required this.state,
+    required this.onChanged,
+  });
+
+  final bool valuesVisible;
+  final AssistantVoiceState state;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    margin: EdgeInsets.zero,
+    child: SwitchListTile.adaptive(
+      key: const ValueKey<String>('assistant-voice-preference'),
+      value: state.enabled && valuesVisible,
+      onChanged: valuesVisible ? onChanged : null,
+      secondary: const Icon(Icons.record_voice_over_outlined),
+      title: const Text('Responder em voz'),
+      subtitle: Text(
+        valuesVisible
+            ? 'Desligado por padrão. Usa a voz pt-BR instalada no aparelho.'
+            : 'Indisponível enquanto a privacidade financeira oculta os dados.',
+      ),
+    ),
+  );
+}
+
+class _WaitingForQuestion extends StatelessWidget {
+  const _WaitingForQuestion();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    key: const ValueKey<String>('assistant-waiting-question'),
+    padding: const EdgeInsets.all(AppSpacing.md),
+    decoration: BoxDecoration(
+      color: Theme.of(context).colorScheme.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(14),
+    ),
+    child: const Text(
+      'Escolha a pergunta, ajuste a opção de voz e toque em Consultar.',
+      textAlign: TextAlign.center,
+    ),
+  );
+}
+
+class _VoiceControls extends ConsumerWidget {
+  const _VoiceControls({required this.state, required this.valuesVisible});
+
+  final AssistantVoiceState state;
+  final bool valuesVisible;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (!state.enabled) return const SizedBox.shrink();
+    final AssistantVoiceController controller = ref.read(
+      assistantVoiceControllerProvider.notifier,
+    );
+    return Card(
+      key: const ValueKey<String>('assistant-voice-controls'),
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.sm),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Text(
+              'Leitura da resposta',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+            if (state.message.isNotEmpty) ...<Widget>[
+              const SizedBox(height: AppSpacing.xxs),
+              Semantics(liveRegion: true, child: Text(state.message)),
+            ],
+            const SizedBox(height: AppSpacing.xs),
+            Wrap(
+              spacing: AppSpacing.xs,
+              runSpacing: AppSpacing.xs,
+              children: <Widget>[
+                if (state.isSpeaking)
+                  OutlinedButton.icon(
+                    onPressed: controller.pause,
+                    icon: const Icon(Icons.pause_outlined),
+                    label: const Text('Pausar'),
+                  ),
+                if (state.isPaused)
+                  OutlinedButton.icon(
+                    onPressed: () =>
+                        controller.resume(valuesVisible: valuesVisible),
+                    icon: const Icon(Icons.play_arrow_outlined),
+                    label: const Text('Continuar'),
+                  ),
+                OutlinedButton.icon(
+                  onPressed: valuesVisible
+                      ? () => controller.repeat(valuesVisible: valuesVisible)
+                      : null,
+                  icon: const Icon(Icons.replay_outlined),
+                  label: const Text('Repetir'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: controller.stop,
+                  icon: const Icon(Icons.stop_outlined),
+                  label: const Text('Parar'),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            DropdownButtonFormField<AssistantVoiceSpeed>(
+              key: const ValueKey<String>('assistant-voice-speed'),
+              initialValue: state.speed,
+              decoration: const InputDecoration(labelText: 'Velocidade da voz'),
+              items: <DropdownMenuItem<AssistantVoiceSpeed>>[
+                for (final AssistantVoiceSpeed speed
+                    in AssistantVoiceSpeed.values)
+                  DropdownMenuItem<AssistantVoiceSpeed>(
+                    value: speed,
+                    child: Text(speed.label),
+                  ),
+              ],
+              onChanged: (AssistantVoiceSpeed? speed) {
+                if (speed != null) controller.setSpeed(speed);
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

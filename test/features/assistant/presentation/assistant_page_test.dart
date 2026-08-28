@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meu_gestor_financeiro/core/dates/sao_paulo_civil_date.dart';
+import 'package:meu_gestor_financeiro/features/assistant/data/assistant_tts_engine.dart';
 import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_summary.dart';
 import 'package:meu_gestor_financeiro/features/assistant/presentation/controllers/assistant_summary_provider.dart';
+import 'package:meu_gestor_financeiro/features/assistant/presentation/controllers/assistant_voice_controller.dart';
 import 'package:meu_gestor_financeiro/features/assistant/presentation/pages/assistant_page.dart';
 
 void main() {
@@ -44,11 +46,17 @@ void main() {
       );
 
       expect(find.text('Como foi meu mês?'), findsOneWidget);
+      expect(find.text('Responder em voz'), findsOneWidget);
+      expect(find.text('Resumo do mês'), findsNothing);
+      await tester.tap(find.text('Consultar'));
+      await tester.pump();
       expect(find.text('Resumo do mês'), findsOneWidget);
       expect(find.textContaining('America/Sao_Paulo'), findsOneWidget);
       expect(find.textContaining('R\$ 3.000,00'), findsOneWidget);
 
       await tester.tap(find.text('Quais são minhas pendências?'));
+      await tester.pump();
+      await tester.tap(find.text('Consultar'));
       await tester.pump();
 
       expect(find.text('Compromissos financeiros'), findsOneWidget);
@@ -73,8 +81,70 @@ void main() {
       ),
     );
 
+    await tester.tap(find.text('Consultar'));
+    await tester.pump();
+
     expect(find.text('Valor oculto'), findsNWidgets(4));
     expect(find.textContaining('R\$ 3.000,00'), findsNothing);
+  });
+
+  testWidgets('voz é opt-in, mantém texto e oferece controles acessíveis', (
+    WidgetTester tester,
+  ) async {
+    final _WidgetFakeTtsEngine engine = _WidgetFakeTtsEngine();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          assistantReadModelProvider.overrideWithValue(_model()),
+          assistantTtsEngineProvider.overrideWithValue(engine),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(child: AssistantDataExperience()),
+          ),
+        ),
+      ),
+    );
+
+    final Switch voiceSwitch = tester.widget<Switch>(find.byType(Switch));
+    expect(voiceSwitch.value, isFalse);
+    await tester.tap(find.text('Responder em voz'));
+    await tester.pump();
+    await tester.tap(find.text('Consultar'));
+    await tester.pump();
+
+    expect(find.text('Resumo do mês'), findsOneWidget);
+    expect(engine.spoken, hasLength(1));
+    expect(find.text('Pausar'), findsOneWidget);
+    expect(find.text('Repetir'), findsOneWidget);
+    expect(find.text('Parar'), findsOneWidget);
+    expect(find.text('Velocidade da voz'), findsOneWidget);
+  });
+
+  testWidgets('privacidade impede habilitar leitura financeira', (
+    WidgetTester tester,
+  ) async {
+    final _WidgetFakeTtsEngine engine = _WidgetFakeTtsEngine();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          assistantReadModelProvider.overrideWithValue(_model()),
+          assistantTtsEngineProvider.overrideWithValue(engine),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: AssistantDataExperience(valuesVisibleOverride: false),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.textContaining('Indisponível enquanto'), findsOneWidget);
+    await tester.tap(find.text('Consultar'));
+    await tester.pump();
+    expect(engine.spoken, isEmpty);
   });
 
   testWidgets('conteúdo suporta 320 px e fonte ampliada sem overflow', (
@@ -111,6 +181,30 @@ void main() {
       findsOneWidget,
     );
   });
+}
+
+final class _WidgetFakeTtsEngine implements AssistantTtsEngine {
+  final List<String> spoken = <String>[];
+
+  @override
+  Future<void> initialize({
+    required AssistantTtsCallback onStart,
+    required AssistantTtsCallback onComplete,
+    required AssistantTtsCallback onPause,
+    required AssistantTtsCallback onContinue,
+    required AssistantTtsErrorCallback onError,
+  }) async {}
+
+  @override
+  Future<void> pause() async {}
+  @override
+  Future<void> resume(String text) async {}
+  @override
+  Future<void> setSpeed(double rate) async {}
+  @override
+  Future<void> speak(String text) async => spoken.add(text);
+  @override
+  Future<void> stop() async {}
 }
 
 AssistantReadModel _model() => AssistantReadModel(

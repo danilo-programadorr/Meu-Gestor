@@ -13,6 +13,8 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - ASSIST-1A adiciona a interface local do Assistente Financeiro, com consentimento antes da leitura, escopo visível, perguntas guiadas e resumos determinísticos somente leitura;
 - respostas do Assistente mostram período civil e fontes confirmadas, preservam privacidade global e declaram dados ausentes sem simular IA, cotação ou rentabilidade;
 - ASSIST-1B-0 compara OpenAI API, Gemini pago/Vertex AI e Anthropic somente por fontes oficiais, registra privacidade, retenção, custos, português, saídas estruturadas, ferramentas e controles de gasto sem escolher ou ativar fornecedor;
+- ASSIST-1B-1A adiciona roteador backend neutro com Flash padrão, Pro restrito a análises complexas e limites fechados de contexto, uso e custo, ainda somente com fakes sintéticos;
+- ASSIST-VOICE-1A adiciona leitura opcional em pt-BR pelo TTS nativo do Android, com texto preservado, pausa, continuação, repetição, parada, velocidade e interrupção nas fronteiras de privacidade e sessão;
 
 - CRUD-AUDIT-1 registra uma matriz completa das ações de todas as entidades e padroniza lápis, lixeira, arquivamento e restauração com tooltip e semântica acessível;
 - ativos de investimento ganham correção de nome, edição de tipo antes do primeiro histórico, arquivamento/restauração e exclusão segura somente quando nunca tiveram operação ou provento;
