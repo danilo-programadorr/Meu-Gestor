@@ -360,6 +360,17 @@ Future<void> _openProfile(WidgetTester tester) async {
     find.byKey(const ValueKey<String>('dashboard-header-menu-button')),
   );
   await tester.pumpAndSettle();
+  final Finder accountAndApp = find.descendant(
+    of: find.byType(BottomSheet),
+    matching: find.text('Conta e aplicativo'),
+  );
+  await tester.scrollUntilVisible(
+    accountAndApp,
+    180,
+    scrollable: find.byType(Scrollable).last,
+  );
+  await tester.tap(accountAndApp);
+  await tester.pumpAndSettle();
   final Finder profile = find.descendant(
     of: find.byType(BottomSheet),
     matching: find.text('Perfil'),

@@ -517,6 +517,16 @@
 | ASSIST-131 | Interromper voz em fronteiras de privacidade | P0 | ASSIST-VOICE-1A | privacidade, saída, bloqueio/suspensão e troca de conta param; valores ocultos nunca são enviados ao TTS | implementado e testado | controle global e ciclo de vida | crítico | zero externo |
 | ASSIST-132 | Não captar nem persistir áudio | P0 | ASSIST-VOICE-1A | sem microfone, gravação, arquivo, memória ou serviço de voz em nuvem; falha nativa é sanitizada | implementado estruturalmente | flutter_tts 4.2.5 MIT | crítico | zero externo |
 
+## Incremento CALENDAR-1 — calendário financeiro interno
+
+| ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |
+|---|---|---:|---:|---|---|---|---|---|
+| CALENDAR-001 | Exibir vencimentos e estados sem alterar saldo | P0 | CALENDAR-1 | agenda reúne compromissos próprios confirmados; atraso é derivado em São Paulo; pagamento/recebimento permanece data separada | implementado localmente | `payables` e `receivables` confirmados | crítico: UID e portão financeiro existentes | zero externo |
+| CALENDAR-002 | Projetar recorrências honestas | P0 | CALENDAR-1 | plano local por dispositivo referencia compromisso-modelo, não copia valor/dados e gera somente `forecast`; mês curto usa último dia | implementado e testado | SharedPreferences e compromisso existente | alto: não cria lançamento nem saldo | zero externo |
+| CALENDAR-003 | Preservar histórico sem exclusão | P0 | CALENDAR-1 | cancelamento terminal preserva plano e não toca no compromisso-modelo; restauração e delete não são expostos | implementado e testado | armazenamento local | alto | zero externo |
+| CALENDAR-004 | Manter calendário Android opt-in e fechado | P0 | CALENDAR-1 | leitura local somente após ação explícita e limitada às agendas escolhidas; não há escrita; mutação futura exige confirmação recente/digest por evento | contrato, ponte local e testes | autorização própria para escrita/sincronização | crítico | zero externo |
+| CALENDAR-005 | Limitar Assistente a proposta de lembrete | P0 | CALENDAR-1 | `draftReminder` é proposta e requer confirmação futura; assistente não paga, recebe ou conclui compromisso | domínio e teste local | executor separado futuro | crítico | zero externo |
+
 ## Incrementos futuros de dados, privacidade e armazenamento
 
 | ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |

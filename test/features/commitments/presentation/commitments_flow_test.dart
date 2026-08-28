@@ -26,6 +26,7 @@ import 'package:meu_gestor_financeiro/features/profile/data/user_profile_provide
 import 'package:meu_gestor_financeiro/features/transactions/data/financial_transaction_providers.dart';
 import 'package:meu_gestor_financeiro/features/transactions/domain/financial_transaction.dart';
 import 'package:meu_gestor_financeiro/features/transactions/presentation/widgets/positive_money_input_field.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../support/fake_auth_repository.dart';
 import '../../../support/fake_financial_account_repository.dart';
@@ -49,6 +50,41 @@ void main() {
     expect(find.text('Contas a pagar'), findsOneWidget);
     expect(find.text('Contas a receber'), findsOneWidget);
   });
+
+  testWidgets(
+    'calendário separa vencimento da movimentação e mantém Android opt-in',
+    (WidgetTester tester) async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final _Harness harness = await _pumpHarness(
+        tester,
+        payables: <Payable>[
+          createTestPayable(
+            description: 'Conta com pagamento real',
+            status: PayableStatus.paid,
+            dueDate: SaoPauloCivilDate(year: 2026, month: 8, day: 15),
+            paidDate: SaoPauloCivilDate(year: 2026, month: 8, day: 14),
+            settlementAccountId: 'account-1',
+            linkedTransactionId: 'transaction-1',
+          ),
+        ],
+      );
+      addTearDown(harness.dispose);
+
+      await _go(tester, AppRoutes.calendar);
+
+      expect(
+        find.widgetWithText(AppBar, 'Calendário financeiro'),
+        findsOneWidget,
+      );
+      expect(find.text('Vencimento: 15/08/2026'), findsOneWidget);
+      expect(find.text('Movimentação real: 14/08/2026'), findsOneWidget);
+      expect(find.text('Escolher calendários permitidos'), findsOneWidget);
+      expect(
+        find.textContaining('não cria, altera ou exclui eventos externos'),
+        findsOneWidget,
+      );
+    },
+  );
 
   testWidgets('ações rápidas preselecionam o tipo e Voltar retorna à home', (
     WidgetTester tester,

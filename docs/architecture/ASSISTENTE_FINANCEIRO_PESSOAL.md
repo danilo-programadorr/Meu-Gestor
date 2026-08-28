@@ -80,7 +80,7 @@ O texto final deve distinguir fato confirmado, cálculo determinístico, estimat
 
 ## Ações e experiência
 
-Leitura, explicação, comparação, pergunta e sugestão não alteram dados. Criar, editar, arquivar, cancelar, anular ou excluir pode no máximo produzir uma prévia. Um executor futuro, separado do provedor, exigirá confirmação explícita da prévia exata, expiração curta, UID próprio, revisão/idempotência e todas as invariantes do módulo afetado.
+Leitura, explicação, comparação, pergunta e sugestão não alteram dados. Criar, editar, arquivar, cancelar, anular, excluir ou propor lembrete pode no máximo produzir uma prévia. Um executor futuro, separado do provedor, exigirá confirmação explícita da prévia exata, expiração curta, UID próprio, revisão/idempotência e todas as invariantes do módulo afetado. Em particular, uma proposta de lembrete não paga, recebe, conclui nem altera compromisso financeiro.
 
 Reset financeiro, exclusão de conta, autenticação, assinatura, owner, segurança e administração não são delegáveis ao assistente. Falha da IA nunca bloqueia o núcleo financeiro. Mensagens de erro não exibem dados financeiros ou técnicos.
 

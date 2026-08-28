@@ -59,6 +59,13 @@ void main() {
     await tester.tap(
       find.descendant(
         of: find.byType(BottomSheet),
+        matching: find.text('Organização'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(
+        of: find.byType(BottomSheet),
         matching: find.text('Contas e carteiras'),
       ),
     );
@@ -421,6 +428,13 @@ Future<_WidgetContext> _pumpAccounts(
   final _WidgetContext context = await _pumpApp(tester, accounts: accounts);
   await tester.tap(
     find.byKey(const ValueKey<String>('dashboard-header-menu-button')),
+  );
+  await tester.pumpAndSettle();
+  await tester.tap(
+    find.descendant(
+      of: find.byType(BottomSheet),
+      matching: find.text('Organização'),
+    ),
   );
   await tester.pumpAndSettle();
   await tester.tap(

@@ -8,6 +8,10 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 ### Adicionado
 
+- CALENDAR-1 adiciona calendário financeiro interno com vencimentos, estados derivados, movimentação real separada, próximos compromissos e previsão mensal que não altera saldo;
+- previsões recorrentes semanais, mensais e anuais usam compromisso-modelo confirmado, ficam locais por dispositivo, não copiam dados financeiros e podem ser canceladas sem exclusão;
+- calendário Android opcional usa somente o provedor local do aparelho: solicita leitura após ação explícita, limita eventos às agendas selecionadas e não cria, altera ou exclui eventos externos;
+
 - ASSIST-0 inventaria as fontes próprias do futuro Assistente Financeiro Pessoal e adiciona contratos locais para consentimento, contexto tipado, memória desativada, evidências e propostas que nunca executam mutações sem confirmação;
 - borda ESM neutra de provedor valida Auth/App Check/perfil/consentimento, deriva o UID e o contexto no servidor, bloqueia segredos/dados de terceiros e rejeita afirmações sem fonte, sem conectar API de IA;
 - ASSIST-1A adiciona a interface local do Assistente Financeiro, com consentimento antes da leitura, escopo visível, perguntas guiadas e resumos determinísticos somente leitura;

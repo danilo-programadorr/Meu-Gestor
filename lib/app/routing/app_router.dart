@@ -15,6 +15,7 @@ import 'package:meu_gestor_financeiro/features/authentication/presentation/pages
 import 'package:meu_gestor_financeiro/features/authentication/presentation/pages/reset_password_page.dart';
 import 'package:meu_gestor_financeiro/features/authentication/presentation/pages/sign_up_page.dart';
 import 'package:meu_gestor_financeiro/features/authentication/presentation/pages/startup_page.dart';
+import 'package:meu_gestor_financeiro/features/calendar/presentation/pages/financial_calendar_page.dart';
 import 'package:meu_gestor_financeiro/features/categories/presentation/pages/archived_categories_page.dart';
 import 'package:meu_gestor_financeiro/features/categories/presentation/pages/categories_page.dart';
 import 'package:meu_gestor_financeiro/features/categories/presentation/pages/category_form_page.dart';
@@ -190,6 +191,10 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((Ref ref) {
       GoRoute(
         path: AppRoutes.home,
         builder: (context, state) => const HomePage(),
+      ),
+      GoRoute(
+        path: AppRoutes.calendar,
+        builder: (context, state) => const FinancialCalendarPage(),
       ),
       GoRoute(
         path: AppRoutes.assistant,
@@ -419,6 +424,7 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((Ref ref) {
 
 bool _isValidProfileRoute(String location) {
   return location == AppRoutes.home ||
+      location == AppRoutes.calendar ||
       location == AppRoutes.assistant ||
       location == AppRoutes.profile ||
       location == AppRoutes.privacyConsents ||

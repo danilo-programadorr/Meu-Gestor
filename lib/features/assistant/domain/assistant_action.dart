@@ -10,6 +10,7 @@ enum AssistantActionKind {
   draftCancel,
   draftVoid,
   draftDelete,
+  draftReminder,
   resetFinancialData,
   deleteAccount,
   changeAuthentication,
@@ -20,24 +21,25 @@ enum AssistantActionKind {
 enum AssistantActionDecision { readOnly, proposalOnly, forbidden }
 
 abstract final class AssistantPermissionPolicy {
-  static AssistantActionDecision decisionFor(AssistantActionKind kind) =>
-      switch (kind) {
-        AssistantActionKind.explain ||
-        AssistantActionKind.compare ||
-        AssistantActionKind.suggest => AssistantActionDecision.readOnly,
-        AssistantActionKind.draftCreate ||
-        AssistantActionKind.draftUpdate ||
-        AssistantActionKind.draftArchive ||
-        AssistantActionKind.draftCancel ||
-        AssistantActionKind.draftVoid ||
-        AssistantActionKind.draftDelete => AssistantActionDecision.proposalOnly,
-        AssistantActionKind.resetFinancialData ||
-        AssistantActionKind.deleteAccount ||
-        AssistantActionKind.changeAuthentication ||
-        AssistantActionKind.changeEntitlement ||
-        AssistantActionKind.changeOwnerAccess =>
-          AssistantActionDecision.forbidden,
-      };
+  static AssistantActionDecision decisionFor(
+    AssistantActionKind kind,
+  ) => switch (kind) {
+    AssistantActionKind.explain ||
+    AssistantActionKind.compare ||
+    AssistantActionKind.suggest => AssistantActionDecision.readOnly,
+    AssistantActionKind.draftCreate ||
+    AssistantActionKind.draftUpdate ||
+    AssistantActionKind.draftArchive ||
+    AssistantActionKind.draftCancel ||
+    AssistantActionKind.draftVoid ||
+    AssistantActionKind.draftDelete ||
+    AssistantActionKind.draftReminder => AssistantActionDecision.proposalOnly,
+    AssistantActionKind.resetFinancialData ||
+    AssistantActionKind.deleteAccount ||
+    AssistantActionKind.changeAuthentication ||
+    AssistantActionKind.changeEntitlement ||
+    AssistantActionKind.changeOwnerAccess => AssistantActionDecision.forbidden,
+  };
 }
 
 final class AssistantActionProposal {

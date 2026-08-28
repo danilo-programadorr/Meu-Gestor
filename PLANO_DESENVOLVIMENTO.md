@@ -932,3 +932,13 @@ Situação em 25/08/2026: implementado somente localmente sobre `f9094c1`. Nenhu
 - A opção “Responder em voz” é opt-in, usa TTS nativo `pt-BR`, mantém o texto e oferece pausar, continuar, repetir, parar e velocidade.
 - Privacidade financeira, saída da tela, bloqueio/suspensão e troca de conta interrompem a fala. Nenhum áudio, microfone ou memória é criado.
 - `flutter_tts 4.2.5` foi fixado após auditoria de finalidade, licença MIT e compatibilidade. Falhas ou ausência de voz não bloqueiam a resposta escrita.
+
+## 49. CALENDAR-1 — calendário financeiro interno
+
+Situação em 27/08/2026: implementado somente localmente. A leitura opcional usa exclusivamente o provedor local Android, após ação e seleção explícitas; não houve Google Calendar em nuvem, Firebase, Function, Rule, deploy ou serviço externo.
+
+- A rota autenticada reúne `payables` e `receivables` confirmados do próprio usuário. Ela mantém vencimento civil separado da movimentação real e exibe pendente, atrasado derivado, pago, recebido, cancelado e anulado.
+- A previsão mensal soma exclusivamente pendências e ocorrências recorrentes marcadas como previsão. Ela não é saldo, não efetiva pagamento/recebimento e não preenche fontes financeiras ausentes.
+- Recorrências são planos locais por dispositivo vinculados a compromisso-modelo, sem cópia de valor, descrição, conta, categoria ou lançamento. Suportam cadência semanal, mensal e anual; mês curto usa último dia. Cancelamento preserva o registro e não admite restauração pela interface.
+- A ponte Android não lê automaticamente: solicita `READ_CALENDAR` somente após ação explícita e consulta apenas agendas selecionadas pelo usuário. Não possui escrita nem sincronização. Uma integração futura dependerá de autorização específica, confirmação por evento e revisão de privacidade.
+- O Assistente pode futuramente consultar a agenda e propor lembretes; `draftReminder` é proposta somente e não autoriza alteração ou conclusão financeira.

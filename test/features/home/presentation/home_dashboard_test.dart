@@ -186,38 +186,32 @@ void main() {
     expect(find.text('Planejamento'), findsOneWidget);
     expect(find.text('Patrimônio'), findsOneWidget);
     expect(find.text('Conta e aplicativo'), findsOneWidget);
-    for (final String item in <String>[
-      'Contas e carteiras',
-      'Categorias',
-      'Lançamentos',
-      'Contas a pagar',
-      'Contas a receber',
-      'Investimentos',
-      'Perfil',
-      'Aparência',
-    ]) {
-      expect(_menuItem(item), findsOneWidget);
-    }
+    expect(_menuItem('Contas e carteiras'), findsNothing);
+    expect(_menuItem('Calendário financeiro'), findsNothing);
+    expect(_menuItem('Perfil'), findsNothing);
 
     await tester.tap(find.byTooltip('Fechar menu'));
     await tester.pumpAndSettle();
     expect(find.text('Organização'), findsNothing);
 
-    for (final String item in <String>[
-      'Contas e carteiras',
-      'Categorias',
-      'Lançamentos',
-      'Contas a pagar',
-      'Contas a receber',
-      'Investimentos',
-      'Perfil',
-      'Aparência',
+    for (final MapEntry<String, String> route in <MapEntry<String, String>>[
+      const MapEntry<String, String>('Organização', 'Contas e carteiras'),
+      const MapEntry<String, String>('Organização', 'Categorias'),
+      const MapEntry<String, String>('Organização', 'Lançamentos'),
+      const MapEntry<String, String>('Planejamento', 'Calendário financeiro'),
+      const MapEntry<String, String>('Planejamento', 'Contas a pagar'),
+      const MapEntry<String, String>('Planejamento', 'Contas a receber'),
+      const MapEntry<String, String>('Patrimônio', 'Investimentos'),
+      const MapEntry<String, String>('Conta e aplicativo', 'Perfil'),
+      const MapEntry<String, String>('Conta e aplicativo', 'Aparência'),
     ]) {
       await tester.tap(
         find.byKey(const ValueKey<String>('dashboard-header-menu-button')),
       );
       await tester.pumpAndSettle();
-      final Finder destination = _menuItem(item);
+      await tester.tap(find.text(route.key));
+      await tester.pumpAndSettle();
+      final Finder destination = _menuItem(route.value);
       await tester.ensureVisible(destination);
       await tester.pumpAndSettle();
       await tester.tap(destination);
@@ -228,6 +222,7 @@ void main() {
     expect(tracker.accounts, 1);
     expect(tracker.categories, 1);
     expect(tracker.transactions, 1);
+    expect(tracker.calendar, 1);
     expect(tracker.payables, 1);
     expect(tracker.receivables, 1);
     expect(tracker.investments, 1);
@@ -435,7 +430,7 @@ void main() {
     expect(find.text('Adicionar conta'), findsNothing);
   });
 
-  testWidgets('menu superior abre o Assistente financeiro', (
+  testWidgets('menu superior agrupa destinos em painel lateral com voltar', (
     WidgetTester tester,
   ) async {
     final _DashboardTracker tracker = _DashboardTracker();
@@ -443,7 +438,27 @@ void main() {
 
     await tester.tap(_semanticsLabel('Abrir menu de navegação'));
     await tester.pumpAndSettle();
-    expect(find.text('Assistência'), findsOneWidget);
+    for (final String group in <String>[
+      'Organização',
+      'Planejamento',
+      'Assistência',
+      'Patrimônio',
+      'Conta e aplicativo',
+    ]) {
+      expect(find.text(group), findsOneWidget);
+    }
+    expect(_menuItem('Assistente financeiro'), findsNothing);
+
+    await tester.tap(find.text('Organização'));
+    await tester.pumpAndSettle();
+    expect(find.text('Contas e carteiras'), findsOneWidget);
+    expect(find.byTooltip('Voltar para grupos do menu'), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('Planejamento'), findsOneWidget);
+
+    await tester.tap(find.text('Assistência'));
+    await tester.pumpAndSettle();
     expect(_menuItem('Assistente financeiro'), findsOneWidget);
 
     await tester.tap(_menuItem('Assistente financeiro'));
@@ -824,6 +839,7 @@ final class _DashboardTracker {
   int categories = 0;
   int transactions = 0;
   int payables = 0;
+  int calendar = 0;
   int profile = 0;
   int appearance = 0;
   String? transactionId;
@@ -843,6 +859,7 @@ final class _DashboardTracker {
         onNewReceivable: () => newReceivable += 1,
         onPayables: () => payables += 1,
         onReceivables: () => receivables += 1,
+        onCalendar: () => calendar += 1,
         onInvestments: () => investments += 1,
         onAssistant: () => assistant += 1,
         onTransaction: (String value) => transactionId = value,

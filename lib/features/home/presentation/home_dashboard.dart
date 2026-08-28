@@ -34,6 +34,7 @@ final class HomeDashboardCallbacks {
     required this.onNewReceivable,
     required this.onPayables,
     required this.onReceivables,
+    required this.onCalendar,
     required this.onInvestments,
     required this.onAssistant,
     required this.onTransaction,
@@ -54,6 +55,7 @@ final class HomeDashboardCallbacks {
   final VoidCallback onNewReceivable;
   final VoidCallback onPayables;
   final VoidCallback onReceivables;
+  final VoidCallback onCalendar;
   final VoidCallback onInvestments;
   final VoidCallback onAssistant;
   final ValueChanged<String> onTransaction;
@@ -2442,6 +2444,8 @@ Future<void> _openDashboardMenu(
       callbacks.onPayables();
     case _DashboardMenuDestination.receivables:
       callbacks.onReceivables();
+    case _DashboardMenuDestination.calendar:
+      callbacks.onCalendar();
     case _DashboardMenuDestination.investments:
       callbacks.onInvestments();
     case _DashboardMenuDestination.assistant:
@@ -2459,122 +2463,88 @@ enum _DashboardMenuDestination {
   transactions,
   payables,
   receivables,
+  calendar,
   investments,
   assistant,
   profile,
   appearance,
 }
 
-class _DashboardMenuSheet extends StatelessWidget {
+class _DashboardMenuSheet extends StatefulWidget {
   const _DashboardMenuSheet();
 
   @override
-  Widget build(BuildContext context) => SafeArea(
-    top: false,
-    child: SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(
-        AppSpacing.md,
-        0,
-        AppSpacing.md,
-        AppSpacing.md + MediaQuery.viewPaddingOf(context).bottom,
-      ),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 640),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              Row(
+  State<_DashboardMenuSheet> createState() => _DashboardMenuSheetState();
+}
+
+class _DashboardMenuSheetState extends State<_DashboardMenuSheet> {
+  _DashboardMenuGroupData? _selectedGroup;
+
+  @override
+  Widget build(BuildContext context) => PopScope<Object?>(
+    canPop: _selectedGroup == null,
+    onPopInvokedWithResult: (bool didPop, Object? result) {
+      if (!didPop && _selectedGroup != null) {
+        setState(() => _selectedGroup = null);
+      }
+    },
+    child: SafeArea(
+      top: false,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.76,
+        ),
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            0,
+            AppSpacing.md,
+            AppSpacing.md + MediaQuery.viewPaddingOf(context).bottom,
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 640),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
+                  _DashboardMenuHeader(
+                    title: _selectedGroup?.title ?? 'Menu',
+                    onBack: _selectedGroup == null
+                        ? null
+                        : () => setState(() => _selectedGroup = null),
+                  ),
                   Expanded(
-                    child: Text(
-                      'Menu',
-                      style: Theme.of(context).textTheme.titleLarge,
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 180),
+                      transitionBuilder:
+                          (Widget child, Animation<double> animation) =>
+                              SlideTransition(
+                                position: Tween<Offset>(
+                                  begin: const Offset(0.08, 0),
+                                  end: Offset.zero,
+                                ).animate(animation),
+                                child: FadeTransition(
+                                  opacity: animation,
+                                  child: child,
+                                ),
+                              ),
+                      child: _selectedGroup == null
+                          ? _DashboardMenuGroupList(
+                              key: const ValueKey<String>('menu-groups'),
+                              onSelected: (_DashboardMenuGroupData group) =>
+                                  setState(() => _selectedGroup = group),
+                            )
+                          : _DashboardMenuDestinationList(
+                              key: ValueKey<String>(
+                                'menu-group-${_selectedGroup!.title}',
+                              ),
+                              group: _selectedGroup!,
+                            ),
                     ),
                   ),
-                  IconButton(
-                    tooltip: 'Fechar menu',
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
                 ],
               ),
-              const _DashboardMenuGroup(
-                title: 'Organização',
-                items: <_DashboardMenuItemData>[
-                  _DashboardMenuItemData(
-                    destination: _DashboardMenuDestination.accounts,
-                    icon: Icons.account_balance_wallet_outlined,
-                    label: 'Contas e carteiras',
-                  ),
-                  _DashboardMenuItemData(
-                    destination: _DashboardMenuDestination.categories,
-                    icon: Icons.category_outlined,
-                    label: 'Categorias',
-                  ),
-                  _DashboardMenuItemData(
-                    destination: _DashboardMenuDestination.transactions,
-                    icon: Icons.receipt_long_outlined,
-                    label: 'Lançamentos',
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              const _DashboardMenuGroup(
-                title: 'Planejamento',
-                items: <_DashboardMenuItemData>[
-                  _DashboardMenuItemData(
-                    destination: _DashboardMenuDestination.payables,
-                    icon: Icons.event_busy_outlined,
-                    label: 'Contas a pagar',
-                  ),
-                  _DashboardMenuItemData(
-                    destination: _DashboardMenuDestination.receivables,
-                    icon: Icons.event_available_outlined,
-                    label: 'Contas a receber',
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              const _DashboardMenuGroup(
-                title: 'Assistência',
-                items: <_DashboardMenuItemData>[
-                  _DashboardMenuItemData(
-                    destination: _DashboardMenuDestination.assistant,
-                    icon: Icons.auto_awesome_outlined,
-                    label: 'Assistente financeiro',
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              const _DashboardMenuGroup(
-                title: 'Patrimônio',
-                items: <_DashboardMenuItemData>[
-                  _DashboardMenuItemData(
-                    destination: _DashboardMenuDestination.investments,
-                    icon: Icons.show_chart_rounded,
-                    label: 'Investimentos',
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              const _DashboardMenuGroup(
-                title: 'Conta e aplicativo',
-                items: <_DashboardMenuItemData>[
-                  _DashboardMenuItemData(
-                    destination: _DashboardMenuDestination.profile,
-                    icon: Icons.person_outline_rounded,
-                    label: 'Perfil',
-                  ),
-                  _DashboardMenuItemData(
-                    destination: _DashboardMenuDestination.appearance,
-                    icon: Icons.palette_outlined,
-                    label: 'Aparência',
-                  ),
-                ],
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -2582,36 +2552,194 @@ class _DashboardMenuSheet extends StatelessWidget {
   );
 }
 
-class _DashboardMenuGroup extends StatelessWidget {
-  const _DashboardMenuGroup({required this.title, required this.items});
+class _DashboardMenuHeader extends StatelessWidget {
+  const _DashboardMenuHeader({required this.title, required this.onBack});
 
   final String title;
-  final List<_DashboardMenuItemData> items;
+  final VoidCallback? onBack;
 
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
+  Widget build(BuildContext context) => Row(
     children: <Widget>[
-      Padding(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.sm,
-          AppSpacing.xs,
-          AppSpacing.sm,
-          AppSpacing.xxs,
-        ),
-        child: Text(title, style: Theme.of(context).textTheme.labelLarge),
+      if (onBack != null)
+        IconButton(
+          tooltip: 'Voltar para grupos do menu',
+          onPressed: onBack,
+          icon: const Icon(Icons.arrow_back_rounded),
+        )
+      else
+        const SizedBox(width: AppSpacing.minimumTapTarget),
+      const SizedBox(width: AppSpacing.xxs),
+      Expanded(
+        child: Text(title, style: Theme.of(context).textTheme.titleLarge),
       ),
-      for (final _DashboardMenuItemData item in items)
-        ListTile(
-          minTileHeight: 48,
-          leading: Icon(item.icon),
-          title: Text(item.label),
-          trailing: const Icon(Icons.chevron_right_rounded),
-          onTap: () => Navigator.of(context).pop(item.destination),
-        ),
+      IconButton(
+        tooltip: 'Fechar menu',
+        onPressed: () => Navigator.of(context).pop(),
+        icon: const Icon(Icons.close_rounded),
+      ),
     ],
   );
 }
+
+class _DashboardMenuGroupList extends StatelessWidget {
+  const _DashboardMenuGroupList({required this.onSelected, super.key});
+
+  final ValueChanged<_DashboardMenuGroupData> onSelected;
+
+  @override
+  Widget build(BuildContext context) => SingleChildScrollView(
+    padding: const EdgeInsets.only(top: AppSpacing.xs),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        for (final _DashboardMenuGroupData group
+            in _dashboardMenuGroups) ...<Widget>[
+          Semantics(
+            button: true,
+            label: '${group.title}. Abrir ${group.items.length} opções.',
+            child: ListTile(
+              minTileHeight: AppSpacing.minimumTapTarget,
+              leading: Icon(group.icon),
+              title: Text(group.title),
+              subtitle: Text(group.summary),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => onSelected(group),
+            ),
+          ),
+          if (group != _dashboardMenuGroups.last)
+            const SizedBox(height: AppSpacing.xs),
+        ],
+      ],
+    ),
+  );
+}
+
+class _DashboardMenuDestinationList extends StatelessWidget {
+  const _DashboardMenuDestinationList({required this.group, super.key});
+
+  final _DashboardMenuGroupData group;
+
+  @override
+  Widget build(BuildContext context) => ListView.separated(
+    padding: const EdgeInsets.only(top: AppSpacing.xs),
+    itemCount: group.items.length,
+    separatorBuilder: (_, _) => const Divider(height: 1),
+    itemBuilder: (BuildContext context, int index) {
+      final _DashboardMenuItemData item = group.items[index];
+      return ListTile(
+        minTileHeight: AppSpacing.minimumTapTarget,
+        leading: Icon(item.icon),
+        title: Text(item.label),
+        trailing: const Icon(Icons.arrow_forward_rounded),
+        onTap: () => Navigator.of(context).pop(item.destination),
+      );
+    },
+  );
+}
+
+class _DashboardMenuGroupData {
+  const _DashboardMenuGroupData({
+    required this.title,
+    required this.summary,
+    required this.icon,
+    required this.items,
+  });
+
+  final String title;
+  final String summary;
+  final IconData icon;
+  final List<_DashboardMenuItemData> items;
+}
+
+const List<_DashboardMenuGroupData> _dashboardMenuGroups =
+    <_DashboardMenuGroupData>[
+      _DashboardMenuGroupData(
+        title: 'Organização',
+        summary: 'Contas, categorias e lançamentos',
+        icon: Icons.account_tree_outlined,
+        items: <_DashboardMenuItemData>[
+          _DashboardMenuItemData(
+            destination: _DashboardMenuDestination.accounts,
+            icon: Icons.account_balance_wallet_outlined,
+            label: 'Contas e carteiras',
+          ),
+          _DashboardMenuItemData(
+            destination: _DashboardMenuDestination.categories,
+            icon: Icons.category_outlined,
+            label: 'Categorias',
+          ),
+          _DashboardMenuItemData(
+            destination: _DashboardMenuDestination.transactions,
+            icon: Icons.receipt_long_outlined,
+            label: 'Lançamentos',
+          ),
+        ],
+      ),
+      _DashboardMenuGroupData(
+        title: 'Planejamento',
+        summary: 'Calendário e compromissos',
+        icon: Icons.event_note_outlined,
+        items: <_DashboardMenuItemData>[
+          _DashboardMenuItemData(
+            destination: _DashboardMenuDestination.calendar,
+            icon: Icons.calendar_month_outlined,
+            label: 'Calendário financeiro',
+          ),
+          _DashboardMenuItemData(
+            destination: _DashboardMenuDestination.payables,
+            icon: Icons.event_busy_outlined,
+            label: 'Contas a pagar',
+          ),
+          _DashboardMenuItemData(
+            destination: _DashboardMenuDestination.receivables,
+            icon: Icons.event_available_outlined,
+            label: 'Contas a receber',
+          ),
+        ],
+      ),
+      _DashboardMenuGroupData(
+        title: 'Assistência',
+        summary: 'Ajuda e orientação',
+        icon: Icons.auto_awesome_outlined,
+        items: <_DashboardMenuItemData>[
+          _DashboardMenuItemData(
+            destination: _DashboardMenuDestination.assistant,
+            icon: Icons.auto_awesome_outlined,
+            label: 'Assistente financeiro',
+          ),
+        ],
+      ),
+      _DashboardMenuGroupData(
+        title: 'Patrimônio',
+        summary: 'Investimentos e análises',
+        icon: Icons.show_chart_rounded,
+        items: <_DashboardMenuItemData>[
+          _DashboardMenuItemData(
+            destination: _DashboardMenuDestination.investments,
+            icon: Icons.show_chart_rounded,
+            label: 'Investimentos',
+          ),
+        ],
+      ),
+      _DashboardMenuGroupData(
+        title: 'Conta e aplicativo',
+        summary: 'Perfil e aparência',
+        icon: Icons.person_outline_rounded,
+        items: <_DashboardMenuItemData>[
+          _DashboardMenuItemData(
+            destination: _DashboardMenuDestination.profile,
+            icon: Icons.person_outline_rounded,
+            label: 'Perfil',
+          ),
+          _DashboardMenuItemData(
+            destination: _DashboardMenuDestination.appearance,
+            icon: Icons.palette_outlined,
+            label: 'Aparência',
+          ),
+        ],
+      ),
+    ];
 
 class _DashboardMenuItemData {
   const _DashboardMenuItemData({

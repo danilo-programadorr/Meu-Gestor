@@ -14,6 +14,12 @@ void main() {
         AssistantPermissionPolicy.decisionFor(AssistantActionKind.draftUpdate),
         AssistantActionDecision.proposalOnly,
       );
+      expect(
+        AssistantPermissionPolicy.decisionFor(
+          AssistantActionKind.draftReminder,
+        ),
+        AssistantActionDecision.proposalOnly,
+      );
       for (final AssistantActionKind kind in <AssistantActionKind>[
         AssistantActionKind.resetFinancialData,
         AssistantActionKind.deleteAccount,
