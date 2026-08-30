@@ -1,5 +1,16 @@
 # Política de segurança
 
+## ASSIST-VOICE-2A — Modo de conversa local
+
+- `RECORD_AUDIO` é solicitado somente após explicação e ação explícita na tela de conversa. O reconhecimento depende exclusivamente do serviço Android configurado no dispositivo; o aplicativo não possui SDK de áudio, credencial, telemetria, arquivo de áudio ou endpoint próprio.
+- Microfone e TTS param ao sair da rota, perder foco, suspender/bloquear o aplicativo, trocar de conta ou ativar privacidade financeira. Não há serviço persistente, wake word ou escuta em segundo plano.
+- A transcrição fica apenas na memória da sessão da tela e é descartada nas fronteiras de privacidade/sessão. Perguntas só são encaminhadas ao resumo determinístico local; sem evidência ou intenção suportada a tela não inventa resposta e nunca executa mutação financeira.
+
+## FAIR-VALUE-0 — Dados fundamentais
+
+- A análise não aceita valores inseridos pelo usuário nem consulta fonte externa nesta etapa. Snapshot sem moeda BRL, cotação/fundamento positivo, data/hora ou compatibilidade retorna estado indisponível, atrasado ou incompatível; zero não é exibido como preço justo.
+- BDR permanece bloqueado até normalização de recibo e ativo subjacente. FII não usa Graham. Nenhuma referência patrimonial altera operações, posições, conta, saldo ou recomendação.
+
 ## DATA-1A/PRIV-1A — Reset financeiro e exclusão de conta locais
 
 - O aplicativo não possui exclusão direta de documentos ou Firebase Authentication. As Security Rules continuam negando exclusões. O backend ESM local modela a execução server-side idempotente, com lock de novas escritas, lote conservador e cursor persistido; ele não acessa Firebase Admin nem dados reais.

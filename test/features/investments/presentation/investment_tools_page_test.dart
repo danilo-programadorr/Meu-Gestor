@@ -98,7 +98,11 @@ void main() {
     );
     tester.testTextInput.hide();
     await tester.pumpAndSettle();
-    await tester.ensureVisible(calculate);
+    // A fonte ampliada desloca o botão alguns pixels para fora do viewport.
+    // Role a ListView da própria página antes do toque para validar o modal
+    // sem depender de um ponto de toque fora da área visível.
+    await tester.drag(find.byType(ListView).first, const Offset(0, -320));
+    await tester.pumpAndSettle();
     await tester.tap(calculate);
     await tester.pumpAndSettle();
 

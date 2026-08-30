@@ -1,23 +1,36 @@
 package br.com.hellenfaro.meugestorfinanceiro
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Bundle
 import android.provider.CalendarContract
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import io.flutter.plugin.common.EventChannel
 
 class MainActivity : FlutterActivity() {
     companion object {
         private const val CHANNEL = "br.com.hellenfaro.meugestorfinanceiro/android_calendar"
+        private const val SPEECH_CHANNEL = "br.com.hellenfaro.meugestorfinanceiro/assistant_speech"
+        private const val SPEECH_RMS_CHANNEL = "br.com.hellenfaro.meugestorfinanceiro/assistant_speech_rms"
         private const val CALENDAR_PERMISSION_REQUEST = 4812
+        private const val AUDIO_PERMISSION_REQUEST = 4813
     }
 
     private var pendingCalendarResult: MethodChannel.Result? = null
     private var pendingCalendarCall: MethodCall? = null
+    private var pendingSpeechResult: MethodChannel.Result? = null
+    private var speechRecognizer: SpeechRecognizer? = null
+    private var waitingForAudioPermission = false
+    private var rmsEventSink: EventChannel.EventSink? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -28,6 +41,32 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SPEECH_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "isAvailable" -> result.success(SpeechRecognizer.isRecognitionAvailable(this))
+                    "hasMicrophonePermission" -> result.success(
+                        ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
+                            PackageManager.PERMISSION_GRANTED,
+                    )
+                    "startListening" -> startSpeechRecognition(result)
+                    "stopListening" -> {
+                        stopSpeechRecognition()
+                        result.success(null)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, SPEECH_RMS_CHANNEL)
+            .setStreamHandler(object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    rmsEventSink = events
+                }
+
+                override fun onCancel(arguments: Any?) {
+                    rmsEventSink = null
+                }
+            })
     }
 
     private fun withReadPermission(call: MethodCall, result: MethodChannel.Result) {
@@ -56,6 +95,15 @@ class MainActivity : FlutterActivity() {
         grantResults: IntArray,
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == AUDIO_PERMISSION_REQUEST) {
+            waitingForAudioPermission = false
+            if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
+                startSpeechRecognition(pendingSpeechResult)
+            } else {
+                finishSpeechError("permission_denied")
+            }
+            return
+        }
         if (requestCode != CALENDAR_PERMISSION_REQUEST) return
         val call = pendingCalendarCall
         val result = pendingCalendarResult
@@ -67,6 +115,113 @@ class MainActivity : FlutterActivity() {
         } else {
             result.error("calendar_permission_denied", "Calendar permission was not granted.", null)
         }
+    }
+
+    override fun onPause() {
+        // O diálogo de permissão pode pausar a Activity; não cancele a solicitação
+        // explícita antes de o Android devolver a decisão do usuário.
+        if (!waitingForAudioPermission) stopSpeechRecognition()
+        super.onPause()
+    }
+
+    override fun onDestroy() {
+        stopSpeechRecognition()
+        super.onDestroy()
+    }
+
+    private fun startSpeechRecognition(result: MethodChannel.Result?) {
+        if (result != null) {
+            if (pendingSpeechResult != null || waitingForAudioPermission) {
+                result.error("speech_in_progress", "Speech recognition is already active.", null)
+                return
+            }
+            pendingSpeechResult = result
+        }
+        if (pendingSpeechResult == null) return
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            finishSpeechError("unavailable")
+            return
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            waitingForAudioPermission = true
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.RECORD_AUDIO),
+                AUDIO_PERMISSION_REQUEST,
+            )
+            return
+        }
+        val recognizer = SpeechRecognizer.createSpeechRecognizer(this)
+        speechRecognizer = recognizer
+        recognizer.setRecognitionListener(object : RecognitionListener {
+            override fun onReadyForSpeech(params: Bundle?) = Unit
+            override fun onBeginningOfSpeech() = Unit
+            override fun onRmsChanged(rmsdB: Float) {
+                rmsEventSink?.success(rmsdB.toDouble())
+            }
+            override fun onBufferReceived(buffer: ByteArray?) = Unit
+            override fun onEndOfSpeech() = Unit
+            override fun onPartialResults(partialResults: Bundle?) = Unit
+            override fun onEvent(eventType: Int, params: Bundle?) = Unit
+
+            override fun onResults(results: Bundle?) {
+                val transcript = results
+                    ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                    ?.firstOrNull()
+                    ?.trim()
+                if (transcript.isNullOrEmpty()) finishSpeechError("no_match")
+                else finishSpeechSuccess(transcript)
+            }
+
+            override fun onError(error: Int) {
+                finishSpeechError(
+                    when (error) {
+                        SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "permission_denied"
+                        SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "busy"
+                        SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "network"
+                        SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "no_match"
+                        else -> "unavailable"
+                    },
+                )
+            }
+        })
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "pt-BR")
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "pt-BR")
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+        }
+        recognizer.startListening(intent)
+    }
+
+    private fun finishSpeechSuccess(transcript: String) {
+        val result = pendingSpeechResult
+        pendingSpeechResult = null
+        destroySpeechRecognizer()
+        result?.success(transcript)
+    }
+
+    private fun finishSpeechError(code: String) {
+        val result = pendingSpeechResult
+        pendingSpeechResult = null
+        destroySpeechRecognizer()
+        result?.error(code, "Speech recognition is unavailable.", null)
+    }
+
+    private fun stopSpeechRecognition() {
+        waitingForAudioPermission = false
+        val result = pendingSpeechResult
+        pendingSpeechResult = null
+        destroySpeechRecognizer()
+        result?.error("interrupted", "Speech recognition was stopped.", null)
+    }
+
+    private fun destroySpeechRecognizer() {
+        speechRecognizer?.cancel()
+        speechRecognizer?.destroy()
+        speechRecognizer = null
     }
 
     private fun executeReadOnlyCall(call: MethodCall, result: MethodChannel.Result) {

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:meu_gestor_financeiro/app/navigation/global_quick_navigation.dart';
 import 'package:meu_gestor_financeiro/app/routing/app_routes.dart';
 import 'package:meu_gestor_financeiro/app/routing/safe_back_navigation.dart';
 import 'package:meu_gestor_financeiro/app/theme/app_spacing.dart';
@@ -119,6 +121,18 @@ class _InvestmentToolsPageState extends ConsumerState<InvestmentToolsPage> {
               AppSpacing.xxl,
             ),
             children: <Widget>[
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.auto_graph_outlined),
+                  title: const Text('Preço justo'),
+                  subtitle: const Text(
+                    'Referências fundamentais e patrimoniais',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push(AppRoutes.fairValue),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
               const _Notice(),
               const SizedBox(height: AppSpacing.md),
               _ToolCard(
@@ -917,88 +931,91 @@ class _InvestmentToolsPageState extends ConsumerState<InvestmentToolsPage> {
     ),
   );
 
-  Future<void> _showResultDialog(_ToolCalculationResult result) =>
-      showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (BuildContext dialogContext) => PopScope(
-          canPop: false,
-          child: Semantics(
-            scopesRoute: true,
-            namesRoute: true,
-            explicitChildNodes: true,
-            label: result.title,
-            child: AlertDialog(
-              titlePadding: const EdgeInsets.fromLTRB(
-                AppSpacing.md,
-                AppSpacing.sm,
-                AppSpacing.xs,
-                0,
-              ),
-              title: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Expanded(child: Text(result.title)),
-                  IconButton(
-                    key: const ValueKey<String>('investment-result-close'),
-                    tooltip: 'Fechar resultado',
-                    autofocus: true,
-                    onPressed: () => Navigator.of(dialogContext).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
-              content: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 480),
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: <Widget>[
-                      Text(
-                        result.summary,
-                        style: Theme.of(dialogContext).textTheme.titleSmall,
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      for (final _ToolResultDetail detail in result.details)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                          child: Semantics(
-                            label: '${detail.label}: ${detail.value}',
-                            child: ExcludeSemantics(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: <Widget>[
-                                  Text(
-                                    detail.label,
-                                    style: Theme.of(
-                                      dialogContext,
-                                    ).textTheme.labelLarge,
-                                  ),
-                                  const SizedBox(height: AppSpacing.xxs),
-                                  SelectableText(detail.value),
-                                ],
-                              ),
+  Future<void> _showResultDialog(
+    _ToolCalculationResult result,
+  ) => GlobalQuickNavigationModalVisibility.whileModalIsOpen(
+    () => showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) => PopScope(
+        canPop: false,
+        child: Semantics(
+          scopesRoute: true,
+          namesRoute: true,
+          explicitChildNodes: true,
+          label: result.title,
+          child: AlertDialog(
+            titlePadding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              AppSpacing.sm,
+              AppSpacing.xs,
+              0,
+            ),
+            title: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Expanded(child: Text(result.title)),
+                IconButton(
+                  key: const ValueKey<String>('investment-result-close'),
+                  tooltip: 'Fechar resultado',
+                  autofocus: true,
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+            content: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    Text(
+                      result.summary,
+                      style: Theme.of(dialogContext).textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    for (final _ToolResultDetail detail in result.details)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                        child: Semantics(
+                          label: '${detail.label}: ${detail.value}',
+                          child: ExcludeSemantics(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                Text(
+                                  detail.label,
+                                  style: Theme.of(
+                                    dialogContext,
+                                  ).textTheme.labelLarge,
+                                ),
+                                const SizedBox(height: AppSpacing.xxs),
+                                SelectableText(detail.value),
+                              ],
                             ),
                           ),
                         ),
-                      const Divider(),
-                      Text(
-                        result.explanation,
-                        style: Theme.of(dialogContext).textTheme.bodySmall,
                       ),
-                      const SizedBox(height: AppSpacing.sm),
-                      Text(
-                        'Resultado informativo. Não é recomendação financeira.',
-                        style: Theme.of(dialogContext).textTheme.labelMedium,
-                      ),
-                    ],
-                  ),
+                    const Divider(),
+                    Text(
+                      result.explanation,
+                      style: Theme.of(dialogContext).textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      'Resultado informativo. Não é recomendação financeira.',
+                      style: Theme.of(dialogContext).textTheme.labelMedium,
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
         ),
-      );
+      ),
+    ),
+  );
 }
 
 final class _ToolCalculationResult {

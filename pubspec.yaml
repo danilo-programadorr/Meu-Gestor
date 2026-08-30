@@ -38,3 +38,8 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/auth/auth_hero.webp
+    - assets/icone/home.png
+    - assets/icone/ranking.png
+    - assets/icone/investimentos.png
+    - assets/icone/modo-conversa.png
+    - assets/icone/calculadora.png

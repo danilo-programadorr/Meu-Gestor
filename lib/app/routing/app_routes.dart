@@ -10,6 +10,7 @@ abstract final class AppRoutes {
   static const String home = '/inicio';
   static const String calendar = '/calendario';
   static const String assistant = '/assistente';
+  static const String assistantConversation = '/assistente/conversa';
   static const String accounts = '/contas';
   static const String newAccount = '/contas/nova';
   static const String newAccountReturning =
@@ -29,7 +30,9 @@ abstract final class AppRoutes {
   static const String receivables = '/contas-a-receber';
   static const String newReceivable = '/contas-a-receber/nova';
   static const String investments = '/investimentos';
+  static const String rankings = '/investimentos/rankings';
   static const String investmentTools = '/investimentos/ferramentas';
+  static const String fairValue = '/investimentos/analises/preco-justo';
   static const String investmentQuotes = '/investimentos/cotacoes';
   static const String newInvestmentPortfolio = '/investimentos/carteira/nova';
   static const String profileSetup = '/configurar-perfil';

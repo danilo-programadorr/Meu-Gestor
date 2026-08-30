@@ -48,6 +48,8 @@ Concluído e validado localmente:
 - investimentos, proventos, calculadoras e análises disponíveis gratuitamente, incluindo Primeiro milhão por prazo ou aporte e campos com unidades explícitas, sem rota, popup, cobrança ou verificação comercial no fluxo ativo;
 - infraestrutura histórica de entitlement e cobrança preservada de forma inativa e reversível, sem chamadas em runtime;
 - Assistente Financeiro local com consentimento visível, perguntas guiadas e resumos determinísticos de fontes/períodos explícitos, sem IA conectada ou capacidade de escrita;
+- Modo de conversa local opcional do Assistente: usa microfone somente na tela ativa para reconhecer perguntas determinísticas, mantém transcrição temporária e leitura pt-BR nativa sem gravar, salvar ou enviar áudio;
+- Preço justo é uma análise separada e indisponível até fundamentos automáticos validados; não aceita preenchimento manual nem constitui recomendação financeira;
 - regras Firestore publicadas em development com isolamento por UID, campos fechados e negação por padrão;
 - testes unitários, de widgets, integração de fluxos e segurança estrutural.
 

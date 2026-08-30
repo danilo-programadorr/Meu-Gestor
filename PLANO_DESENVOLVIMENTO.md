@@ -942,3 +942,16 @@ Situação em 27/08/2026: implementado somente localmente. A leitura opcional us
 - Recorrências são planos locais por dispositivo vinculados a compromisso-modelo, sem cópia de valor, descrição, conta, categoria ou lançamento. Suportam cadência semanal, mensal e anual; mês curto usa último dia. Cancelamento preserva o registro e não admite restauração pela interface.
 - A ponte Android não lê automaticamente: solicita `READ_CALENDAR` somente após ação explícita e consulta apenas agendas selecionadas pelo usuário. Não possui escrita nem sincronização. Uma integração futura dependerá de autorização específica, confirmação por evento e revisão de privacidade.
 - O Assistente pode futuramente consultar a agenda e propor lembretes; `draftReminder` é proposta somente e não autoriza alteração ou conclusão financeira.
+
+## 50. ASSIST-VOICE-2A — modo de conversa local
+
+Situação: implementado somente localmente, sem provedor de IA, Firebase, Google Cloud ou voz em nuvem.
+
+- A rota dedicada explica o microfone antes da permissão Android, mostra estado e transcrição por texto e preserva alternativa de perguntas guiadas.
+- O reconhecimento nativo existe apenas em primeiro plano, sem áudio salvo/enviado e sem serviço persistente. Privacidade, troca de conta, saída, bloqueio e perda de foco interrompem reconhecimento e fala e descartam a transcrição.
+- O roteamento aceita somente as quatro perguntas determinísticas existentes. Não há conversa livre, recomendação nem capacidade de criar, editar, pagar, receber, cancelar ou alterar dados por voz.
+
+## 51. NAV-QUICK-1 e FAIR-VALUE-0
+
+- A navegação rápida é local, fixa e acessível; usa somente os quatro PNGs fornecidos e reserva espaço inferior para não cobrir campos.
+- Preço justo permanece sem fonte ativa. Graham depende de fundamentos/cotação BRL automáticos, validados e atuais; BDR aguarda normalização e FII mostra somente referência patrimonial. Não há API, token, dado fictício ou recomendação.

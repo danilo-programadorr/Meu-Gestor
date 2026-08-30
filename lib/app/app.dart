@@ -20,6 +20,7 @@ class MeuGestorFinanceiroApp extends ConsumerWidget {
         .platformDispatcher
         .accessibilityFeatures
         .disableAnimations;
+    final router = ref.watch(appRouterProvider);
     return MaterialApp.router(
       title: 'Meu Gestor Financeiro',
       debugShowCheckedModeBanner: false,
@@ -41,7 +42,7 @@ class MeuGestorFinanceiroApp extends ConsumerWidget {
           MasterAccessLifecycleObserver(
             child: child ?? const SizedBox.shrink(),
           ),
-      routerConfig: ref.watch(appRouterProvider),
+      routerConfig: router,
     );
   }
 }

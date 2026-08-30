@@ -4,6 +4,10 @@
 
 ASSIST-0 implementa domínio, contrato server-side neutro, políticas e testes. O ASSIST-1A acrescenta interface local, consentimento visível, quatro perguntas guiadas e resumos determinísticos. O ASSIST-1B-0 compara provedores somente por documentação oficial. ASSIST-1B-1A prepara tiers lógicos e ASSIST-VOICE-1A acrescenta leitura pelo sintetizador nativo. Nenhum provedor foi selecionado ou ativado; não há Function, API de IA, segredo, memória persistida, coleção nova, regra publicada ou chamada externa.
 
+ASSIST-VOICE-2A-R1 concentra o núcleo visual no eixo da conversa, mantendo estados e transcrição na área inferior segura. A pulsação continua respeitando reduzir animações; há dez partículas discretas no total e nenhuma informação depende apenas de cor ou movimento.
+
+ASSIST-VOICE-2A acrescenta uma rota de conversa local. Após explicação e ação explícita, ela usa somente o reconhecedor configurado no Android e mantém a transcrição na memória da tela. Não grava, salva, envia ou observa áudio em segundo plano. Saída, bloqueio, perda de foco, troca de conta ou privacidade financeira interrompem reconhecimento e TTS e descartam a transcrição. O texto reconhecido é mapeado exclusivamente às quatro perguntas determinísticas; ausência de mapeamento ou evidência não gera conversa inventada nem ação financeira.
+
 ## Roteamento neutro ASSIST-1B-1A
 
 - `flash` é o tier lógico padrão para conversa e explicações comuns;

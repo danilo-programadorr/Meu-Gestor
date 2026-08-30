@@ -8,6 +8,11 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 ### Adicionado
 
+- NAV-QUICK-1 adiciona atalhos globais compactos, acessíveis e fixos para Home, conversa, investimentos e calculadoras usando exclusivamente os PNGs fornecidos;
+- FAIR-VALUE-0 adiciona a análise separada Preço justo, falha-fechada sem dados automáticos, com Graham para ações e referência patrimonial para FIIs;
+
+- ASSIST-VOICE-2A adiciona Modo de conversa local com microfone opt-in, reconhecedor Android, transcrição efêmera, núcleo visual acessível e TTS nativo, sem áudio persistido, serviço em segundo plano, rede ou IA conectada;
+
 - CALENDAR-1 adiciona calendário financeiro interno com vencimentos, estados derivados, movimentação real separada, próximos compromissos e previsão mensal que não altera saldo;
 - previsões recorrentes semanais, mensais e anuais usam compromisso-modelo confirmado, ficam locais por dispositivo, não copiam dados financeiros e podem ser canceladas sem exclusão;
 - calendário Android opcional usa somente o provedor local do aparelho: solicita leitura após ação explícita, limita eventos às agendas selecionadas e não cria, altera ou exclui eventos externos;

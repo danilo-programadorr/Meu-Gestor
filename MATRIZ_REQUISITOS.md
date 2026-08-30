@@ -516,6 +516,12 @@
 | ASSIST-130 | Ler resposta em voz por opt-in | P0 | ASSIST-VOICE-1A | desligada por padrão; pt-BR nativo; texto visível; pausar, continuar, repetir, parar e velocidade | implementado localmente | voz instalada no Android | médio | zero externo |
 | ASSIST-131 | Interromper voz em fronteiras de privacidade | P0 | ASSIST-VOICE-1A | privacidade, saída, bloqueio/suspensão e troca de conta param; valores ocultos nunca são enviados ao TTS | implementado e testado | controle global e ciclo de vida | crítico | zero externo |
 | ASSIST-132 | Não captar nem persistir áudio | P0 | ASSIST-VOICE-1A | sem microfone, gravação, arquivo, memória ou serviço de voz em nuvem; falha nativa é sanitizada | implementado estruturalmente | flutter_tts 4.2.5 MIT | crítico | zero externo |
+| ASSIST-140 | Reconhecer pergunta local com opt-in | P0 | ASSIST-VOICE-2A | diálogo antecede RECORD_AUDIO; reconhecedor Android só fica ativo na tela/foreground e a alternativa textual permanece | implementado localmente | serviço nativo configurado no aparelho | crítico | zero externo |
+| ASSIST-141 | Reter zero áudio e proteger transcrição | P0 | ASSIST-VOICE-2A | sem gravação, arquivo, rede, telemetria ou segundo plano; transcrição é temporária e apagada ao sair, bloquear, trocar conta ou ativar privacidade | implementado localmente | ciclo de vida Flutter/Android | crítico | zero externo |
+| ASSIST-142 | Responder somente com evidência determinística | P0 | ASSIST-VOICE-2A | reconhecimento mapeia apenas perguntas guiadas; intenção/dado ausente informa indisponibilidade e nenhuma voz altera finanças | implementado localmente | resumos ASSIST-1A | crítico | zero externo |
+| NAV-001 | Atalhos globais acessíveis | P0 | NAV-QUICK-1 | PNGs fornecidos abrem Home, conversa, investimentos e calculadoras, com SafeArea, estado ativo e reserva inferior | implementado localmente | assets versionados | médio | zero externo |
+| FAIR-001 | Preço justo sem dado inventado | P0 | FAIR-VALUE-0 | Graham exige LPA/VPA/cotação positivos, BRL, fonte/data e snapshot atual; ausência é explícita | implementado localmente | fonte automática futura | crítico | zero externo |
+| FAIR-002 | Distinguir BDR e FII | P0 | FAIR-VALUE-0 | BDR aguarda normalização; FII usa somente P/VP e deságio/ágio patrimonial | implementado localmente | contrato de dados futuro | alto | zero externo |
 
 ## Incremento CALENDAR-1 — calendário financeiro interno
 
