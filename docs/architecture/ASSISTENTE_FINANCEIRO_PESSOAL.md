@@ -24,6 +24,13 @@ ASSIST-VOICE-2A acrescenta uma rota de conversa local. Após explicação e aç�
 - Com privacidade financeira ativa, qualquer número é bloqueado antes da entrega.
 - O plano dual mantém Flash como padrão lógico e Pro somente após escalonamento do backend. A feature flag de provedor real permanece desligada; o fallback é `safe_unavailable`, nunca uma chamada automática ou seletor do usuário.
 
+## Preparação de ativação ASSIST-2B-0
+
+- A fronteira Flutter aceita apenas a mensagem sanitizada e a versão `assist-remote-v1`; nunca transporta UID, e-mail, consentimento, fatos, valores, modelo, tokens ou credenciais.
+- A decisão de Flash/Pro é calculada no backend após autorização, consentimento e contexto confirmado. O plano local contém apenas tier e limites, sem mensagem, fato ou pedido ao provedor.
+- O kill switch inicia ativo e a flag de chamada real está compilada como `false`. O repositório Flutter falha fechado e não possui gateway, portanto não pode iniciar uma chamada de IA.
+- A lista exata de recursos e aprovações necessários para development está na [ADR-040](../adr/ADR-040-assist-2b-0-ativacao-segura-local.md). Nenhuma ação externa é autorizada por esta preparação local.
+
 ## Voz local ASSIST-VOICE-1A
 
 - a opção aparece antes de `Consultar`, começa desligada e não substitui a resposta textual;

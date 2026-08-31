@@ -970,3 +970,11 @@ Situação em 30/08/2026: benchmark controlado concluído somente em development
 - A barreira única do Assistente substitui qualquer saída insegura por mensagem determinística antes da entrega. Ela exige evidências confirmadas e bloqueia recomendação, mutação, segredo, terceiro, número não fundamentado e valor sob privacidade financeira.
 - O smoke e o reteste sintéticos registraram somente métricas agregadas; o reteste focado não teve violação ou truncamento e os cenários Pro atingiram mínimo 8/10.
 - Flash e Pro continuam desconectados do aplicativo. O plano local de execução é desligado por feature flag, não oferece seletor de modelo e usa fallback seguro.
+
+## 54. ASSIST-2B-0 — preparação local para ativação segura
+
+Situação: implementado somente localmente. Não há Function, segredo, identidade runtime, API, chamada de provedor, deploy ou cobrança.
+
+- O contrato Flutter contém somente mensagem sanitizada e versão. A borda server-side preserva autorização, consentimento atual, contexto confirmado, limites e escolha automática Flash/Pro.
+- Kill switch ativo e flag real desligada bloqueiam a execução por duas camadas. O repositório Flutter não possui gateway e responde indisponível sem transmitir dado algum.
+- A ativação development exigirá autorizações separadas para identidade runtime, Secret Manager, Function Gen 2, App Check/Auth, orçamento/alertas, eventual regra, fixtures sintéticas e rollout com consentimento. A ordem e o escopo estão na ADR-040.

@@ -1,5 +1,12 @@
 export { AssistantContractError } from './errors.mjs';
 export { ASSISTANT_REAL_PROVIDER_FEATURE_ENABLED, MODEL_EXECUTION, resolveAssistantModelExecution } from './dual_model_execution.mjs';
+export {
+  ASSISTANT_FLUTTER_CONTRACT_VERSION,
+  ASSISTANT_REMOTE_KILL_SWITCH_ACTIVE,
+  assertSanitizedAssistantOperationalMetric,
+  prepareAssistantRemoteActivation,
+  validateFlutterAssistantRequest,
+} from './remote_activation_contract.mjs';
 export { ASSISTANT_ROUTER_POLICY_VERSION, AssistantModelRouter, DEFAULT_ROUTER_LIMITS, MODEL_TIER } from './model_router.mjs';
 export { ASSISTANT_POLICY_VERSION, MEMORY_MODE, assertAuthorized, enforceAssistantSafetyGate, validateClientRequest, validateProviderResponse } from './policy.mjs';
 export { AssistantService } from './service.mjs';
