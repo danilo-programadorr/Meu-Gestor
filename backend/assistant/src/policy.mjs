@@ -31,6 +31,25 @@ const unsafeText = (value) => {
     /(?:bearer\s+|api[_ -]?key|private[_ -]?key|password|senha|token\s*[:=])/i.test(value);
 };
 
+const blockedAssistantResponse = Object.freeze({
+  schemaVersion: 1,
+  answer: 'Não posso fornecer essa orientação com segurança neste momento.',
+  observations: [],
+  missingData: [],
+  proposedActions: [],
+  disclaimer: 'Conteúdo informativo; nenhuma ação financeira foi realizada.',
+});
+
+const unsafeAssistantOutput = (value) =>
+  unsafeText(value) ||
+  /\b(compre|compra|venda|vender|alocar|alocação|pague|receba|cancele|edite|transfira|agende)\b/i.test(value);
+
+const outputNumbersAreGrounded = (value, facts) => {
+  const numbers = value.match(/\d+(?:[.,]\d+)?/g) ?? [];
+  const allowed = new Set(facts.filter((fact) => typeof fact.value === 'number').map((fact) => String(fact.value)));
+  return numbers.every((number) => allowed.has(number.replace(',', '.')) || allowed.has(number));
+};
+
 export const validateClientRequest = (request) => {
   if (!exactKeys(request, ['message'])) throw deny('assistant_invalid_request');
   if (unsafeText(request.message)) throw deny('assistant_unsafe_content');
@@ -74,4 +93,24 @@ export const validateProviderResponse = (response, evidenceIds) => {
     if (!exactKeys(proposal, ['proposalId', 'kind', 'target', 'preview', 'previewDigest', 'requiresExplicitConfirmation']) || proposal.requiresExplicitConfirmation !== true || typeof proposal.previewDigest !== 'string' || proposal.previewDigest.length < 16) throw deny('assistant_provider_response_invalid');
   }
   return response;
+};
+
+/**
+ * Single fail-closed delivery gate for every model tier. It never exposes a
+ * rejected provider response, and its fallback contains no user data.
+ */
+export const enforceAssistantSafetyGate = ({ response, evidenceIds, facts, financialPrivacyActive = false }) => {
+  try {
+    const validated = validateProviderResponse(response, evidenceIds);
+    const output = [validated.answer, validated.disclaimer, ...validated.observations.map((item) => item.statement)];
+    if (validated.proposedActions.length > 0
+        || output.some(unsafeAssistantOutput)
+        || output.some((value) => !outputNumbersAreGrounded(value, facts))
+        || (financialPrivacyActive && output.some((value) => /\d/.test(value)))) {
+      return blockedAssistantResponse;
+    }
+    return validated;
+  } catch {
+    return blockedAssistantResponse;
+  }
 };

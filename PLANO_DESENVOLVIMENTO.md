@@ -955,3 +955,18 @@ Situação: implementado somente localmente, sem provedor de IA, Firebase, Googl
 
 - A navegação rápida é local, fixa e acessível; usa somente os quatro PNGs fornecidos e reserva espaço inferior para não cobrir campos.
 - Preço justo permanece sem fonte ativa. Graham depende de fundamentos/cotação BRL automáticos, validados e atuais; BDR aguarda normalização e FII mostra somente referência patrimonial. Não há API, token, dado fictício ou recomendação.
+
+## 52. ASSIST-2A — prova técnica de IA real com fixtures sintéticas
+
+Situação em 30/08/2026: benchmark controlado concluído somente em development. Não há integração de IA ao aplicativo, escolha de fornecedor, Function, Secret Manager, Rule, deploy ou dado de usuário enviado.
+
+- O endpoint global respondeu para `gemini-2.5-flash` e `gemini-2.5-pro`; o ensaio completo usou quatro fixtures sintéticas por modelo, com no máximo 1.500 tokens de entrada e 500 de saída por chamada.
+- O coletor falha antes de aceitar métrica fora de limite e só guarda modelo, rótulo sintético, latência, tokens, custo estimado e nota estrutural. Prompt/resposta não são persistíveis pelo contrato local.
+- Flash obteve 8,0/10 de conformidade estrutural, 2,729 s de latência média e R$ 0,034689 estimados. O primeiro ensaio de Pro foi inconclusivo por truncamento, sem nota; o retry compacto concluiu as quatro respostas, com 7,215 s, 5,25/10 estrutural e R$ 0,020713. O teto agregado conservador é R$ 0,339114, abaixo de R$ 2,00.
+- A continuidade depende de decisão explícita de provedor/modelo, política de retenção, consentimento de envio, backend protegido, orçamento e teste adicional autorizado. A fonte de verdade de cobrança é externa; estimativas locais não são faturamento.
+
+## 53. ASSIST-2A — segurança e plano dual local
+
+- A barreira única do Assistente substitui qualquer saída insegura por mensagem determinística antes da entrega. Ela exige evidências confirmadas e bloqueia recomendação, mutação, segredo, terceiro, número não fundamentado e valor sob privacidade financeira.
+- O smoke e o reteste sintéticos registraram somente métricas agregadas; o reteste focado não teve violação ou truncamento e os cenários Pro atingiram mínimo 8/10.
+- Flash e Pro continuam desconectados do aplicativo. O plano local de execução é desligado por feature flag, não oferece seletor de modelo e usa fallback seguro.

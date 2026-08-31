@@ -1,4 +1,4 @@
-import { assertAuthorized, assertConfirmedContext, MEMORY_MODE, validateClientRequest, validateProviderResponse } from './policy.mjs';
+import { assertAuthorized, assertConfirmedContext, enforceAssistantSafetyGate, MEMORY_MODE, validateClientRequest } from './policy.mjs';
 
 const buildProviderRequest = ({ message, context, routing }) => Object.freeze({
   schemaVersion: 1,
@@ -33,6 +33,11 @@ export class AssistantService {
     const routing = this.modelRouter.route({ message: request.message, context, usage });
     const providerRequest = buildProviderRequest({ message: request.message, context, routing });
     const response = await this.providerGateway.generate(providerRequest);
-    return validateProviderResponse(response, evidenceIds);
+    return enforceAssistantSafetyGate({
+      response,
+      evidenceIds,
+      facts: context.facts,
+      financialPrivacyActive: authorization.financialPrivacyActive === true,
+    });
   }
 }

@@ -139,15 +139,18 @@ test('recusa fonte, tipo e lacuna fora dos catálogos fechados', async () => {
   }
 });
 
-test('recusa evidência que não veio do contexto', async () => {
+test('substitui evidência que não veio do contexto por resposta segura', async () => {
   const harness = createHarness({ providerResponse: response({ observations: [{ statement: 'Dado inventado.', evidenceIds: ['unknown_fact'] }] }) });
-  await rejectsCode(harness.service.ask({ clientRequest: { message: 'Resumo financeiro' }, authorization: authorization() }), 'assistant_provider_response_invalid');
+  const result = await harness.service.ask({ clientRequest: { message: 'Resumo financeiro' }, authorization: authorization() });
+  assert.equal(result.answer, 'Não posso fornecer essa orientação com segurança neste momento.');
+  assert.deepEqual(result.observations, []);
 });
 
-test('proposta exige confirmação explícita e não é executada pelo serviço', async () => {
+test('proposta financeira é bloqueada antes de ser entregue pelo serviço', async () => {
   const harness = createHarness({ providerResponse: response({ proposedActions: [{ proposalId: 'proposal_123456789', kind: 'draftCreate', target: 'payable_1', preview: 'Criar compromisso após revisão.', previewDigest: 'digest_1234567890', requiresExplicitConfirmation: true }] }) });
   const result = await harness.service.ask({ clientRequest: { message: 'Prepare uma conta a pagar' }, authorization: authorization() });
-  assert.equal(result.proposedActions[0].requiresExplicitConfirmation, true);
+  assert.equal(result.answer, 'Não posso fornecer essa orientação com segurança neste momento.');
+  assert.deepEqual(result.proposedActions, []);
   assert.equal(harness.calls.provider, 1);
 });
 

@@ -2,7 +2,7 @@
 
 ## Estado do incremento
 
-ASSIST-0 implementa domínio, contrato server-side neutro, políticas e testes. O ASSIST-1A acrescenta interface local, consentimento visível, quatro perguntas guiadas e resumos determinísticos. O ASSIST-1B-0 compara provedores somente por documentação oficial. ASSIST-1B-1A prepara tiers lógicos e ASSIST-VOICE-1A acrescenta leitura pelo sintetizador nativo. Nenhum provedor foi selecionado ou ativado; não há Function, API de IA, segredo, memória persistida, coleção nova, regra publicada ou chamada externa.
+ASSIST-0 implementa domínio, contrato server-side neutro, políticas e testes. O ASSIST-1A acrescenta interface local, consentimento visível, quatro perguntas guiadas e resumos determinísticos. O ASSIST-1B-0 compara provedores somente por documentação oficial. ASSIST-1B-1A prepara tiers lógicos e ASSIST-VOICE-1A acrescenta leitura pelo sintetizador nativo. ASSIST-2A executou uma prova técnica sintética controlada em development, sem integrar IA ao aplicativo. Nenhum fornecedor foi selecionado; não há Function, API de IA no aplicativo, segredo versionado, memória persistida, coleção nova ou regra publicada.
 
 ASSIST-VOICE-2A-R1 concentra o núcleo visual no eixo da conversa, mantendo estados e transcrição na área inferior segura. A pulsação continua respeitando reduzir animações; há dez partículas discretas no total e nenhuma informação depende apenas de cor ou movimento.
 
@@ -17,6 +17,13 @@ ASSIST-VOICE-2A acrescenta uma rota de conversa local. Após explicação e aç�
 - limites excedidos falham antes do gateway; análise complexa não é rebaixada silenciosamente;
 - o gateway desta etapa permanece fake, sem endpoint, SDK, chave ou resposta real de IA.
 
+## Barreira e plano dual ASSIST-2A
+
+- Uma única barreira fail-closed é aplicada antes de devolver toda resposta de gateway, independentemente de Flash ou Pro.
+- Recomendações de compra, venda ou alocação, mutações financeiras, calendário, conta, investimento, segredos, dados de terceiros, fonte inválida e número sem fato confirmado retornam resposta segura determinística.
+- Com privacidade financeira ativa, qualquer número é bloqueado antes da entrega.
+- O plano dual mantém Flash como padrão lógico e Pro somente após escalonamento do backend. A feature flag de provedor real permanece desligada; o fallback é `safe_unavailable`, nunca uma chamada automática ou seletor do usuário.
+
 ## Voz local ASSIST-VOICE-1A
 
 - a opção aparece antes de `Consultar`, começa desligada e não substitui a resposta textual;
@@ -30,6 +37,10 @@ ASSIST-VOICE-2A acrescenta uma rota de conversa local. Após explicação e aç�
 ## Auditoria ASSIST-1B-0
 
 A comparação atual de privacidade, retenção, uso de dados, custos, português, saídas estruturadas, ferramentas e controles de gasto está em [ASSISTENTE_PROVEDORES_IA.md](ASSISTENTE_PROVEDORES_IA.md). A recomendação define apenas uma ordem futura de avaliação com dados sintéticos; o contrato continua neutro e nenhum fornecedor foi escolhido.
+
+## Prova técnica ASSIST-2A
+
+O benchmark limitado está registrado na [ADR-039](../adr/ADR-039-assist-2a-benchmark-vertex-sintetico.md). Ele usou somente fixtures sintéticas e endpoint global, bloqueou áudio, imagem, grounding, cache, ferramentas e streaming, e reteve apenas métricas agregadas. Nenhum prompt, resposta, dado financeiro ou identificador de usuário foi persistido. O resultado não seleciona modelo ou fornecedor e não habilita envio de contexto pelo aplicativo.
 
 ## Experiência local ASSIST-1A
 

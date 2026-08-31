@@ -8,6 +8,9 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 ### Adicionado
 
+- ASSIST-2A registra uma prova técnica de Vertex em development, limitada a oito fixtures sintéticas, sem dados de usuário, áudio, imagem, grounding, cache, ferramentas ou streaming;
+- o contrato local do benchmark aceita apenas métricas agregadas e falha antes de registrar prompts, respostas, tokens, custo, quantidade ou nota fora dos limites aprovados;
+
 - NAV-QUICK-1 adiciona atalhos globais compactos, acessíveis e fixos para Home, conversa, investimentos e calculadoras usando exclusivamente os PNGs fornecidos;
 - FAIR-VALUE-0 adiciona a análise separada Preço justo, falha-fechada sem dados automáticos, com Graham para ações e referência patrimonial para FIIs;
 
