@@ -978,3 +978,12 @@ Situação: implementado somente localmente. Não há Function, segredo, identid
 - O contrato Flutter contém somente mensagem sanitizada e versão. A borda server-side preserva autorização, consentimento atual, contexto confirmado, limites e escolha automática Flash/Pro.
 - Kill switch ativo e flag real desligada bloqueiam a execução por duas camadas. O repositório Flutter não possui gateway e responde indisponível sem transmitir dado algum.
 - A ativação development exigirá autorizações separadas para identidade runtime, Secret Manager, Function Gen 2, App Check/Auth, orçamento/alertas, eventual regra, fixtures sintéticas e rollout com consentimento. A ordem e o escopo estão na ADR-040.
+
+## 55. ASSIST-2C-CONTROL-STORE-1 — controle de custo isolado
+
+Situação: ledger local implementado e testado; a Rule deny-all do banco nomeado foi publicada exclusivamente em development. A infraestrutura permanece sem Function, Cloud Run, Secret Manager, chamada Vertex ou dado de usuário.
+
+- O banco nomeado de controles não compartilha coleção, dados, índice ou regra com o banco padrão e inicia sem acesso de cliente.
+- O ledger aceita somente identificador aleatório de requisição, tier, duração e custos inteiros reservado/confirmado. Reserva atômica, limites diário de R$ 5,00 e mensal operacional de R$ 45,00, idempotência e falha fechada são obrigatórios.
+- A identidade futura usa somente `datastore.user` condicionado ao recurso exato desse banco; acesso ao padrão deve ter teste negativo obrigatório.
+- O orçamento development de R$ 50,00 notifica em 50%, 80% e 100%, mas não substitui o bloqueio interno.

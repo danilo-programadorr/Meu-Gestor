@@ -1,0 +1,10 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // O banco nomeado é server-only: nenhum cliente lê ou escreve o ledger.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,4 +1,12 @@
 export { AssistantContractError } from './errors.mjs';
+export {
+  ASSISTANT_COST_CONTROL_LIMITS,
+  ASSISTANT_COST_CONTROL_POLICY_VERSION,
+  ASSISTANT_COST_LEDGER_STATE,
+  AssistantCostControlLedger,
+  InMemoryAssistantCostLedgerStore,
+  createAssistantCostRequestId,
+} from './cost_control_ledger.mjs';
 export { ASSISTANT_REAL_PROVIDER_FEATURE_ENABLED, MODEL_EXECUTION, resolveAssistantModelExecution } from './dual_model_execution.mjs';
 export {
   ASSISTANT_FLUTTER_CONTRACT_VERSION,

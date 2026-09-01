@@ -31,6 +31,13 @@ ASSIST-VOICE-2A acrescenta uma rota de conversa local. Após explicação e aç�
 - O kill switch inicia ativo e a flag de chamada real está compilada como `false`. O repositório Flutter falha fechado e não possui gateway, portanto não pode iniciar uma chamada de IA.
 - A lista exata de recursos e aprovações necessários para development está na [ADR-040](../adr/ADR-040-assist-2b-0-ativacao-segura-local.md). Nenhuma ação externa é autorizada por esta preparação local.
 
+## Controle persistente ASSIST-2C
+
+- O ledger de custo não armazena contexto, identidade, mensagem, resposta, áudio, ticker ou valor financeiro: somente `requestId` aleatório, tier, duração, custo reservado, custo confirmado e estado.
+- Uma reserva transacional precede qualquer chamada futura. Ela aplica teto diário de R$ 5,00 e operacional mensal de R$ 45,00 em centavos inteiros; inconsistência, ausência de reserva e repetição conflitante falham fechadas.
+- A repetição idempotente do mesmo `requestId` retorna o mesmo registro. Capacidade não usada só é liberada após custo medido e confirmado; uma chamada sem confirmação permanece reservada.
+- A futura persistência fica em banco Firestore nomeado, isolado do banco padrão e sem acesso de cliente. Alertas de orçamento observam gasto, mas não substituem este bloqueio interno.
+
 ## Voz local ASSIST-VOICE-1A
 
 - a opção aparece antes de `Consultar`, começa desligada e não substitui a resposta textual;

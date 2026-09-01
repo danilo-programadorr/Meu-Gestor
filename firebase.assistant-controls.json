@@ -1,0 +1,8 @@
+{
+  "firestore": [
+    {
+      "database": "assistant-controls-dev",
+      "rules": "firestore.assistant-controls.rules"
+    }
+  ]
+}
