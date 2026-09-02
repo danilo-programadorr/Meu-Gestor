@@ -1002,3 +1002,30 @@ Situação: nome e opções Gen 2 registrados somente como composição local in
 
 - A export futura é exclusivamente `assistRemoteV1`, em `southamerica-east1`, 256 MiB, timeout de 30 segundos, concorrência 1, mínimo 0, máximo 1 e App Check obrigatório.
 - A factory ASSIST-2D-0 preserva Auth, consentimento, privacidade, rota Flash/Pro interna e `safe_unavailable`. Flutter continua sem chamada remota.
+
+## 58. ASSIST-2F-0 — codebase Firebase local do Assistente
+
+Situação: codebase `assistant` preparado somente localmente; não há Function em nuvem, identidade configurada, Firebase Admin, Firestore, Secret Manager, Vertex, URL externa ou deploy.
+
+- `firebase.json` declara o codebase isolado Node 22 e o artefato exporta exclusivamente `assistRemoteV1`.
+- A borda usa `firebase-functions` 7.3.2, preserva `southamerica-east1`, 256 MiB, timeout de 30 segundos, concorrência 1, mínimo 0, máximo 1 e App Check obrigatório.
+- A identidade runtime é `defineString` sem valor versionado. Sem o parâmetro no processo de deploy, a configuração não pode ser materializada; nenhum `.env`, e-mail ou projeto entra no repositório.
+- Enquanto o kill switch estiver ativo e o provedor real desligado, a callable exige Auth/e-mail verificado/App Check e retorna somente `safe_unavailable`, sem consultar perfil, contexto, custos, ledger ou qualquer banco. Flash/Pro continuam contratos internos para ativação futura autorizada.
+
+## 58. ASSIST-2F-0 — codebase Firebase local do Assistente
+
+Situação: codebase `assistant` preparado somente localmente; não há Function em nuvem, identidade configurada, Firebase Admin, Firestore, Secret Manager, Vertex, URL externa ou deploy.
+
+- `firebase.json` declara o codebase isolado Node 22 e o artefato exporta exclusivamente `assistRemoteV1`.
+- A borda usa `firebase-functions` 7.3.2, preserva `southamerica-east1`, 256 MiB, timeout de 30 segundos, concorrência 1, mínimo 0, máximo 1 e App Check obrigatório.
+- A identidade runtime é `defineString` sem valor versionado. Sem o parâmetro no processo de deploy, a configuração não pode ser materializada; nenhum `.env`, e-mail ou projeto entra no repositório.
+- Enquanto o kill switch estiver ativo e o provedor real desligado, a callable exige Auth/e-mail verificado/App Check e retorna somente `safe_unavailable`, sem consultar perfil, contexto, custos, ledger ou qualquer banco. Flash/Pro continuam contratos internos para ativação futura autorizada.
+
+## 58. ASSIST-2F-0 — codebase Firebase local do Assistente
+
+Situação: codebase `assistant` preparado somente localmente; não há Function em nuvem, identidade configurada, Firebase Admin, Firestore, Secret Manager, Vertex, URL externa ou deploy.
+
+- `firebase.json` declara o codebase isolado Node 22 e o artefato exporta exclusivamente `assistRemoteV1`.
+- A borda usa `firebase-functions` 7.3.2, preserva `southamerica-east1`, 256 MiB, timeout de 30 segundos, concorrência 1, mínimo 0, máximo 1 e App Check obrigatório.
+- A identidade runtime é `defineString` sem valor versionado. Sem o parâmetro no processo de deploy, a configuração não pode ser materializada; nenhum `.env`, e-mail ou projeto entra no repositório.
+- Enquanto o kill switch estiver ativo e o provedor real desligado, a callable exige Auth/e-mail verificado/App Check e retorna somente `safe_unavailable`, sem consultar perfil, contexto, custos, ledger ou qualquer banco. Flash/Pro continuam contratos internos para ativação futura autorizada.

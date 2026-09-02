@@ -19,6 +19,7 @@ export function registerAssistRemoteV1Gen2({
   usageReader,
   ledger,
   modelRouter,
+  functionOptions,
 }) {
   const callables = createAssistRemoteV1Callables({
     onCall,
@@ -28,6 +29,7 @@ export function registerAssistRemoteV1Gen2({
     usageReader,
     ledger,
     ...(modelRouter ? { modelRouter } : {}),
+    ...(functionOptions ? { functionOptions } : {}),
   });
   return Object.freeze({
     [ASSISTANT_REMOTE_FUNCTION_NAME]: callables.assistRemoteV1,

@@ -49,6 +49,13 @@ ASSIST-VOICE-2A acrescenta uma rota de conversa local. Após explicação e aç�
 - `assistRemoteV1` é o único nome de export futuro. O registro injetável fixa `southamerica-east1`, 256 MiB, 30 segundos, concorrência 1, mínimo 0, máximo 1 e App Check obrigatório.
 - Não há codebase configurado, SDK Vertex, URL, projeto, identidade runtime ou composição Firebase real. O Flutter continua sem gateway; a futura ligação de `onCall` exigirá aprovação própria.
 
+## Codebase Functions local ASSIST-2F-0
+
+- A embalagem implantável fica isolada em `backend/functions/assistant`, usa Node 22 e exporta somente `assistRemoteV1`.
+- A dependência direta única é `firebase-functions` 7.3.2. O contrato puro é copiado somente no predeploy, sem duplicar decisões de domínio.
+- `ASSISTANT_RUNTIME_SERVICE_ACCOUNT` é um parâmetro obrigatório sem valor no Git. Não há Firebase Admin, cliente Firestore, Vertex, Secret Manager ou URL externa no artefato.
+- Enquanto o provedor real permanece desligado, Auth/e-mail/App Check são validados e a resposta é `safe_unavailable` antes de qualquer porta de perfil, contexto, uso ou ledger. Assim não há acesso ao banco padrão, ao banco nomeado ou a dados financeiros.
+
 ## Voz local ASSIST-VOICE-1A
 
 - a opção aparece antes de `Consultar`, começa desligada e não substitui a resposta textual;

@@ -80,6 +80,7 @@ docs/internal/
 migrate_working_dir/
 .codex-tmp/
 backend/functions/premium/.generated/
+backend/functions/assistant/shared/
 
 # Arquivos temporários gerais
 *.class

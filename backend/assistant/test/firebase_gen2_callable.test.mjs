@@ -59,12 +59,12 @@ const build = (overrides = {}) => {
   return { calls, invoke: callables.assistRemoteV1 };
 };
 
-test('callable Gen 2 fixa limites conservadores, App Check e resposta safe_unavailable', async () => {
+test('callable Gen 2 fixa limites conservadores, App Check e resposta safe_unavailable sem ler dados', async () => {
   let receivedOptions;
   const { calls, invoke } = build({ onCall: (options, handler) => { receivedOptions = options; return handler; } });
   assert.deepEqual(receivedOptions, ASSISTANT_REMOTE_CALLABLE_OPTIONS);
   assert.deepEqual(await invoke(request()), ASSISTANT_SAFE_UNAVAILABLE);
-  assert.deepEqual(calls, { authorization: 1, context: 1, usage: 1, reserve: 0, confirm: 0 });
+  assert.deepEqual(calls, { authorization: 0, context: 0, usage: 0, reserve: 0, confirm: 0 });
 });
 
 test('nega ausência de autenticação antes de qualquer leitor server-side', async () => {
@@ -86,14 +86,12 @@ test('nega e-mail não verificado ou App Check ausente antes de qualquer leitor 
   assert.equal(withoutAppCheck.calls.authorization, 0);
 });
 
-test('nega consentimento ausente e privacidade antes de ler contexto', async () => {
-  const withoutConsent = build({ authorizationReader: async () => serverAuthorization({ aiConsentEnabled: false }) });
-  await assert.rejects(withoutConsent.invoke(request()), (error) => error.code === 'permission-denied');
-  assert.equal(withoutConsent.calls.context, 0);
-
-  const privateRequest = build({ authorizationReader: async () => serverAuthorization({ financialPrivacyActive: true }) });
-  await assert.rejects(privateRequest.invoke(request()), (error) => error.code === 'failed-precondition');
-  assert.equal(privateRequest.calls.context, 0);
+test('estado desligado não consulta consentimento, privacidade ou contexto', async () => {
+  const { calls, invoke } = build({
+    authorizationReader: async () => serverAuthorization({ aiConsentEnabled: false, financialPrivacyActive: true }),
+  });
+  assert.deepEqual(await invoke(request()), ASSISTANT_SAFE_UNAVAILABLE);
+  assert.deepEqual(calls, { authorization: 0, context: 0, usage: 0, reserve: 0, confirm: 0 });
 });
 
 test('rejeita contexto, UID, e-mail, modelo, custo e instruções do cliente', async () => {
@@ -107,7 +105,7 @@ test('rejeita contexto, UID, e-mail, modelo, custo e instruções do cliente', a
   }
 });
 
-test('escalonamento Flash e Pro é interno e nunca retorna modelo ao cliente', async () => {
+test('estado desligado não escolhe Flash ou Pro nem retorna modelo ao cliente', async () => {
   const tiers = [];
   const modelRouter = {
     route: ({ message }) => {
@@ -119,12 +117,13 @@ test('escalonamento Flash e Pro é interno e nunca retorna modelo ao cliente', a
   const { invoke } = build({ modelRouter });
   assert.deepEqual(await invoke(request()), ASSISTANT_SAFE_UNAVAILABLE);
   assert.deepEqual(await invoke(request({ data: { contractVersion: 'assist-remote-v1', message: 'Compare cenários sintéticos.' } })), ASSISTANT_SAFE_UNAVAILABLE);
-  assert.deepEqual(tiers, ['flash', 'pro']);
+  assert.deepEqual(tiers, []);
 });
 
-test('limite interno de custo falha fechado antes de qualquer reserva', async () => {
+test('estado desligado não consulta custo nem reserva no ledger', async () => {
   const { calls, invoke } = build({ usageReader: async () => ({ costUnitsInWindow: 32, proCallsInWindow: 0 }) });
-  await assert.rejects(invoke(request()), (error) => error.code === 'resource-exhausted');
+  assert.deepEqual(await invoke(request()), ASSISTANT_SAFE_UNAVAILABLE);
+  assert.equal(calls.usage, 0);
   assert.equal(calls.reserve, 0);
   assert.equal(calls.confirm, 0);
 });

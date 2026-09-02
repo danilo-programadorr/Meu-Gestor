@@ -35,6 +35,20 @@
         ".codex-tmp",
         "test"
       ]
+    },
+    {
+      "source": "backend/functions/assistant",
+      "codebase": "assistant",
+      "runtime": "nodejs22",
+      "predeploy": [
+        "npm --prefix backend/functions/assistant run prepare:shared"
+      ],
+      "ignore": [
+        "node_modules",
+        ".git",
+        ".codex-tmp",
+        "test"
+      ]
     }
   ],
   "firestore": {

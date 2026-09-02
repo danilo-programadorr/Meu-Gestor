@@ -43,6 +43,7 @@ export function createAssistRemoteV1Callables({
   usageReader,
   ledger,
   modelRouter = new AssistantModelRouter(),
+  functionOptions = ASSISTANT_REMOTE_CALLABLE_OPTIONS,
   killSwitchActive = ASSISTANT_REMOTE_KILL_SWITCH_ACTIVE,
   providerFeatureEnabled = ASSISTANT_REAL_PROVIDER_FEATURE_ENABLED,
 }) {
@@ -57,12 +58,21 @@ export function createAssistRemoteV1Callables({
   if (killSwitchActive !== true || providerFeatureEnabled !== false) {
     throw new TypeError('assistant_callable_must_start_fail_closed');
   }
+  if (!functionOptions || typeof functionOptions !== 'object' || Array.isArray(functionOptions)) {
+    throw new TypeError('assistant_callable_options_invalid');
+  }
 
   return Object.freeze({
-    assistRemoteV1: onCall(ASSISTANT_REMOTE_CALLABLE_OPTIONS, async (request) => {
+    assistRemoteV1: onCall(functionOptions, async (request) => {
       try {
         const uid = requireAuthenticatedUid(request, HttpsError);
         requireExactFlutterData(request?.data, HttpsError);
+        // Nenhuma leitura de perfil, contexto, ledger ou banco é permitida
+        // enquanto a borda está desligada. Auth e App Check já passaram pelo
+        // perímetro e a resposta não contém conteúdo do solicitante.
+        if (killSwitchActive && !providerFeatureEnabled) {
+          return ASSISTANT_SAFE_UNAVAILABLE;
+        }
         const authorization = await deriveServerAuthorization({ request, uid, authorizationReader, HttpsError });
         assertAuthorized(authorization);
         if (authorization.financialPrivacyActive === true) {

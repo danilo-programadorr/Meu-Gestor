@@ -1,0 +1,19 @@
+{
+  "name": "meu-gestor-financeiro-assistant-functions-boundary",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "main": "index.mjs",
+  "engines": {
+    "node": "22"
+  },
+  "scripts": {
+    "prepare:shared": "node scripts/prepare-assistant-shared.mjs",
+    "check": "node --check index.mjs && node --check src/function_options.mjs && node scripts/prepare-assistant-shared.mjs && node scripts/check.mjs",
+    "test": "npm run prepare:shared && node --test test/*.test.mjs",
+    "audit:production-artifact": "npm audit --omit=dev --omit=optional --audit-level=moderate"
+  },
+  "dependencies": {
+    "firebase-functions": "7.3.2"
+  }
+}
