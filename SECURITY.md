@@ -115,6 +115,8 @@ O ASSIST-1B-0 não seleciona nem ativa fornecedor. Qualquer piloto futuro exige 
 
 ASSIST-2D-0 adiciona somente uma factory local compatível com callable Gen 2. Ela aceita a versão e a mensagem sanitizada, deriva Auth/App Check/UID/e-mail no perímetro e obtém consentimento, perfil, contexto e uso somente de leitores server-side. Campos de cliente para contexto financeiro, UID, e-mail, modelo, custo ou instruções são negados. Privacidade financeira bloqueia o fluxo antes do contexto; owner não possui bypass. O kill switch obrigatório e a flag real falsa retornam sempre `safe_unavailable`, sem chamada de provedor, reserva no ledger, log de conteúdo ou endpoint Flutter.
 
+ASSIST-2E-0 fixa localmente o nome `assistRemoteV1` e as opções conservadoras Gen 2, incluindo `enforceAppCheck`. A composição é injetável e não importa Firebase Admin, Vertex, URL, projeto, identidade runtime, chave ou segredo. Nenhuma variável enviada pelo cliente substitui Auth/App Check ou as opções registradas.
+
 ## Entitlement Premium — SUB-1A/SUB-1B/SUB-1C
 
 O backend de referência SUB-1B permanece exclusivamente local, sem rede, com armazenamento em memória para testes e mapper/repositório Flutter somente leitura. Suas Security Rules foram publicadas anteriormente somente em development, com SHA-256 `F01E52545F2CE88896A48B28B957BF45F8AE79B0173DF2E20449929FF21532B4`. O SUB-1C aplica enforcement apenas no código e nas regras locais; não houve nova publicação, Firebase real ou bloqueio de usuário development. Não existe entitlement real, backend implantado, produto de loja, compra ou paywall.

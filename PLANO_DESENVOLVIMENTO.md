@@ -995,3 +995,10 @@ Situação: factory Gen 2/callable implementada e testada somente localmente. N�
 - A entrada é fechada a `assist-remote-v1` e mensagem sanitizada; contexto, UID, e-mail, modelo, custo e instruções vindos do cliente são recusados.
 - Auth, e-mail, App Check, perfil jurídico, consentimento e privacidade financeira são revalidados antes de contexto/uso. Flash e Pro são internos; o ledger é apenas uma porta validada e não recebe operação enquanto a feature estiver desligada.
 - Kill switch ativo e flag do provedor falsa são invariantes da factory. Toda chamada válida retorna `safe_unavailable` de modo determinístico e sem conteúdo sensível.
+
+## 57. ASSIST-2E-0 — registro Gen 2 local
+
+Situação: nome e opções Gen 2 registrados somente como composição local injetável. Não há codebase, Function em nuvem, URL, projeto, identidade runtime, Secret Manager, Vertex, chave ou deploy.
+
+- A export futura é exclusivamente `assistRemoteV1`, em `southamerica-east1`, 256 MiB, timeout de 30 segundos, concorrência 1, mínimo 0, máximo 1 e App Check obrigatório.
+- A factory ASSIST-2D-0 preserva Auth, consentimento, privacidade, rota Flash/Pro interna e `safe_unavailable`. Flutter continua sem chamada remota.

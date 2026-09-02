@@ -5,6 +5,11 @@ export {
   createAssistRemoteV1Callables,
 } from './firebase_gen2_callable.mjs';
 export {
+  ASSISTANT_REMOTE_FUNCTION_NAME,
+  getAssistRemoteV1Gen2Options,
+  registerAssistRemoteV1Gen2,
+} from './firebase_gen2_registration.mjs';
+export {
   ASSISTANT_COST_CONTROL_LIMITS,
   ASSISTANT_COST_CONTROL_POLICY_VERSION,
   ASSISTANT_COST_LEDGER_STATE,

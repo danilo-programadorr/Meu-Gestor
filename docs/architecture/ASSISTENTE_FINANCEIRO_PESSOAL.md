@@ -44,6 +44,11 @@ ASSIST-VOICE-2A acrescenta uma rota de conversa local. Após explicação e aç�
 - Auth, e-mail verificado, App Check, perfil jurídico e consentimento são revalidados server-side. Privacidade financeira ativa interrompe o fluxo antes de qualquer leitura de contexto.
 - O roteador interno decide Flash ou Pro, mas a resposta não revela tier ou modelo. Kill switch obrigatório e flag do provedor compilada como falsa retornam somente `safe_unavailable`; a porta do ledger é validada, nunca chamada.
 
+## Registro Gen 2 local ASSIST-2E-0
+
+- `assistRemoteV1` é o único nome de export futuro. O registro injetável fixa `southamerica-east1`, 256 MiB, 30 segundos, concorrência 1, mínimo 0, máximo 1 e App Check obrigatório.
+- Não há codebase configurado, SDK Vertex, URL, projeto, identidade runtime ou composição Firebase real. O Flutter continua sem gateway; a futura ligação de `onCall` exigirá aprovação própria.
+
 ## Voz local ASSIST-VOICE-1A
 
 - a opção aparece antes de `Consultar`, começa desligada e não substitui a resposta textual;
