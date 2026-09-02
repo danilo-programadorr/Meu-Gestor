@@ -1,5 +1,10 @@
 export { AssistantContractError } from './errors.mjs';
 export {
+  ASSISTANT_REMOTE_CALLABLE_OPTIONS,
+  ASSISTANT_SAFE_UNAVAILABLE,
+  createAssistRemoteV1Callables,
+} from './firebase_gen2_callable.mjs';
+export {
   ASSISTANT_COST_CONTROL_LIMITS,
   ASSISTANT_COST_CONTROL_POLICY_VERSION,
   ASSISTANT_COST_LEDGER_STATE,

@@ -8,6 +8,7 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 ### Adicionado
 
+- ASSIST-2D-0 prepara uma factory local compatível com callable Gen 2: contrato fechado, validações server-side, porta de ledger sem operação e resposta determinística `safe_unavailable` enquanto kill switch e flag do provedor permanecem fechados;
 - ASSIST-2C prepara um ledger de custo fail-closed, idempotente e transacional, sem identidade, contexto, prompt, resposta, áudio ou dados financeiros; os tetos internos usam centavos e não dependem de alertas de orçamento;
 - ASSIST-2B-0 prepara o contrato local Flutter/backend para Flash e Pro, com payload mínimo, kill switch ativo, flag real desligada, roteamento exclusivo no servidor e métrica operacional sem conteúdo sensível;
 

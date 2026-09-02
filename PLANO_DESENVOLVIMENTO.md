@@ -987,3 +987,11 @@ Situação: ledger local implementado e testado; a Rule deny-all do banco nomead
 - O ledger aceita somente identificador aleatório de requisição, tier, duração e custos inteiros reservado/confirmado. Reserva atômica, limites diário de R$ 5,00 e mensal operacional de R$ 45,00, idempotência e falha fechada são obrigatórios.
 - A identidade futura usa somente `datastore.user` condicionado ao recurso exato desse banco; acesso ao padrão deve ter teste negativo obrigatório.
 - O orçamento development de R$ 50,00 notifica em 50%, 80% e 100%, mas não substitui o bloqueio interno.
+
+## 56. ASSIST-2D-0 — callable segura local
+
+Situação: factory Gen 2/callable implementada e testada somente localmente. Não há Function registrada, endpoint Flutter, Firebase Admin, banco acessado, identidade runtime, segredo, Vertex ou deploy.
+
+- A entrada é fechada a `assist-remote-v1` e mensagem sanitizada; contexto, UID, e-mail, modelo, custo e instruções vindos do cliente são recusados.
+- Auth, e-mail, App Check, perfil jurídico, consentimento e privacidade financeira são revalidados antes de contexto/uso. Flash e Pro são internos; o ledger é apenas uma porta validada e não recebe operação enquanto a feature estiver desligada.
+- Kill switch ativo e flag do provedor falsa são invariantes da factory. Toda chamada válida retorna `safe_unavailable` de modo determinístico e sem conteúdo sensível.

@@ -38,6 +38,12 @@ ASSIST-VOICE-2A acrescenta uma rota de conversa local. Após explicação e aç�
 - A repetição idempotente do mesmo `requestId` retorna o mesmo registro. Capacidade não usada só é liberada após custo medido e confirmado; uma chamada sem confirmação permanece reservada.
 - A futura persistência fica em banco Firestore nomeado, isolado do banco padrão e sem acesso de cliente. Alertas de orçamento observam gasto, mas não substituem este bloqueio interno.
 
+## Callable local ASSIST-2D-0
+
+- A factory compatível com callable Gen 2 recebe `onCall` por injeção e não registra codebase, Function ou endpoint. O contrato público aceita somente versão e mensagem sanitizada; campos de contexto, UID, e-mail, modelo, custo e instruções são negados.
+- Auth, e-mail verificado, App Check, perfil jurídico e consentimento são revalidados server-side. Privacidade financeira ativa interrompe o fluxo antes de qualquer leitura de contexto.
+- O roteador interno decide Flash ou Pro, mas a resposta não revela tier ou modelo. Kill switch obrigatório e flag do provedor compilada como falsa retornam somente `safe_unavailable`; a porta do ledger é validada, nunca chamada.
+
 ## Voz local ASSIST-VOICE-1A
 
 - a opção aparece antes de `Consultar`, começa desligada e não substitui a resposta textual;
