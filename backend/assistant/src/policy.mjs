@@ -5,7 +5,7 @@ export const MEMORY_MODE = 'none';
 
 const availableSources = new Set([
   'profileConfiguration', 'accounts', 'categories', 'transactions',
-  'payables', 'receivables', 'investmentPortfolios', 'investmentAssets',
+  'payables', 'receivables', 'financialCalendar', 'investmentPortfolios', 'investmentAssets',
   'investmentOperations', 'investmentIncome', 'delayedMarketQuotes',
   'dashboardSummary', 'investmentPerformance',
 ]);
@@ -69,8 +69,23 @@ export const assertAuthorized = (authorization) => {
 };
 
 export const assertConfirmedContext = (context) => {
-  if (!context?.isFromServer || context.hasPendingWrites || context.ownerVerified !== true) throw deny('assistant_invalid_context');
-  if (!Array.isArray(context.facts) || !Array.isArray(context.missingSources) || context.missingSources.some((source) => !unavailableSources.has(source))) throw deny('assistant_invalid_context');
+  if (!exactKeys(context, ['ownerVerified', 'isFromServer', 'hasPendingWrites', 'generatedAt', 'period', 'facts', 'missingSources'])
+      || !context.isFromServer
+      || context.hasPendingWrites
+      || context.ownerVerified !== true
+      || typeof context.generatedAt !== 'string'
+      || Number.isNaN(Date.parse(context.generatedAt))
+      || !exactKeys(context.period, ['start', 'end'])
+      || typeof context.period.start !== 'string'
+      || typeof context.period.end !== 'string'
+      || Number.isNaN(Date.parse(context.period.start))
+      || Number.isNaN(Date.parse(context.period.end))
+      || Date.parse(context.period.end) < Date.parse(context.period.start)
+      || Date.parse(context.generatedAt) < Date.parse(context.period.end)
+      || !Array.isArray(context.facts)
+      || !Array.isArray(context.missingSources)
+      || new Set(context.missingSources).size !== context.missingSources.length
+      || context.missingSources.some((source) => !unavailableSources.has(source))) throw deny('assistant_invalid_context');
   const ids = new Set();
   for (const fact of context.facts) {
     const integerKind = ['moneyCentsBrl', 'integer', 'basisPoints'].includes(fact.kind);

@@ -8,6 +8,12 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 ### Adicionado
 
+- ASSIST-2H-0 adiciona uma ponte local e fail-closed para contexto financeiro
+  do Assistente: contas, lançamentos, compromissos, calendário financeiro,
+  investimentos e proventos entram somente por leitores injetados confirmados,
+  como fatos mínimos tipados em centavos inteiros e aliases efêmeros;
+  qualquer fonte não confirmada, ID persistido, segredo, terceiro, float ou
+  período inválido invalida a montagem sem chamada externa;
 - ASSIST-2F-0 cria localmente o codebase Gen 2 isolado `assistant`, com uma única exportação `assistRemoteV1`, Node 22 e `firebase-functions` 7.3.2. A identidade runtime é apenas parâmetro obrigatório de deploy, sem valor versionado; sem ela não há materialização remota. O artefato não importa Firebase Admin, Firestore, Vertex, Secret Manager ou URL externa e, com o provedor desligado, valida Auth/App Check e devolve somente `safe_unavailable` sem ler banco, contexto, uso ou ledger;
 - ASSIST-2F-0 cria localmente o codebase Gen 2 isolado `assistant`, com uma única exportação `assistRemoteV1`, Node 22 e `firebase-functions` 7.3.2. A identidade runtime é apenas parâmetro obrigatório de deploy, sem valor versionado; sem ela não há materialização remota. O artefato não importa Firebase Admin, Firestore, Vertex, Secret Manager ou URL externa e, com o provedor desligado, valida Auth/App Check e devolve somente `safe_unavailable` sem ler banco, contexto, uso ou ledger;
 - ASSIST-2E-0 registra localmente a composição Gen 2 `assistRemoteV1`, com região e limites conservadores, App Check obrigatório e nenhuma configuração de projeto, SDK Vertex, URL, segredo ou endpoint Flutter;

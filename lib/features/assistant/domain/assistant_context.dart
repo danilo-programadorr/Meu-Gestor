@@ -14,6 +14,7 @@ enum AssistantContextSource {
   transactions,
   payables,
   receivables,
+  financialCalendar,
   investmentPortfolios,
   investmentAssets,
   investmentOperations,
@@ -69,6 +70,11 @@ abstract final class AssistantContextCatalog {
     ),
     AssistantContextSourcePolicy(
       source: AssistantContextSource.receivables,
+      availability: AssistantContextAvailability.available,
+      containsOwnData: true,
+    ),
+    AssistantContextSourcePolicy(
+      source: AssistantContextSource.financialCalendar,
       availability: AssistantContextAvailability.available,
       containsOwnData: true,
     ),

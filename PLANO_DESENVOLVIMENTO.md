@@ -9,6 +9,9 @@
 - Data desta revisão: 2 de agosto de 2026.
 - Os comandos públicos usam caminhos relativos à raiz do repositório.
 - A fundação local autorizada da Etapa 2 foi criada e validada nos limites da seção 16.
+- ASSIST-2H-0 prepara localmente a ponte de contexto financeiro do Assistente;
+  ela não acessa banco, Function, provedor ou ambiente externo e permanece
+  separada da callable publicada.
 - Todas as ações externas de Firebase, Google Cloud e qualquer provedor de IA são exclusivamente manuais pelo solicitante; o agente limita-se a orientar, preparar código autorizado e verificar resultados locais após confirmação. Referências a Gemini nas etapas históricas não representam fornecedor ativo: a ADR-033 exige contrato neutro e nova aprovação antes da escolha.
 
 ## 2. Decisões aprovadas

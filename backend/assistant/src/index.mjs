@@ -1,5 +1,10 @@
 export { AssistantContractError } from './errors.mjs';
 export {
+  ASSISTANT_FINANCIAL_CONTEXT_POLICY_VERSION,
+  ASSISTANT_FINANCIAL_CONTEXT_SOURCE_READERS,
+  AssistantFinancialContextBridge,
+} from './financial_context_bridge.mjs';
+export {
   ASSISTANT_REMOTE_CALLABLE_OPTIONS,
   ASSISTANT_SAFE_UNAVAILABLE,
   createAssistRemoteV1Callables,
@@ -26,5 +31,13 @@ export {
   validateFlutterAssistantRequest,
 } from './remote_activation_contract.mjs';
 export { ASSISTANT_ROUTER_POLICY_VERSION, AssistantModelRouter, DEFAULT_ROUTER_LIMITS, MODEL_TIER } from './model_router.mjs';
-export { ASSISTANT_POLICY_VERSION, MEMORY_MODE, assertAuthorized, enforceAssistantSafetyGate, validateClientRequest, validateProviderResponse } from './policy.mjs';
+export {
+  ASSISTANT_POLICY_VERSION,
+  MEMORY_MODE,
+  assertAuthorized,
+  assertConfirmedContext,
+  enforceAssistantSafetyGate,
+  validateClientRequest,
+  validateProviderResponse,
+} from './policy.mjs';
 export { AssistantService } from './service.mjs';

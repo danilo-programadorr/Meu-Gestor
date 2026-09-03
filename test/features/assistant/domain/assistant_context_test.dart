@@ -34,6 +34,20 @@ void main() {
         containsAll(<String>{'email', 'token', 'apiKey', 'projectId'}),
       );
     });
+
+    test('inclui calendário financeiro próprio sem agenda externa', () {
+      final AssistantContextSourcePolicy calendarPolicy =
+          AssistantContextCatalog.policies.singleWhere(
+            (AssistantContextSourcePolicy policy) =>
+                policy.source == AssistantContextSource.financialCalendar,
+          );
+
+      expect(
+        calendarPolicy.availability,
+        AssistantContextAvailability.available,
+      );
+      expect(calendarPolicy.containsOwnData, isTrue);
+    });
   });
 
   group('AssistantFinancialContext', () {

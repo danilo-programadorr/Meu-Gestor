@@ -33,6 +33,19 @@ Toda leitura exige Auth, App Check, e-mail verificado, perfil jurídico atual, c
 | entitlement, owner, grant e operação de privacidade | negar como contexto | negar | negar |
 | módulo futuro sem dado real | declarar ausente | declarar ausente | negar |
 
+## Ponte ASSIST-2H-0
+
+| Fonte própria | Leitor local injetado | Regra de contexto |
+|---|---:|---|
+| contas e lançamentos | permitido | somente fatos confirmados, inteiros e sem ID persistido |
+| compromissos e calendário financeiro | permitido | vencimento/data real por alias; sem concluir, pagar ou agenda externa |
+| investimentos e proventos | permitido | somente posição/operação/provento confirmado, sem recomendação |
+| qualquer fonte não confirmada | negar | invalida todo o contexto; não envia parcial ou cache |
+
+O leitor futuro continua server-side, com UID próprio apenas no limite interno.
+Ele não autoriza acesso ao banco `(default)` pela callable atual nem expõe
+identidade, segredo, estrutura interna ou dado de terceiro ao provedor.
+
 ## Casos negativos obrigatórios
 
 Ausência ou divergência de Auth, App Check, e-mail, perfil, UID, consentimento, versão, confirmação do servidor ou evidência falha antes de liberar resposta. Campos extras do cliente, contexto fornecido pelo cliente, segredos, identificadores pessoais longos e evidência desconhecida são recusados. Resposta de provedor não executa mutação.

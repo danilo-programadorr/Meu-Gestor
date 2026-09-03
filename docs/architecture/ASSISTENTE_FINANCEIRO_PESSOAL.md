@@ -56,6 +56,21 @@ ASSIST-VOICE-2A acrescenta uma rota de conversa local. Após explicação e aç�
 - `ASSISTANT_RUNTIME_SERVICE_ACCOUNT` é um parâmetro obrigatório sem valor no Git. Não há Firebase Admin, cliente Firestore, Vertex, Secret Manager ou URL externa no artefato.
 - Enquanto o provedor real permanece desligado, Auth/e-mail/App Check são validados e a resposta é `safe_unavailable` antes de qualquer porta de perfil, contexto, uso ou ledger. Assim não há acesso ao banco padrão, ao banco nomeado ou a dados financeiros.
 
+## Ponte de contexto local ASSIST-2H-0
+
+- `AssistantFinancialContextBridge` prepara contexto somente por leitores
+  injetados de contas, lançamentos, compromissos, calendário financeiro,
+  investimentos e proventos próprios. Não importa Firebase Admin, cliente de
+  banco, rede, Vertex ou Secret Manager.
+- A saída transportável contém período UTC, fontes fechadas, centavos inteiros,
+  datas UTC e aliases efêmeros de evidência. UID, e-mail, ID persistido,
+  tokens, chaves, estruturas internas, dados de terceiros e ponto flutuante
+  são recusados antes de existir contexto.
+- Uma fonte sem confirmação invalida todo o contexto. O Assistente não recebe
+  dados parciais, cache, escrita pendente ou números sem evidência.
+- A ponte não é ligada à callable nesta etapa. O acesso futuro ao banco padrão
+  depende de autorização, identidade mínima e auditoria próprios.
+
 ## Voz local ASSIST-VOICE-1A
 
 - a opção aparece antes de `Consultar`, começa desligada e não substitui a resposta textual;
@@ -102,6 +117,7 @@ O benchmark limitado está registrado na [ADR-039](../adr/ADR-039-assist-2a-benc
 | categorias | disponível | nomes seguros, tipo e estado; sem ID persistido |
 | lançamentos | disponível | tipo, data civil, valor, categoria/conta por alias e estado |
 | contas a pagar/receber | disponível | vencimento, valor, estado, atraso derivado e vínculo por alias |
+| calendário financeiro | disponível | vencimento, data real separada, estado e próximo evento por alias; sem agenda externa |
 | carteiras, ativos e operações | disponível | classe, ticker público, quantidade/preços escalados, custo e resultado derivados |
 | proventos | disponível | tipo, competência, estado, bruto/imposto/líquido em inteiros |
 | cotações atrasadas | referência global | ticker público, preço escalado, horário, atraso e qualidade da fonte |
