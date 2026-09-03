@@ -18,7 +18,36 @@ final class AssistantRemoteRequest {
 }
 
 abstract interface class AssistantRemoteGateway {
-  Future<AssistantAnswer> ask(AssistantRemoteRequest request);
+  Future<AssistantRemoteResponse> ask(AssistantRemoteRequest request);
+}
+
+/// Resposta mínima da borda remota. Ela não transporta texto, contexto ou
+/// identificadores: enquanto o provedor estiver desligado, só pode informar a
+/// indisponibilidade segura prevista no contrato.
+final class AssistantRemoteResponse {
+  const AssistantRemoteResponse._();
+
+  static const String safeUnavailableStatus = 'safe_unavailable';
+
+  static const AssistantRemoteResponse safeUnavailable =
+      AssistantRemoteResponse._();
+
+  static AssistantRemoteResponse fromCallableData(Object? value) {
+    if (value is! Map<Object?, Object?>) {
+      throw const AssistantFailure(AssistantFailureKind.unavailable);
+    }
+    final Map<Object?, Object?> data = value;
+    if (data.length != 2 ||
+        data['status'] != safeUnavailableStatus ||
+        data['contractVersion'] != AssistantRemoteRequest.contractVersion) {
+      throw const AssistantFailure(AssistantFailureKind.unavailable);
+    }
+    return safeUnavailable;
+  }
+
+  String get safeMessage =>
+      'O Assistente Financeiro está indisponível no momento. '
+      'Nenhuma pergunta foi respondida por um provedor externo.';
 }
 
 /// This remains false in every Flutter build until a separate server-side

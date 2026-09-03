@@ -32,4 +32,15 @@ void main() {
       );
     },
   );
+
+  test('resposta remota não aceita conteúdo, dados ou campos adicionais', () {
+    expect(
+      () => AssistantRemoteResponse.fromCallableData(<String, Object?>{
+        'status': 'safe_unavailable',
+        'contractVersion': AssistantRemoteRequest.contractVersion,
+        'answer': 'conteúdo indevido',
+      }),
+      throwsA(isA<AssistantFailure>()),
+    );
+  });
 }
