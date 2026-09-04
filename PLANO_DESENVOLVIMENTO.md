@@ -12,6 +12,10 @@
 - ASSIST-2H-0 prepara localmente a ponte de contexto financeiro do Assistente;
   ela não acessa banco, Function, provedor ou ambiente externo e permanece
   separada da callable publicada.
+- ASSIST-2J adiciona somente contratos locais de resposta fundamentada,
+  montagem admitida de fixtures e checklist de ativação development. Kill switch
+  e flag do provedor permanecem desligados; qualquer recurso externo exige nova
+  autorização específica.
 - Todas as ações externas de Firebase, Google Cloud e qualquer provedor de IA são exclusivamente manuais pelo solicitante; o agente limita-se a orientar, preparar código autorizado e verificar resultados locais após confirmação. Referências a Gemini nas etapas históricas não representam fornecedor ativo: a ADR-033 exige contrato neutro e nova aprovação antes da escolha.
 
 ## 2. Decisões aprovadas
@@ -1014,6 +1018,21 @@ Situação: codebase `assistant` preparado somente localmente; não há Function
 - A borda usa `firebase-functions` 7.3.2, preserva `southamerica-east1`, 256 MiB, timeout de 30 segundos, concorrência 1, mínimo 0, máximo 1 e App Check obrigatório.
 - A identidade runtime é `defineString` sem valor versionado. Sem o parâmetro no processo de deploy, a configuração não pode ser materializada; nenhum `.env`, e-mail ou projeto entra no repositório.
 - Enquanto o kill switch estiver ativo e o provedor real desligado, a callable exige Auth/e-mail verificado/App Check e retorna somente `safe_unavailable`, sem consultar perfil, contexto, custos, ledger ou qualquer banco. Flash/Pro continuam contratos internos para ativação futura autorizada.
+
+## 59. ASSIST-2I — período financeiro e admissão de contexto
+
+Situação: implementado somente localmente, sem leitor real, acesso a banco,
+Vertex, chamada remota ou deploy.
+
+- Períodos financeiros são civis em `America/Sao_Paulo`, definidos como
+  `[início, fim exclusivo)`; UTC permanece restrito a timestamps técnicos e à
+  janela server-side derivada, incluindo transições históricas de fuso.
+- Cada fato exige fonte permitida, período civil e evidência por alias
+  efêmero. Fonte ausente, período ambíguo, valor sem evidência, dado de
+  terceiro, identificador persistente ou campo extra invalidam o contexto.
+- A admissão fail-closed confirma privacidade, escopo próprio e finito, fontes
+  permitidas e período antes de qualquer leitor futuro. Flash/Pro seguem
+  desligados e a borda continua retornando `safe_unavailable`.
 
 ## 58. ASSIST-2F-0 — codebase Firebase local do Assistente
 

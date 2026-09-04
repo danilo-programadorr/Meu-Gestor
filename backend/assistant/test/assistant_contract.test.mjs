@@ -23,9 +23,14 @@ const context = (overrides = {}) => ({
   ownerVerified: true,
   isFromServer: true,
   hasPendingWrites: false,
-  generatedAt: '2026-08-24T12:00:00.000Z',
-  period: { start: '2026-08-01T03:00:00.000Z', end: '2026-08-24T12:00:00.000Z' },
-  facts: [{ evidenceId: 'monthly_income', source: 'transactions', kind: 'moneyCentsBrl', value: 250000 }],
+  generatedAt: '2026-08-25T03:00:00.000Z',
+  civilPeriod: { timeZone: 'America/Sao_Paulo', startDate: '2026-08-01', endDateExclusive: '2026-08-25' },
+  technicalWindow: { start: '2026-08-01T03:00:00.000Z', endExclusive: '2026-08-25T03:00:00.000Z' },
+  facts: [{
+    evidenceId: 'monthly_income', source: 'transactions', kind: 'moneyCentsBrl', value: 250000,
+    civilPeriod: { timeZone: 'America/Sao_Paulo', startDate: '2026-08-01', endDateExclusive: '2026-08-25' },
+    evidence: { alias: 'monthly_income', source: 'transactions', period: { timeZone: 'America/Sao_Paulo', startDate: '2026-08-01', endDateExclusive: '2026-08-25' } },
+  }],
   missingSources: ['budgets', 'projectedBalance'],
   ...overrides,
 });

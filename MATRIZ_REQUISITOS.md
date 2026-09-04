@@ -524,6 +524,8 @@
 | ASSIST-173 | Isolar artefato Gen 2 sem ativar provedor | P0 | ASSIST-2F-0 | codebase `assistant` Node 22 contém somente `assistRemoteV1`, `firebase-functions` 7.3.2 e parâmetro obrigatório de identidade; sem Admin/Firestore, Vertex, URL, segredo ou leitura de dados | implementado e testado localmente | valor de identidade e deploy development exigem autorização separada | crítico | zero externo |
 | ASSIST-180 | Montar contexto financeiro próprio minimizado | P0 | ASSIST-2H-0 | ponte local cobre contas, lançamentos, compromissos, calendário financeiro, investimentos e proventos por fontes fechadas, aliases efêmeros, período UTC e centavos inteiros | implementado localmente e testado | leitores server-side futuros exigem autorização separada | crítico | zero externo |
 | ASSIST-181 | Falhar fechado sem fonte confirmada ou evidência válida | P0 | ASSIST-2H-0 | fonte não confirmada, campo extra, ID persistido, terceiro, segredo, float, fonte desconhecida ou período inválido invalida toda a montagem | implementado localmente e testado | nenhuma | crítico | zero externo |
+| ASSIST-182 | Usar período financeiro civil e evidência completa | P0 | ASSIST-2I-0 | datas, mês, vencimento, atraso e período usam `America/Sao_Paulo`; UTC é técnico; fato exige fonte, período e evidência | implementado localmente e testado | leitores server-side futuros | crítico | zero externo |
+| ASSIST-183 | Admitir somente contexto próprio e mínimo | P0 | ASSIST-2I-1 | consentimento, privacidade, escopo, fontes e período são validados antes do contexto; ausência ou ambiguidade falha fechada | implementado localmente e testado | integração futura autorizada | crítico | zero externo |
 | ASSIST-173 | Isolar artefato Gen 2 sem ativar provedor | P0 | ASSIST-2F-0 | codebase `assistant` Node 22 contém somente `assistRemoteV1`, `firebase-functions` 7.3.2 e parâmetro obrigatório de identidade; sem Admin/Firestore, Vertex, URL, segredo ou leitura de dados | implementado e testado localmente | valor de identidade e deploy development exigem autorização separada | crítico | zero externo |
 | ASSIST-130 | Ler resposta em voz por opt-in | P0 | ASSIST-VOICE-1A | desligada por padrão; pt-BR nativo; texto visível; pausar, continuar, repetir, parar e velocidade | implementado localmente | voz instalada no Android | médio | zero externo |
 | ASSIST-131 | Interromper voz em fronteiras de privacidade | P0 | ASSIST-VOICE-1A | privacidade, saída, bloqueio/suspensão e troca de conta param; valores ocultos nunca são enviados ao TTS | implementado e testado | controle global e ciclo de vida | crítico | zero externo |
@@ -534,6 +536,14 @@
 | NAV-001 | Atalhos globais acessíveis | P0 | NAV-QUICK-1 | PNGs fornecidos abrem Home, conversa, investimentos e calculadoras, com SafeArea, estado ativo e reserva inferior | implementado localmente | assets versionados | médio | zero externo |
 | FAIR-001 | Preço justo sem dado inventado | P0 | FAIR-VALUE-0 | Graham exige LPA/VPA/cotação positivos, BRL, fonte/data e snapshot atual; ausência é explícita | implementado localmente | fonte automática futura | crítico | zero externo |
 | FAIR-002 | Distinguir BDR e FII | P0 | FAIR-VALUE-0 | BDR aguarda normalização; FII usa somente P/VP e deságio/ágio patrimonial | implementado localmente | contrato de dados futuro | alto | zero externo |
+
+## Incremento ASSIST-2J — resposta fundamentada e prontidão development
+
+| ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |
+|---|---|---:|---:|---|---|---|---|---|
+| ASSIST-2J-001 | Resposta fundamentada | P0 | ASSIST-2J-0 | afirmações referenciam alias efêmero, fonte confirmada e período civil São Paulo; falha retorna resposta segura | local e testado | provedor futuro desligado | crítico | zero externo |
+| ASSIST-2J-002 | Contexto mínimo admitido | P0 | ASSIST-2J-1 | backend injeta leitores após consentimento, privacidade, escopo e período; Flutter não recebe contexto | local e testado com fixtures sintéticas | leitores server-side futuros | crítico | zero externo |
+| ASSIST-2J-003 | Prontidão development | P0 | ASSIST-2J-2 | checklist de identidade, Secret Manager, App Check, consentimento e rollback não ativa provedor; ledger mantém R$5/dia e R$45/mês | local e testado | autorização externa separada | crítico | teto preventivo local |
 
 ## Incremento CALENDAR-1 — calendário financeiro interno
 

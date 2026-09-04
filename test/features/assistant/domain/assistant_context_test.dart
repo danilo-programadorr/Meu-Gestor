@@ -53,16 +53,27 @@ void main() {
   group('AssistantFinancialContext', () {
     test('aceita somente fatos tipados e confirmados pelo servidor', () {
       final DateTime now = DateTime.utc(2026, 8, 24, 12);
+      final AssistantCivilPeriod period = AssistantCivilPeriod(
+        startDate: '2026-08-01',
+        endDateExclusive: '2026-08-25',
+      );
       final AssistantFinancialContext context = AssistantFinancialContext(
         generatedAt: now,
-        periodStart: DateTime.utc(2026, 8, 1, 3),
-        periodEnd: now,
+        civilPeriod: period,
+        technicalWindowStart: DateTime.utc(2026, 8, 1, 3),
+        technicalWindowEndExclusive: now,
         facts: <AssistantContextFact>[
           AssistantContextFact(
             evidenceId: 'monthly_income',
             source: AssistantContextSource.transactions,
             kind: AssistantFactKind.moneyCentsBrl,
             value: 250000,
+            civilPeriod: period,
+            evidence: AssistantFactEvidence(
+              alias: 'monthly_income',
+              source: AssistantContextSource.transactions,
+              period: period,
+            ),
           ),
         ],
         missingSources: const <AssistantContextSource>{
@@ -76,6 +87,24 @@ void main() {
       expect(context.missingSources, contains(AssistantContextSource.budgets));
     });
 
+    test('período civil exige São Paulo e fim exclusivo posterior', () {
+      expect(
+        () => AssistantCivilPeriod(
+          timeZone: 'UTC',
+          startDate: '2026-10-17',
+          endDateExclusive: '2026-10-18',
+        ),
+        throwsA(isA<AssistantFailure>()),
+      );
+      expect(
+        () => AssistantCivilPeriod(
+          startDate: '2026-02-29',
+          endDateExclusive: '2026-02-29',
+        ),
+        throwsA(isA<AssistantFailure>()),
+      );
+    });
+
     test('recusa ponto flutuante, cache, duplicidade e texto sensível', () {
       expect(
         () => AssistantContextFact(
@@ -83,6 +112,18 @@ void main() {
           source: AssistantContextSource.accounts,
           kind: AssistantFactKind.moneyCentsBrl,
           value: 1.5,
+          civilPeriod: AssistantCivilPeriod(
+            startDate: '2026-08-01',
+            endDateExclusive: '2026-08-02',
+          ),
+          evidence: AssistantFactEvidence(
+            alias: 'balance_value',
+            source: AssistantContextSource.accounts,
+            period: AssistantCivilPeriod(
+              startDate: '2026-08-01',
+              endDateExclusive: '2026-08-02',
+            ),
+          ),
         ),
         throwsA(isA<AssistantFailure>()),
       );
@@ -92,6 +133,18 @@ void main() {
           source: AssistantContextSource.categories,
           kind: AssistantFactKind.safeLabel,
           value: 'terceiro@exemplo.com',
+          civilPeriod: AssistantCivilPeriod(
+            startDate: '2026-08-01',
+            endDateExclusive: '2026-08-02',
+          ),
+          evidence: AssistantFactEvidence(
+            alias: 'unsafe_label',
+            source: AssistantContextSource.categories,
+            period: AssistantCivilPeriod(
+              startDate: '2026-08-01',
+              endDateExclusive: '2026-08-02',
+            ),
+          ),
         ),
         throwsA(isA<AssistantFailure>()),
       );
@@ -101,12 +154,28 @@ void main() {
         source: AssistantContextSource.accounts,
         kind: AssistantFactKind.moneyCentsBrl,
         value: 100,
+        civilPeriod: AssistantCivilPeriod(
+          startDate: '2026-08-01',
+          endDateExclusive: '2026-08-02',
+        ),
+        evidence: AssistantFactEvidence(
+          alias: 'account_balance',
+          source: AssistantContextSource.accounts,
+          period: AssistantCivilPeriod(
+            startDate: '2026-08-01',
+            endDateExclusive: '2026-08-02',
+          ),
+        ),
       );
       expect(
         () => AssistantFinancialContext(
           generatedAt: DateTime.utc(2026, 8, 24),
-          periodStart: DateTime.utc(2026, 8, 1),
-          periodEnd: DateTime.utc(2026, 8, 24),
+          civilPeriod: AssistantCivilPeriod(
+            startDate: '2026-08-01',
+            endDateExclusive: '2026-08-25',
+          ),
+          technicalWindowStart: DateTime.utc(2026, 8, 1),
+          technicalWindowEndExclusive: DateTime.utc(2026, 8, 24),
           facts: <AssistantContextFact>[fact, fact],
           missingSources: const <AssistantContextSource>{},
           isFromServer: false,

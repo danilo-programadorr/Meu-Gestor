@@ -119,6 +119,21 @@ ASSIST-2E-0 fixa localmente o nome `assistRemoteV1` e as opções conservadoras 
 
 ASSIST-2F-0 adiciona somente o artefato local do codebase `assistant`. Ele contém uma única callable e usa a identidade runtime como parâmetro obrigatório sem valor versionado. Não importa Firebase Admin nem qualquer cliente Firestore, portanto não pode acessar o banco `(default)`, coleções financeiras ou `assistant-controls-dev`. Com provedor desligado, Auth, e-mail verificado e App Check são validados antes de uma resposta fixa `safe_unavailable`; nenhuma leitura de perfil, consentimento, contexto, uso ou ledger ocorre. A publicação development, o valor do parâmetro e todo acesso a dados dependem de autorização separada.
 
+ASSIST-2I-0/1 define período financeiro civil `America/Sao_Paulo` como
+`[início, fim exclusivo)`. UTC é permitido somente para auditoria técnica e
+janela server-side. Cada fato requer fonte fechada, período civil e evidência
+por alias efêmero; fonte ausente, período ambíguo, valor sem evidência,
+identidade, terceiro ou campo extra falham fechados. A admissão valida
+consentimento, privacidade, escopo próprio e finito antes de qualquer leitor
+futuro. Owner não possui bypass e o provedor segue desligado.
+
+ASSIST-2J mantém a resposta fundamentada no lado servidor: toda afirmação
+financeira exige alias de evidência efêmero, fonte permitida e período civil
+validado. Identidade, terceiros, segredo, recomendação, número não comprovado
+ou estrutura extra são descartados por resposta segura. A prontidão não contém
+identidade runtime, segredo ou configuração real e não permite ativação
+enquanto kill switch e flag do provedor permanecerem desligados.
+
 ASSIST-2F-0 adiciona somente o artefato local do codebase `assistant`. Ele contém uma única callable e usa a identidade runtime como parâmetro obrigatório sem valor versionado. Não importa Firebase Admin nem qualquer cliente Firestore, portanto não pode acessar o banco `(default)`, coleções financeiras ou `assistant-controls-dev`. Com provedor desligado, Auth, e-mail verificado e App Check são validados antes de uma resposta fixa `safe_unavailable`; nenhuma leitura de perfil, consentimento, contexto, uso ou ledger ocorre. A publicação development, o valor do parâmetro e todo acesso a dados dependem de autorização separada.
 
 ## Entitlement Premium — SUB-1A/SUB-1B/SUB-1C

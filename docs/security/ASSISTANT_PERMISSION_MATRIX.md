@@ -46,6 +46,16 @@ O leitor futuro continua server-side, com UID próprio apenas no limite interno.
 Ele não autoriza acesso ao banco `(default)` pela callable atual nem expõe
 identidade, segredo, estrutura interna ou dado de terceiro ao provedor.
 
+## Período e admissão ASSIST-2I
+
+| Condição | Decisão | Controle |
+|---|---|---|
+| período financeiro | permitir | somente `America/Sao_Paulo`, `[início, fim exclusivo)` |
+| UTC financeiro, período ambíguo ou valor sem evidência | negar | validação estrita antes do leitor |
+| fonte própria fechada e confirmada | permitir | alias efêmero, fonte, período e evidência por fato |
+| UID, e-mail, terceiro, ID persistente, segredo ou escopo excessivo | negar | admissão fail-closed sem contexto parcial |
+| privacidade financeira ativa | negar | antes de montar ou ler contexto |
+
 ## Casos negativos obrigatórios
 
 Ausência ou divergência de Auth, App Check, e-mail, perfil, UID, consentimento, versão, confirmação do servidor ou evidência falha antes de liberar resposta. Campos extras do cliente, contexto fornecido pelo cliente, segredos, identificadores pessoais longos e evidência desconhecida são recusados. Resposta de provedor não executa mutação.

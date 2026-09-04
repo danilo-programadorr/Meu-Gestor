@@ -1,5 +1,11 @@
 # Changelog
 
+## Em desenvolvimento
+
+- ASSIST-2J: contrato de resposta fundamentada por evidência efêmera, montagem
+  mínima de contexto admitido e checklist local de ativação development, sem
+  chamada remota, identidade, segredo ou recurso externo.
+
 Todas as mudanças relevantes deste projeto serão documentadas neste arquivo.
 
 O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o projeto pretende adotar [Versionamento Semântico](https://semver.org/lang/pt-BR/) quando iniciar lançamentos versionados.
@@ -8,6 +14,12 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 ### Adicionado
 
+- ASSIST-2I-0/1 torna o período financeiro do contexto do Assistente civil em
+  `America/Sao_Paulo`, com limites inclusivo/exclusivo, evidência por fato e
+  testes de virada de dia/mês e horário de verão histórico; a admissão local
+  fail-closed bloqueia privacidade ativa, escopo/fonte/período inválidos antes
+  de qualquer leitor futuro. Flash/Pro e toda chamada remota continuam
+  desligados;
 - ASSIST-2H-0 adiciona uma ponte local e fail-closed para contexto financeiro
   do Assistente: contas, lançamentos, compromissos, calendário financeiro,
   investimentos e proventos entram somente por leitores injetados confirmados,

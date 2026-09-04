@@ -1,6 +1,7 @@
 import { deny } from './errors.mjs';
+import { ASSISTANT_CIVIL_TIME_ZONE, validateCivilPeriod } from './sao_paulo_civil_time.mjs';
 
-export const ASSISTANT_FINANCIAL_CONTEXT_POLICY_VERSION = 'assist-financial-context-v1';
+export const ASSISTANT_FINANCIAL_CONTEXT_POLICY_VERSION = 'assist-financial-context-v2';
 
 const sourcePlans = Object.freeze([
   Object.freeze({ reader: 'accounts', sources: Object.freeze(['accounts']) }),
@@ -20,6 +21,7 @@ const factKinds = new Set([
   'basisPoints',
   'booleanValue',
   'utcInstant',
+  'civilDate',
   'safeLabel',
 ]);
 
@@ -56,6 +58,8 @@ const validateFact = (fact, allowedSources) => {
       ? typeof fact.value === 'boolean'
       : fact.kind === 'utcInstant'
         ? typeof fact.value === 'string' && asUtcIso(fact.value) === fact.value
+        : fact.kind === 'civilDate'
+          ? /^\d{4}-\d{2}-\d{2}$/.test(fact.value)
         : fact.kind === 'safeLabel'
           ? !unsafeText(fact.value)
           : false;
@@ -83,15 +87,11 @@ const validateActor = (actor) => {
 };
 
 const validatePeriod = (period, generatedAt) => {
-  if (!exactKeys(period, ['start', 'end'])) throw deny('assistant_invalid_context');
-  const start = asUtcIso(period.start);
-  const end = asUtcIso(period.end);
-  if (Date.parse(end) < Date.parse(start)
-      || Date.parse(generatedAt) < Date.parse(end)
-      || Date.parse(end) - Date.parse(start) > 366 * 24 * 60 * 60 * 1000) {
+  const normalized = validateCivilPeriod(period);
+  if (Date.parse(generatedAt) < Date.parse(normalized.technicalWindow.endExclusive)) {
     throw deny('assistant_invalid_context');
   }
-  return Object.freeze({ start, end });
+  return normalized;
 };
 
 /**
@@ -112,12 +112,22 @@ export class AssistantFinancialContextBridge {
     validateActor(actor);
     const generatedAt = asUtcIso(this.clock.now().toISOString());
     const normalizedPeriod = validatePeriod(period, generatedAt);
+    const providerPeriod = Object.freeze({
+      timeZone: ASSISTANT_CIVIL_TIME_ZONE,
+      startDate: normalizedPeriod.startDate,
+      endDateExclusive: normalizedPeriod.endDateExclusive,
+    });
     const facts = [];
     let aliasSequence = 0;
 
     for (const plan of sourcePlans) {
       const snapshot = validateSnapshot(
-        await this.sourceReaders.readOwnSource({ ownerUid: actor.uid, reader: plan.reader, period: normalizedPeriod }),
+        await this.sourceReaders.readOwnSource({
+          ownerUid: actor.uid,
+          reader: plan.reader,
+          period: providerPeriod,
+          technicalWindow: normalizedPeriod.technicalWindow,
+        }),
         plan,
       );
       if (!snapshot.confirmed) {
@@ -125,11 +135,18 @@ export class AssistantFinancialContextBridge {
       }
       for (const fact of snapshot.facts) {
         aliasSequence += 1;
+        const evidenceId = `ev_${fact.source.toLowerCase()}_${String(aliasSequence).padStart(3, '0')}`;
         facts.push(Object.freeze({
-          evidenceId: `ev_${fact.source.toLowerCase()}_${String(aliasSequence).padStart(3, '0')}`,
+          evidenceId,
           source: fact.source,
           kind: fact.kind,
           value: fact.value,
+          civilPeriod: providerPeriod,
+          evidence: Object.freeze({
+            alias: evidenceId,
+            source: fact.source,
+            period: providerPeriod,
+          }),
         }));
       }
     }
@@ -139,7 +156,8 @@ export class AssistantFinancialContextBridge {
       isFromServer: true,
       hasPendingWrites: false,
       generatedAt,
-      period: normalizedPeriod,
+      civilPeriod: providerPeriod,
+      technicalWindow: normalizedPeriod.technicalWindow,
       facts: Object.freeze(facts),
       missingSources: Object.freeze([]),
     });

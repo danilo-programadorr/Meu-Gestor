@@ -28,9 +28,14 @@ const context = () => ({
   isFromServer: true,
   hasPendingWrites: false,
   ownerVerified: true,
-  generatedAt: '2026-08-30T00:00:00.000Z',
-  period: { start: '2026-08-01T00:00:00.000Z', end: '2026-08-30T00:00:00.000Z' },
-  facts: [{ evidenceId: 'saldo_confirmado', source: 'dashboardSummary', kind: 'moneyCentsBrl', value: 75000 }],
+  generatedAt: '2026-08-31T03:00:00.000Z',
+  civilPeriod: { timeZone: 'America/Sao_Paulo', startDate: '2026-08-01', endDateExclusive: '2026-08-31' },
+  technicalWindow: { start: '2026-08-01T03:00:00.000Z', endExclusive: '2026-08-31T03:00:00.000Z' },
+  facts: [{
+    evidenceId: 'saldo_confirmado', source: 'dashboardSummary', kind: 'moneyCentsBrl', value: 75000,
+    civilPeriod: { timeZone: 'America/Sao_Paulo', startDate: '2026-08-01', endDateExclusive: '2026-08-31' },
+    evidence: { alias: 'saldo_confirmado', source: 'dashboardSummary', period: { timeZone: 'America/Sao_Paulo', startDate: '2026-08-01', endDateExclusive: '2026-08-31' } },
+  }],
   missingSources: [],
 });
 

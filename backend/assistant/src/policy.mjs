@@ -1,4 +1,5 @@
 import { deny } from './errors.mjs';
+import { validateCivilPeriod } from './sao_paulo_civil_time.mjs';
 
 export const ASSISTANT_POLICY_VERSION = 'assist-context-v1';
 export const MEMORY_MODE = 'none';
@@ -15,7 +16,7 @@ const unavailableSources = new Set([
 ]);
 const factKinds = new Set([
   'moneyCentsBrl', 'integer', 'basisPoints', 'booleanValue', 'utcInstant',
-  'safeLabel',
+  'civilDate', 'safeLabel',
 ]);
 
 const exactKeys = (value, keys) => {
@@ -69,31 +70,58 @@ export const assertAuthorized = (authorization) => {
 };
 
 export const assertConfirmedContext = (context) => {
-  if (!exactKeys(context, ['ownerVerified', 'isFromServer', 'hasPendingWrites', 'generatedAt', 'period', 'facts', 'missingSources'])
+  if (!exactKeys(context, ['ownerVerified', 'isFromServer', 'hasPendingWrites', 'generatedAt', 'civilPeriod', 'technicalWindow', 'facts', 'missingSources'])
       || !context.isFromServer
       || context.hasPendingWrites
       || context.ownerVerified !== true
       || typeof context.generatedAt !== 'string'
       || Number.isNaN(Date.parse(context.generatedAt))
-      || !exactKeys(context.period, ['start', 'end'])
-      || typeof context.period.start !== 'string'
-      || typeof context.period.end !== 'string'
-      || Number.isNaN(Date.parse(context.period.start))
-      || Number.isNaN(Date.parse(context.period.end))
-      || Date.parse(context.period.end) < Date.parse(context.period.start)
-      || Date.parse(context.generatedAt) < Date.parse(context.period.end)
+      || !exactKeys(context.technicalWindow, ['start', 'endExclusive'])
+      || typeof context.technicalWindow.start !== 'string'
+      || typeof context.technicalWindow.endExclusive !== 'string'
+      || Number.isNaN(Date.parse(context.technicalWindow.start))
+      || Number.isNaN(Date.parse(context.technicalWindow.endExclusive))
+      || Date.parse(context.technicalWindow.endExclusive) <= Date.parse(context.technicalWindow.start)
+      || Date.parse(context.generatedAt) < Date.parse(context.technicalWindow.endExclusive)
       || !Array.isArray(context.facts)
       || !Array.isArray(context.missingSources)
       || new Set(context.missingSources).size !== context.missingSources.length
       || context.missingSources.some((source) => !unavailableSources.has(source))) throw deny('assistant_invalid_context');
+  let civilPeriod;
+  try {
+    civilPeriod = validateCivilPeriod(context.civilPeriod);
+  } catch {
+    throw deny('assistant_invalid_context');
+  }
+  if (civilPeriod.technicalWindow.start !== context.technicalWindow.start
+      || civilPeriod.technicalWindow.endExclusive !== context.technicalWindow.endExclusive) {
+    throw deny('assistant_invalid_context');
+  }
   const ids = new Set();
   for (const fact of context.facts) {
     const integerKind = ['moneyCentsBrl', 'integer', 'basisPoints'].includes(fact.kind);
     const validValue = integerKind ? Number.isSafeInteger(fact.value) :
       fact.kind === 'booleanValue' ? typeof fact.value === 'boolean' :
         fact.kind === 'utcInstant' ? typeof fact.value === 'string' && !Number.isNaN(Date.parse(fact.value)) :
+          fact.kind === 'civilDate' ? /^\d{4}-\d{2}-\d{2}$/.test(fact.value) :
           fact.kind === 'safeLabel' ? !unsafeText(fact.value) && fact.value.length <= 80 : false;
-    if (!exactKeys(fact, ['evidenceId', 'source', 'kind', 'value']) || !/^[a-z][a-z0-9_]{2,63}$/.test(fact.evidenceId) || ids.has(fact.evidenceId) || !availableSources.has(fact.source) || !factKinds.has(fact.kind) || !validValue) throw deny('assistant_invalid_context');
+    if (!exactKeys(fact, ['evidenceId', 'source', 'kind', 'value', 'civilPeriod', 'evidence'])
+        || !/^[a-z][a-z0-9_]{2,63}$/.test(fact.evidenceId)
+        || ids.has(fact.evidenceId)
+        || !availableSources.has(fact.source)
+        || !factKinds.has(fact.kind)
+        || !validValue
+        || !exactKeys(fact.evidence, ['alias', 'source', 'period'])
+        || fact.evidence.alias !== fact.evidenceId
+        || fact.evidence.source !== fact.source
+        || JSON.stringify(fact.civilPeriod) !== JSON.stringify(context.civilPeriod)
+        || JSON.stringify(fact.evidence.period) !== JSON.stringify(context.civilPeriod)) throw deny('assistant_invalid_context');
+    try {
+      validateCivilPeriod(fact.civilPeriod);
+      validateCivilPeriod(fact.evidence.period);
+    } catch {
+      throw deny('assistant_invalid_context');
+    }
     ids.add(fact.evidenceId);
   }
   return ids;

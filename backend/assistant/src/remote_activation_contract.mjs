@@ -1,5 +1,6 @@
 import { AssistantModelRouter } from './model_router.mjs';
 import { ASSISTANT_REAL_PROVIDER_FEATURE_ENABLED, resolveAssistantModelExecution } from './dual_model_execution.mjs';
+import { admitOwnFinancialContext, DEFAULT_ASSISTANT_CONTEXT_SCOPE } from './context_admission.mjs';
 import { assertAuthorized, assertConfirmedContext, validateClientRequest } from './policy.mjs';
 
 export const ASSISTANT_FLUTTER_CONTRACT_VERSION = 'assist-remote-v1';
@@ -40,6 +41,11 @@ export const prepareAssistantRemoteActivation = ({
 }) => {
   validateFlutterAssistantRequest(flutterRequest);
   assertAuthorized(authorization);
+  admitOwnFinancialContext({
+    authorization,
+    scope: DEFAULT_ASSISTANT_CONTEXT_SCOPE,
+    civilPeriod: context?.civilPeriod,
+  });
   assertConfirmedContext(context);
   const routing = modelRouter.route({
     message: flutterRequest.message,

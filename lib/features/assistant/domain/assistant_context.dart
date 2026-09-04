@@ -165,7 +165,63 @@ enum AssistantFactKind {
   basisPoints,
   booleanValue,
   utcInstant,
+  civilDate,
   safeLabel,
+}
+
+/// Período financeiro explícito: início incluso e fim exclusivo, sempre na
+/// convenção civil de São Paulo. Instantes UTC ficam reservados à telemetria
+/// técnica e à janela de leitura do servidor.
+final class AssistantCivilPeriod {
+  AssistantCivilPeriod({
+    required this.startDate,
+    required this.endDateExclusive,
+    this.timeZone = AssistantFinancialContext.civilTimeZone,
+  }) {
+    final DateTime? start = _parseCivilDate(startDate);
+    final DateTime? end = _parseCivilDate(endDateExclusive);
+    if (timeZone != AssistantFinancialContext.civilTimeZone ||
+        start == null ||
+        end == null ||
+        !end.isAfter(start)) {
+      throw const AssistantFailure(AssistantFailureKind.invalidContext);
+    }
+  }
+
+  final String timeZone;
+  final String startDate;
+  final String endDateExclusive;
+
+  static DateTime? _parseCivilDate(String value) {
+    if (!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(value)) return null;
+    final List<String> parts = value.split('-');
+    final int? year = int.tryParse(parts[0]);
+    final int? month = int.tryParse(parts[1]);
+    final int? day = int.tryParse(parts[2]);
+    if (year == null || month == null || day == null) return null;
+    final DateTime parsed = DateTime.utc(year, month, day);
+    if (parsed.year != year || parsed.month != month || parsed.day != day) {
+      return null;
+    }
+    return parsed;
+  }
+}
+
+final class AssistantFactEvidence {
+  AssistantFactEvidence({
+    required this.alias,
+    required this.source,
+    required this.period,
+  }) {
+    if (!_safeIdentifier.hasMatch(alias)) {
+      throw const AssistantFailure(AssistantFailureKind.invalidContext);
+    }
+  }
+
+  static final RegExp _safeIdentifier = RegExp(r'^[a-z][a-z0-9_]{2,63}$');
+  final String alias;
+  final AssistantContextSource source;
+  final AssistantCivilPeriod period;
 }
 
 final class AssistantContextFact {
@@ -174,12 +230,19 @@ final class AssistantContextFact {
     required this.source,
     required this.kind,
     required this.value,
+    required this.civilPeriod,
+    required this.evidence,
   }) {
     if (!_safeIdentifier.hasMatch(evidenceId) ||
         value is double ||
         value is List ||
         value is Map ||
         !_matchesKind(kind, value) ||
+        evidence.alias != evidenceId ||
+        evidence.source != source ||
+        evidence.period.timeZone != civilPeriod.timeZone ||
+        evidence.period.startDate != civilPeriod.startDate ||
+        evidence.period.endDateExclusive != civilPeriod.endDateExclusive ||
         (value is String && !AssistantContentSafety.isSafe(value as String))) {
       throw const AssistantFailure(AssistantFailureKind.invalidContext);
     }
@@ -190,6 +253,8 @@ final class AssistantContextFact {
   final AssistantContextSource source;
   final AssistantFactKind kind;
   final Object value;
+  final AssistantCivilPeriod civilPeriod;
+  final AssistantFactEvidence evidence;
 
   static bool _matchesKind(AssistantFactKind kind, Object value) =>
       switch (kind) {
@@ -198,6 +263,8 @@ final class AssistantContextFact {
         AssistantFactKind.basisPoints => value is int,
         AssistantFactKind.booleanValue => value is bool,
         AssistantFactKind.utcInstant => value is DateTime && value.isUtc,
+        AssistantFactKind.civilDate =>
+          value is String && RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(value),
         AssistantFactKind.safeLabel =>
           value is String && value.trim().isNotEmpty && value.length <= 80,
       };
@@ -231,8 +298,9 @@ abstract final class AssistantContentSafety {
 final class AssistantFinancialContext {
   AssistantFinancialContext({
     required this.generatedAt,
-    required this.periodStart,
-    required this.periodEnd,
+    required this.civilPeriod,
+    required this.technicalWindowStart,
+    required this.technicalWindowEndExclusive,
     required this.facts,
     required this.missingSources,
     required this.isFromServer,
@@ -242,10 +310,10 @@ final class AssistantFinancialContext {
         .map((fact) => fact.evidenceId)
         .toSet();
     if (!generatedAt.isUtc ||
-        !periodStart.isUtc ||
-        !periodEnd.isUtc ||
-        periodEnd.isBefore(periodStart) ||
-        generatedAt.isBefore(periodEnd) ||
+        !technicalWindowStart.isUtc ||
+        !technicalWindowEndExclusive.isUtc ||
+        !technicalWindowEndExclusive.isAfter(technicalWindowStart) ||
+        generatedAt.isBefore(technicalWindowEndExclusive) ||
         evidenceIds.length != facts.length ||
         !isFromServer ||
         hasPendingWrites) {
@@ -258,8 +326,9 @@ final class AssistantFinancialContext {
   static const String currency = 'BRL';
   static const String civilTimeZone = 'America/Sao_Paulo';
   final DateTime generatedAt;
-  final DateTime periodStart;
-  final DateTime periodEnd;
+  final AssistantCivilPeriod civilPeriod;
+  final DateTime technicalWindowStart;
+  final DateTime technicalWindowEndExclusive;
   final List<AssistantContextFact> facts;
   final Set<AssistantContextSource> missingSources;
   final bool isFromServer;

@@ -71,6 +71,17 @@ ASSIST-VOICE-2A acrescenta uma rota de conversa local. Após explicação e aç�
 - A ponte não é ligada à callable nesta etapa. O acesso futuro ao banco padrão
   depende de autorização, identidade mínima e auditoria próprios.
 
+## Período e admissão local ASSIST-2I
+
+- Todo período financeiro é civil em `America/Sao_Paulo`, com início incluso e
+  fim exclusivo; UTC serve apenas a `generatedAt` e à janela técnica do
+  servidor. Viradas de dia/mês e o horário de verão histórico são cobertos.
+- Cada fato leva fonte fechada, período civil e evidência por alias efêmero.
+  Fonte ausente, período ambíguo ou valor sem evidência invalidam a montagem.
+- A admissão fail-closed ocorre antes de leitores futuros e exige contexto
+  próprio, escopo finito e privacidade financeira desativada. O cliente não
+  fornece identidade, valores, IDs ou instruções de provedor.
+
 ## Voz local ASSIST-VOICE-1A
 
 - a opção aparece antes de `Consultar`, começa desligada e não substitui a resposta textual;
@@ -137,7 +148,18 @@ Entitlement, cobrança, concessão de teste, owner, operações de privacidade, 
 
 ## Fontes e explicabilidade
 
-Cada fato recebe um `evidenceId` efêmero e uma fonte conhecida. A resposta não pode introduzir fatos sem evidência. Horários são UTC no transporte e datas civis seguem `America/Sao_Paulo`. Dinheiro usa centavos BRL; valores escalados nunca usam ponto flutuante.
+Cada fato recebe um `evidenceId` efêmero, fonte conhecida, período civil e
+evidência correspondente. A resposta não pode introduzir fatos sem evidência.
+UTC é técnico; datas, vencimentos, atrasos e períodos financeiros seguem
+`America/Sao_Paulo`. Dinheiro usa centavos BRL; valores escalados nunca usam
+ponto flutuante.
+
+ASSIST-2J adiciona resposta neutra estruturada: cada afirmação aponta somente
+para alias efêmero, fonte confirmada e período civil correspondente. Texto com
+recomendação, identidade, segredo, fonte/período inválido ou número não provado
+retorna `safe_unavailable`; Flutter renderiza somente referências, nunca o
+contexto de montagem. A montagem backend-only ocorre após consentimento,
+privacidade, escopo e período fail-closed.
 
 O texto final deve distinguir fato confirmado, cálculo determinístico, estimativa, hipótese e dado ausente. Cotações são informativas e atrasadas. Nenhuma saída constitui recomendação de comprar, vender ou manter.
 
@@ -155,3 +177,11 @@ Reset financeiro, exclusão de conta, autenticação, assinatura, owner, seguran
 - política técnica de exclusão no provedor e avaliação de retenção zero;
 - testes adversariais, qualidade financeira e comportamento em indisponibilidade;
 - autorização específica para qualquer Rule, segredo, recurso externo ou deploy.
+
+## Prontidão development do ASSIST-2J
+
+O checklist local exige identidade runtime, Secret Manager, App Check,
+consentimento e rollback em autorização externa futura. Ele não guarda valores
+de configuração e não pode ativar o provedor. O kill switch segue ativo, Flash
+é a rota lógica padrão, Pro é backend-only e o ledger preserva R$5/dia e
+R$45/mês.
