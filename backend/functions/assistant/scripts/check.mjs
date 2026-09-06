@@ -1,3 +1,7 @@
+/**
+ * Responsabilidade: bloqueia dependências e configurações proibidas no
+ * artefato Functions antes de um deploy manual futuro.
+ */
 import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';

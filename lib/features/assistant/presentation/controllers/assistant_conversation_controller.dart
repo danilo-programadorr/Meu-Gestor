@@ -1,3 +1,5 @@
+// Responsabilidade: coordena reconhecimento temporário, ciclo de vida e
+// transcrição local do modo de conversa sem persistir áudio.
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,6 +23,7 @@ assistantConversationControllerProvider =
       AssistantConversationState
     >(AssistantConversationController.new);
 
+/// Mantém operações monotônicas para descartar retornos tardios com segurança.
 final class AssistantConversationController
     extends Notifier<AssistantConversationState> {
   late AssistantSpeechRecognizer _recognizer;
@@ -40,6 +43,7 @@ final class AssistantConversationController
     return const AssistantConversationState.initial();
   }
 
+  /// Inicia escuta somente quando privacidade e disponibilidade permitem.
   Future<void> activate({required bool canUseVoice}) async {
     if (!canUseVoice) {
       _setPrivacyBlocked();

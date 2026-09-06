@@ -2,6 +2,14 @@
 
 ## Em desenvolvimento
 
+- ASSIST-2K prepara localmente a ponte oficial Vertex do backend: carregamento
+  dinâmico sob ADC, Flash padrão/Pro interno, JSON estruturado, limite máximo
+  por tier e barreira de evidências. Flag falsa, kill switch ativo e adapters
+  de dados fail-closed impedem cliente, credencial, rede, Firestore ou envio de
+  dado enquanto a integração permanecer desativada;
+- NPM-VERTEX-UUID-REMEDIATION-2 fixa gaxios 6.3.0 exclusivamente na cadeia
+  transitiva do SDK Vertex e deixa a árvore de produção sem alertas, sem
+  atualização major, dependência adicional ou alteração de runtime ativo;
 - ASSIST-2J: contrato de resposta fundamentada por evidência efêmera, montagem
   mínima de contexto admitido e checklist local de ativação development, sem
   chamada remota, identidade, segredo ou recurso externo.

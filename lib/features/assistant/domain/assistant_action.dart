@@ -1,3 +1,5 @@
+// Responsabilidade: classifica ações do Assistente como leitura, proposta ou
+// proibida, preservando a confirmação em executores financeiros separados.
 import 'assistant_failure.dart';
 
 enum AssistantActionKind {
@@ -20,6 +22,7 @@ enum AssistantActionKind {
 
 enum AssistantActionDecision { readOnly, proposalOnly, forbidden }
 
+/// Centraliza a decisão para evitar que telas liberem mutações por conta própria.
 abstract final class AssistantPermissionPolicy {
   static AssistantActionDecision decisionFor(
     AssistantActionKind kind,

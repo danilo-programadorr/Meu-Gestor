@@ -1,9 +1,16 @@
+/**
+ * Responsabilidade: admite autorização e período antes de delegar a montagem
+ * de contexto próprio ao bridge injetado.
+ */
 import { admitOwnFinancialContext } from './context_admission.mjs';
 import { deny } from './errors.mjs';
 
 export const ASSISTANT_AUTHORIZED_CONTEXT_ASSEMBLER_VERSION = 'assist-authorized-context-assembler-v1';
 
 /** Source readers are injected server-side; this boundary knows no network or provider. */
+/**
+ * Não conhece rede nem provedor; somente preserva a fronteira server-side.
+ */
 export class AssistantAuthorizedContextAssembler {
   constructor({ bridge }) {
     if (!bridge || typeof bridge.buildOwnConfirmedContext !== 'function') {

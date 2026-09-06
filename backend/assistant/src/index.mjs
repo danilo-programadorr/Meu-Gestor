@@ -31,10 +31,12 @@ export {
   validateCivilPeriod,
 } from './sao_paulo_civil_time.mjs';
 export {
+  ASSISTANT_MAXIMUM_VERTEX_COST_CENTS,
   ASSISTANT_REMOTE_CALLABLE_OPTIONS,
   ASSISTANT_SAFE_UNAVAILABLE,
   createAssistRemoteV1Callables,
 } from './firebase_gen2_callable.mjs';
+export { ASSISTANT_VERTEX_LOCATION, createVertexRuntimeGateway } from './vertex_runtime_gateway.mjs';
 export {
   ASSISTANT_REMOTE_FUNCTION_NAME,
   getAssistRemoteV1Gen2Options,

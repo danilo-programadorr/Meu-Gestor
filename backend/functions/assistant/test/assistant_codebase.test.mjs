@@ -2,7 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 
-import { ASSISTANT_FUNCTION_OPTIONS, assistantRuntimeServiceAccount } from '../src/function_options.mjs';
+import {
+  ASSISTANT_FUNCTION_OPTIONS,
+  assistantKillSwitchActive,
+  assistantProviderFeatureEnabled,
+  assistantRuntimeServiceAccount,
+} from '../src/function_options.mjs';
 import { createFailClosedAssistantDependencies } from '../src/fail_closed_dependencies.mjs';
 
 class FakeHttpsError extends Error {
@@ -25,7 +30,10 @@ test('codebase assistant é exclusivo, Node 22 e aponta somente à callable prev
 
   const manifest = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
   assert.equal(manifest.engines.node, '22');
-  assert.deepEqual(manifest.dependencies, { 'firebase-functions': '7.3.2' });
+  assert.deepEqual(manifest.dependencies, {
+    '@google-cloud/vertexai': '1.12.0',
+    'firebase-functions': '7.3.2',
+  });
 });
 
 test('runtime identity é parâmetro sem valor versionado e opções são conservadoras', () => {
@@ -41,16 +49,21 @@ test('runtime identity é parâmetro sem valor versionado e opções são conser
     enforceAppCheck: true,
   });
   assert.equal(process.env.ASSISTANT_RUNTIME_SERVICE_ACCOUNT, undefined);
+  assert.equal(assistantProviderFeatureEnabled.value(), false);
+  assert.equal(assistantKillSwitchActive.value(), true);
 });
 
 test('adapters sem banco falham fechados antes de qualquer leitura futura', async () => {
-  const dependencies = createFailClosedAssistantDependencies({ HttpsError: FakeHttpsError });
+  const dependencies = createFailClosedAssistantDependencies({
+    HttpsError: FakeHttpsError,
+    providerGateway: { generate: async () => { throw new Error('provider_must_not_run'); } },
+  });
   for (const action of [dependencies.authorizationReader, dependencies.contextReader, dependencies.usageReader, dependencies.ledger.reserve]) {
     await assert.rejects(action(), (error) => error.code === 'failed-precondition');
   }
 });
 
-test('artefato não contém Admin, Firestore, Vertex, URL externa, segredo ou acesso ao banco padrão', async () => {
+test('artefato não contém Admin, Firestore, URL externa, segredo ou acesso ao banco padrão', async () => {
   const sources = await Promise.all([
     readFile(new URL('../index.mjs', import.meta.url), 'utf8'),
     readFile(new URL('../src/function_options.mjs', import.meta.url), 'utf8'),
@@ -58,6 +71,17 @@ test('artefato não contém Admin, Firestore, Vertex, URL externa, segredo ou ac
   ]);
   const source = sources.join('\n');
   assert.doesNotMatch(source, /from\s+['"]firebase-admin|firebase-admin\/firestore|getFirestore\(/iu);
-  assert.doesNotMatch(source, /vertex|aiplatform|https?:\/\//iu);
+  assert.doesNotMatch(source, /https?:\/\//iu);
   assert.doesNotMatch(source, /secretmanager|api[_-]?key|private[_-]?key|process\.env/iu);
+});
+
+test('ponte Vertex é dinâmica, genérica e não abre cliente com circuito desligado', async () => {
+  const source = await readFile(
+    new URL('../../../assistant/src/vertex_runtime_gateway.mjs', import.meta.url),
+    'utf8',
+  );
+  assert.match(source, /await import\('@google-cloud\/vertexai'\)/u);
+  assert.match(source, /process\.env\.GCLOUD_PROJECT/u);
+  assert.doesNotMatch(source, /firebase-admin|getFirestore\(|https?:\/\/|secretmanager|console\./iu);
+  assert.doesNotMatch(source, /meu-gestor-financeiro|AIza|private[_-]?key|serviceAccountKey/iu);
 });

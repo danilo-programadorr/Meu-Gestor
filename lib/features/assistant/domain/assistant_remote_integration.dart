@@ -1,3 +1,5 @@
+// Responsabilidade: define o contrato mínimo entre Flutter e a borda remota,
+// sem permitir identidade, contexto, modelo ou credencial do cliente.
 import 'assistant_context.dart';
 import 'assistant_failure.dart';
 import 'assistant_repository.dart';
@@ -52,6 +54,7 @@ final class AssistantRemoteResponse {
 
 /// This remains false in every Flutter build until a separate server-side
 /// activation is approved. It is not a remotely configurable client switch.
+/// Mantém a chamada remota impossível em qualquer build até nova ativação.
 abstract final class AssistantRemoteIntegrationPolicy {
   static const bool realCallsEnabled = false;
 }

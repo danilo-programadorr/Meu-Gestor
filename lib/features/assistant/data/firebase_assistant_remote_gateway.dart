@@ -1,3 +1,5 @@
+// Responsabilidade: mantém a fronteira Flutter da callable estrita e
+// desligada por padrão, sem montar ou transmitir contexto financeiro.
 import 'dart:async';
 
 import 'package:cloud_functions/cloud_functions.dart';
@@ -36,6 +38,8 @@ final class FirebaseAssistantRemoteGateway implements AssistantRemoteGateway {
   final AssistantRemoteCallableInvoker _invoker;
   final Duration _timeout;
 
+  /// Retorna indisponibilidade local antes de qualquer rede quando a política
+  /// remota ainda estiver fechada.
   @override
   Future<AssistantRemoteResponse> ask(AssistantRemoteRequest request) async {
     if (!AssistantRemoteIntegrationPolicy.realCallsEnabled) {

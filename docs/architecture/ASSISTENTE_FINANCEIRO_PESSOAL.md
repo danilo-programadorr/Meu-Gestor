@@ -82,6 +82,26 @@ ASSIST-VOICE-2A acrescenta uma rota de conversa local. Após explicação e aç�
   próprio, escopo finito e privacidade financeira desativada. O cliente não
   fornece identidade, valores, IDs ou instruções de provedor.
 
+## Ponte Vertex local ASSIST-2K
+
+- O adaptador de runtime do codebase assistant usa somente
+  @google-cloud/vertexai 1.12.0, com carregamento dinâmico após a validação do
+  kill switch e da flag do provedor. Com a configuração padrão, não cria
+  cliente, não consulta credencial, não acessa rede e devolve safe_unavailable.
+- ADC e o projeto são insumos exclusivos da identidade runtime de uma futura
+  Function autorizada; não há chave, URL, conta, projeto ou segredo no
+  aplicativo, Git, documentação ou logs.
+- Flash é o padrão interno e Pro depende exclusivamente do roteador
+  server-side. A entrada é serializada como JSON limitado, a saída deve ser
+  JSON estruturado e a barreira de evidências continua obrigatória.
+- Leitores de autorização, contexto, uso e ledger do artefato continuam
+  fail-closed. Por isso a ponte não alcança Vertex, Firestore default nem
+  dados financeiros nesta etapa, mesmo que um parâmetro seja configurado
+  incorretamente.
+- O override de gaxios 6.3.0 é restrito à cadeia do SDK Vertex e elimina a
+  dependência de produção vulnerável em uuid; não altera o roteamento nem
+  habilita o provedor. Detalhes em ADR-048.
+
 ## Voz local ASSIST-VOICE-1A
 
 - a opção aparece antes de `Consultar`, começa desligada e não substitui a resposta textual;

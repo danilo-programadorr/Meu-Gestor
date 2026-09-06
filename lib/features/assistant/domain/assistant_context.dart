@@ -1,3 +1,5 @@
+// Responsabilidade: cataloga fontes permitidas do próprio usuário e impede
+// que contexto inexistente seja apresentado como dado confirmado.
 import 'assistant_failure.dart';
 
 enum AssistantContextAvailability {
@@ -41,6 +43,7 @@ final class AssistantContextSourcePolicy {
   final bool containsOwnData;
 }
 
+/// Fonte única das políticas de disponibilidade e propriedade do contexto.
 abstract final class AssistantContextCatalog {
   static const List<AssistantContextSourcePolicy> policies = [
     AssistantContextSourcePolicy(

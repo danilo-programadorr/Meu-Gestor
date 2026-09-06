@@ -16,6 +16,9 @@
   montagem admitida de fixtures e checklist de ativação development. Kill switch
   e flag do provedor permanecem desligados; qualquer recurso externo exige nova
   autorização específica.
+- ASSIST-2K prepara localmente a ponte oficial Vertex atrás de ADC e dos
+  controles já aprovados. Ela continua desligada, sem leitor de dados, chamada
+  remota, Function publicada ou acesso a ambiente externo.
 - Todas as ações externas de Firebase, Google Cloud e qualquer provedor de IA são exclusivamente manuais pelo solicitante; o agente limita-se a orientar, preparar código autorizado e verificar resultados locais após confirmação. Referências a Gemini nas etapas históricas não representam fornecedor ativo: a ADR-033 exige contrato neutro e nova aprovação antes da escolha.
 
 ## 2. Decisões aprovadas

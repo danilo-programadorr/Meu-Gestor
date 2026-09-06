@@ -1,3 +1,7 @@
+/**
+ * Responsabilidade: reproduz no artefato Functions apenas os contratos ESM
+ * versionados do Assistente, sem copiar dependências ou configuração privada.
+ */
 import { cp, mkdir, rm } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 

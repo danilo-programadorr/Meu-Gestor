@@ -134,6 +134,17 @@ ou estrutura extra são descartados por resposta segura. A prontidão não cont�
 identidade runtime, segredo ou configuração real e não permite ativação
 enquanto kill switch e flag do provedor permanecerem desligados.
 
+ASSIST-2K adiciona somente um adaptador Vertex local ao codebase assistant.
+Ele é carregado dinamicamente somente depois de flag real explícita e kill
+switch desativado; a configuração padrão falha antes de criar cliente, acessar
+ADC ou rede. A identidade runtime e o projeto existem apenas no ambiente de
+execução autorizado, sem chave, URL, segredo ou identificador versionado.
+Os leitores de autorização, contexto, uso e ledger continuam fail-closed, logo
+a ponte não alcança Vertex, o banco default ou dados financeiros nesta etapa.
+Flash e Pro continuam decisões internas e toda saída passa pela barreira
+fundamentada. O override aninhado de gaxios 6.3.0 elimina a cadeia vulnerável
+de produção sem ampliar permissões ou habilitar o provedor.
+
 ASSIST-2F-0 adiciona somente o artefato local do codebase `assistant`. Ele contém uma única callable e usa a identidade runtime como parâmetro obrigatório sem valor versionado. Não importa Firebase Admin nem qualquer cliente Firestore, portanto não pode acessar o banco `(default)`, coleções financeiras ou `assistant-controls-dev`. Com provedor desligado, Auth, e-mail verificado e App Check são validados antes de uma resposta fixa `safe_unavailable`; nenhuma leitura de perfil, consentimento, contexto, uso ou ledger ocorre. A publicação development, o valor do parâmetro e todo acesso a dados dependem de autorização separada.
 
 ## Entitlement Premium — SUB-1A/SUB-1B/SUB-1C

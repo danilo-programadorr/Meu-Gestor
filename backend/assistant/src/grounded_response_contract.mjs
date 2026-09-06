@@ -1,3 +1,7 @@
+/**
+ * Responsabilidade: aceita somente respostas informativas fundamentadas em
+ * aliases, fontes e períodos confirmados do contexto efêmero.
+ */
 import { deny } from './errors.mjs';
 import { assertConfirmedContext } from './policy.mjs';
 import { validateCivilPeriod } from './sao_paulo_civil_time.mjs';
@@ -37,6 +41,9 @@ const samePeriod = (left, right) => JSON.stringify(left) === JSON.stringify(righ
 const safeUnavailable = () => structuredClone(ASSISTANT_SAFE_INSUFFICIENT_EVIDENCE_RESPONSE);
 
 /** Provider-neutral delivery gate. Only a validated ephemeral alias may bind an assertion to a fact. */
+/**
+ * Substitui conteúdo sem evidência por indisponibilidade segura antes da UI.
+ */
 export const admitGroundedAssistantResponse = ({ response, context }) => {
   try {
     assertConfirmedContext(context);

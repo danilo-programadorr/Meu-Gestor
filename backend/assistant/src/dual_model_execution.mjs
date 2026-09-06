@@ -1,3 +1,7 @@
+/**
+ * Responsabilidade: converte a escolha interna de tier em plano de execução,
+ * mantendo Flash como padrão lógico e Pro restrito ao backend.
+ */
 import { AssistantContractError } from './errors.mjs';
 
 export const ASSISTANT_REAL_PROVIDER_FEATURE_ENABLED = false;
@@ -10,6 +14,9 @@ export const MODEL_EXECUTION = Object.freeze({
 /**
  * Converts an already server-decided logical tier into a provider execution
  * plan. This stays disabled until a separately authorized backend exists.
+ */
+/**
+ * Falha fechada quando a feature não foi autorizada ou o tier não é interno.
  */
 export const resolveAssistantModelExecution = ({ routing, featureEnabled = ASSISTANT_REAL_PROVIDER_FEATURE_ENABLED }) => {
   if (!routing || !['flash', 'pro'].includes(routing.tier)) {

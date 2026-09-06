@@ -545,6 +545,15 @@
 | ASSIST-2J-002 | Contexto mínimo admitido | P0 | ASSIST-2J-1 | backend injeta leitores após consentimento, privacidade, escopo e período; Flutter não recebe contexto | local e testado com fixtures sintéticas | leitores server-side futuros | crítico | zero externo |
 | ASSIST-2J-003 | Prontidão development | P0 | ASSIST-2J-2 | checklist de identidade, Secret Manager, App Check, consentimento e rollback não ativa provedor; ledger mantém R$5/dia e R$45/mês | local e testado | autorização externa separada | crítico | teto preventivo local |
 
+## Incremento ASSIST-2K — ponte Vertex local
+
+| ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |
+|---|---|---:|---:|---|---|---|---|---|
+| ASSIST-2K-001 | Isolar SDK e identidade runtime | P0 | ASSIST-2K-LOCAL-1 | SDK oficial é importado dinamicamente somente depois dos controles; não há chave, URL, projeto, cliente Flutter ou acesso ao banco padrão | local e testado com fake | identidade runtime futura autorizada | crítico | zero externo |
+| ASSIST-2K-002 | Manter ativação impossível por padrão | P0 | ASSIST-2K-LOCAL-1 | flag começa falsa; kill switch permanece ativo por ausência; leitores e ledger implantáveis falham fechados | local e testado | adapters server-side e deploy futuro | crítico | zero externo |
+| ASSIST-2K-003 | Preservar custo e saída fundamentada | P0 | ASSIST-2K-LOCAL-1 | Flash/Pro são backend-only, reserva máxima antecede gateway e JSON passa pela barreira de evidência | local e testado com fixtures | ledger persistente e teste sintético futuro | crítico | R$5/dia e R$45/mês planejados |
+| ASSIST-2K-004 | Eliminar vulnerabilidade transitiva de produção | P0 | NPM-VERTEX-UUID-REMEDIATION-2 | override restrito fixa gaxios 6.3.0 na cadeia Vertex e npm audit de produção retorna zero alerta | local e testado | revisão de dependências em CI | alto | zero externo |
+
 ## Incremento CALENDAR-1 — calendário financeiro interno
 
 | ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |

@@ -1,3 +1,7 @@
+/**
+ * Responsabilidade: monta fatos financeiros próprios, mínimos e confirmados
+ * por leitores injetados, sem depender de infraestrutura externa ou provedor.
+ */
 import { deny } from './errors.mjs';
 import { ASSISTANT_CIVIL_TIME_ZONE, validateCivilPeriod } from './sao_paulo_civil_time.mjs';
 
@@ -98,6 +102,9 @@ const validatePeriod = (period, generatedAt) => {
  * Builds the only provider-facing financial context. Readers are injected
  * server-side contracts; this module has no network or persistence dependency
  * and cannot access application data by itself.
+ */
+/**
+ * Coordena fontes fechadas e falha se qualquer uma não puder ser comprovada.
  */
 export class AssistantFinancialContextBridge {
   constructor({ sourceReaders, clock = { now: () => new Date() } }) {

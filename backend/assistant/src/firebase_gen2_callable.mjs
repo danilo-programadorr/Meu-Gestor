@@ -1,3 +1,7 @@
+/**
+ * Responsabilidade: orquestra a callable segura do Assistente, validando o
+ * perímetro e mantendo o fluxo remoto bloqueado até uma ativação autorizada.
+ */
 import { AssistantContractError, deny } from './errors.mjs';
 import {
   ASSISTANT_FLUTTER_CONTRACT_VERSION,
@@ -5,9 +9,14 @@ import {
   prepareAssistantRemoteActivation,
   validateFlutterAssistantRequest,
 } from './remote_activation_contract.mjs';
-import { ASSISTANT_REAL_PROVIDER_FEATURE_ENABLED } from './dual_model_execution.mjs';
+import {
+  ASSISTANT_REAL_PROVIDER_FEATURE_ENABLED,
+  resolveAssistantModelExecution,
+} from './dual_model_execution.mjs';
 import { AssistantModelRouter } from './model_router.mjs';
 import { assertAuthorized } from './policy.mjs';
+import { admitGroundedAssistantResponse } from './grounded_response_contract.mjs';
+import { createAssistantCostRequestId } from './cost_control_ledger.mjs';
 
 export const ASSISTANT_REMOTE_CALLABLE_OPTIONS = Object.freeze({
   region: 'southamerica-east1',
@@ -24,6 +33,11 @@ export const ASSISTANT_SAFE_UNAVAILABLE = Object.freeze({
   contractVersion: ASSISTANT_FLUTTER_CONTRACT_VERSION,
 });
 
+export const ASSISTANT_MAXIMUM_VERTEX_COST_CENTS = Object.freeze({
+  flash: 20,
+  pro: 100,
+});
+
 const exactKeys = (value, keys) =>
   value !== null
   && typeof value === 'object'
@@ -35,6 +49,10 @@ const exactKeys = (value, keys) =>
  * injection, so this checkpoint creates no deployed Function or Firebase
  * client. The provider flag and kill switch are deliberately fixed closed.
  */
+/**
+ * Compõe a callable com portas injetadas para que domínio e testes não
+ * dependam de Firebase, banco ou provedor externos.
+ */
 export function createAssistRemoteV1Callables({
   onCall,
   HttpsError,
@@ -42,6 +60,7 @@ export function createAssistRemoteV1Callables({
   contextReader,
   usageReader,
   ledger,
+  providerGateway,
   modelRouter = new AssistantModelRouter(),
   functionOptions = ASSISTANT_REMOTE_CALLABLE_OPTIONS,
   killSwitchActive = ASSISTANT_REMOTE_KILL_SWITCH_ACTIVE,
@@ -55,8 +74,9 @@ export function createAssistRemoteV1Callables({
     throw new TypeError('assistant_callable_dependencies_invalid');
   }
   assertLedgerPort(ledger);
-  if (killSwitchActive !== true || providerFeatureEnabled !== false) {
-    throw new TypeError('assistant_callable_must_start_fail_closed');
+  assertProviderGateway(providerGateway);
+  if (typeof killSwitchActive !== 'boolean' || typeof providerFeatureEnabled !== 'boolean') {
+    throw new TypeError('assistant_callable_controls_invalid');
   }
   if (!functionOptions || typeof functionOptions !== 'object' || Array.isArray(functionOptions)) {
     throw new TypeError('assistant_callable_options_invalid');
@@ -70,7 +90,7 @@ export function createAssistRemoteV1Callables({
         // Nenhuma leitura de perfil, contexto, ledger ou banco é permitida
         // enquanto a borda está desligada. Auth e App Check já passaram pelo
         // perímetro e a resposta não contém conteúdo do solicitante.
-        if (killSwitchActive && !providerFeatureEnabled) {
+        if (killSwitchActive || !providerFeatureEnabled) {
           return ASSISTANT_SAFE_UNAVAILABLE;
         }
         const authorization = await deriveServerAuthorization({ request, uid, authorizationReader, HttpsError });
@@ -93,11 +113,33 @@ export function createAssistRemoteV1Callables({
           usage,
           modelRouter,
           killSwitchActive,
+          providerFeatureEnabled,
         });
-        if (plan.allowed || providerFeatureEnabled || !killSwitchActive) {
-          throw deny('assistant_callable_must_start_fail_closed');
+        if (!plan.allowed) {
+          return ASSISTANT_SAFE_UNAVAILABLE;
         }
-        return ASSISTANT_SAFE_UNAVAILABLE;
+        const execution = resolveAssistantModelExecution({
+          routing: Object.freeze({ tier: plan.tier }),
+          featureEnabled: providerFeatureEnabled,
+        });
+        const maximumCostCents = ASSISTANT_MAXIMUM_VERTEX_COST_CENTS[execution.tier];
+        const requestId = createAssistantCostRequestId();
+        await ledger.reserve({ maximumCostCents, requestId, tier: execution.tier });
+        const providerResult = await providerGateway.generate({
+          execution,
+          maximumCostCents,
+          providerRequest: Object.freeze({
+            contractVersion: ASSISTANT_FLUTTER_CONTRACT_VERSION,
+            message: request.data.message,
+            context,
+          }),
+        });
+        await ledger.confirm({
+          requestId,
+          durationMs: providerResult.durationMs,
+          confirmedCostCents: providerResult.confirmedCostCents,
+        });
+        return admitGroundedAssistantResponse({ response: providerResult.response, context });
       } catch (error) {
         throw toHttpsError(error, HttpsError);
       }
@@ -108,6 +150,12 @@ export function createAssistRemoteV1Callables({
 function assertLedgerPort(ledger) {
   if (!ledger || typeof ledger.reserve !== 'function' || typeof ledger.confirm !== 'function') {
     throw new TypeError('assistant_cost_ledger_port_invalid');
+  }
+}
+
+function assertProviderGateway(providerGateway) {
+  if (!providerGateway || typeof providerGateway.generate !== 'function') {
+    throw new TypeError('assistant_provider_gateway_port_invalid');
   }
 }
 

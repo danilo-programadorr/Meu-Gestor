@@ -43,7 +43,7 @@ const request = (overrides = {}) => ({
 });
 
 const build = (overrides = {}) => {
-  const calls = { authorization: 0, context: 0, usage: 0, reserve: 0, confirm: 0 };
+  const calls = { authorization: 0, context: 0, usage: 0, reserve: 0, confirm: 0, provider: 0 };
   const callables = createAssistRemoteV1Callables({
     onCall: (_options, handler) => handler,
     HttpsError: FakeHttpsError,
@@ -54,6 +54,7 @@ const build = (overrides = {}) => {
       reserve: async () => { calls.reserve += 1; },
       confirm: async () => { calls.confirm += 1; },
     },
+    providerGateway: { generate: async () => { calls.provider += 1; throw new Error('provider_must_not_run'); } },
     ...overrides,
   });
   return { calls, invoke: callables.assistRemoteV1 };
@@ -64,13 +65,13 @@ test('callable Gen 2 fixa limites conservadores, App Check e resposta safe_unava
   const { calls, invoke } = build({ onCall: (options, handler) => { receivedOptions = options; return handler; } });
   assert.deepEqual(receivedOptions, ASSISTANT_REMOTE_CALLABLE_OPTIONS);
   assert.deepEqual(await invoke(request()), ASSISTANT_SAFE_UNAVAILABLE);
-  assert.deepEqual(calls, { authorization: 0, context: 0, usage: 0, reserve: 0, confirm: 0 });
+  assert.deepEqual(calls, { authorization: 0, context: 0, usage: 0, reserve: 0, confirm: 0, provider: 0 });
 });
 
 test('nega ausência de autenticação antes de qualquer leitor server-side', async () => {
   const { calls, invoke } = build();
   await assert.rejects(invoke(request({ auth: null })), (error) => error.code === 'unauthenticated');
-  assert.deepEqual(calls, { authorization: 0, context: 0, usage: 0, reserve: 0, confirm: 0 });
+  assert.deepEqual(calls, { authorization: 0, context: 0, usage: 0, reserve: 0, confirm: 0, provider: 0 });
 });
 
 test('nega e-mail não verificado ou App Check ausente antes de qualquer leitor server-side', async () => {
@@ -91,7 +92,7 @@ test('estado desligado não consulta consentimento, privacidade ou contexto', as
     authorizationReader: async () => serverAuthorization({ aiConsentEnabled: false, financialPrivacyActive: true }),
   });
   assert.deepEqual(await invoke(request()), ASSISTANT_SAFE_UNAVAILABLE);
-  assert.deepEqual(calls, { authorization: 0, context: 0, usage: 0, reserve: 0, confirm: 0 });
+  assert.deepEqual(calls, { authorization: 0, context: 0, usage: 0, reserve: 0, confirm: 0, provider: 0 });
 });
 
 test('rejeita contexto, UID, e-mail, modelo, custo e instruções do cliente', async () => {
@@ -128,7 +129,7 @@ test('estado desligado não consulta custo nem reserva no ledger', async () => {
   assert.equal(calls.confirm, 0);
 });
 
-test('factory recusa qualquer tentativa local de desligar kill switch ou habilitar provedor', () => {
+test('factory exige gateway mesmo com o provedor desligado e não habilita por padrão', () => {
   const base = {
     onCall: (_options, handler) => handler,
     HttpsError: FakeHttpsError,
@@ -137,6 +138,9 @@ test('factory recusa qualquer tentativa local de desligar kill switch ou habilit
     usageReader: async () => ({ costUnitsInWindow: 0, proCallsInWindow: 0 }),
     ledger: { reserve: async () => undefined, confirm: async () => undefined },
   };
-  assert.throws(() => createAssistRemoteV1Callables({ ...base, killSwitchActive: false }), /assistant_callable_must_start_fail_closed/);
-  assert.throws(() => createAssistRemoteV1Callables({ ...base, providerFeatureEnabled: true }), /assistant_callable_must_start_fail_closed/);
+  assert.throws(() => createAssistRemoteV1Callables(base), /assistant_provider_gateway_port_invalid/);
+  assert.doesNotThrow(() => createAssistRemoteV1Callables({
+    ...base,
+    providerGateway: { generate: async () => undefined },
+  }));
 });

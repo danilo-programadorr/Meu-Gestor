@@ -1,3 +1,7 @@
+/**
+ * Responsabilidade: define e valida o ledger idempotente de reserva de custo
+ * sem registrar prompt, resposta, identidade ou dado financeiro.
+ */
 import { randomUUID } from 'node:crypto';
 
 import { deny } from './errors.mjs';

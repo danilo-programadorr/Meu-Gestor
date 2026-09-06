@@ -1,3 +1,7 @@
+/**
+ * Responsabilidade: fecha o contrato remoto mínimo e decide se a ativação
+ * pode prosseguir sem transportar identidade ou contexto pelo Flutter.
+ */
 import { AssistantModelRouter } from './model_router.mjs';
 import { ASSISTANT_REAL_PROVIDER_FEATURE_ENABLED, resolveAssistantModelExecution } from './dual_model_execution.mjs';
 import { admitOwnFinancialContext, DEFAULT_ASSISTANT_CONTEXT_SCOPE } from './context_admission.mjs';
@@ -31,6 +35,10 @@ export const validateFlutterAssistantRequest = (request) => {
  * Produces a non-sensitive execution decision only. It intentionally never
  * returns the message, UID, e-mail, context facts or a provider request.
  */
+/**
+ * Consolida autorização, contexto confirmado, roteamento e controles em um
+ * plano sem conteúdo sensível para a borda server-side.
+ */
 export const prepareAssistantRemoteActivation = ({
   flutterRequest,
   authorization,
@@ -38,6 +46,7 @@ export const prepareAssistantRemoteActivation = ({
   usage,
   modelRouter = new AssistantModelRouter(),
   killSwitchActive = ASSISTANT_REMOTE_KILL_SWITCH_ACTIVE,
+  providerFeatureEnabled = ASSISTANT_REAL_PROVIDER_FEATURE_ENABLED,
 }) => {
   validateFlutterAssistantRequest(flutterRequest);
   assertAuthorized(authorization);
@@ -52,7 +61,10 @@ export const prepareAssistantRemoteActivation = ({
     context,
     usage,
   });
-  const execution = resolveAssistantModelExecution({ routing });
+  if (typeof killSwitchActive !== 'boolean' || typeof providerFeatureEnabled !== 'boolean') {
+    throw new TypeError('assistant_activation_control_invalid');
+  }
+  const execution = resolveAssistantModelExecution({ routing, featureEnabled: providerFeatureEnabled });
   const disabledReason = killSwitchActive
     ? 'kill_switch_active'
     : execution.enabled
@@ -64,7 +76,7 @@ export const prepareAssistantRemoteActivation = ({
     tier: routing.tier,
     maxInputUnits: routing.maxInputUnits,
     maxOutputUnits: routing.maxOutputUnits,
-    allowed: disabledReason === null && ASSISTANT_REAL_PROVIDER_FEATURE_ENABLED,
+    allowed: disabledReason === null && providerFeatureEnabled,
     disabledReason,
   });
 };

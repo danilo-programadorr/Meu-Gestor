@@ -1,3 +1,5 @@
+// Responsabilidade: apresenta o modo de conversa acessível, alternando voz e
+// texto enquanto encerra recursos ao sair ou perder primeiro plano.
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -17,6 +19,7 @@ import 'package:meu_gestor_financeiro/features/authentication/data/auth_provider
 import 'package:meu_gestor_financeiro/features/authentication/domain/auth_user.dart';
 import 'package:meu_gestor_financeiro/features/profile/presentation/controllers/profile_gate_controller.dart';
 
+/// Tela autenticada do modo de conversa; nunca inicia serviço em segundo plano.
 class AssistantConversationPage extends ConsumerStatefulWidget {
   const AssistantConversationPage({this.autoStart = false, super.key});
 

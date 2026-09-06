@@ -1,3 +1,7 @@
+/**
+ * Responsabilidade: registra somente a composição Gen 2 permitida, sem criar
+ * recurso em nuvem nem aceitar configuração sensível do cliente.
+ */
 import {
   ASSISTANT_REMOTE_CALLABLE_OPTIONS,
   createAssistRemoteV1Callables,
@@ -11,6 +15,9 @@ export const ASSISTANT_REMOTE_FUNCTION_NAME = 'assistRemoteV1';
  * Registers the local-safe callable with a supplied Gen 2 onCall factory.
  * No Firebase SDK, project configuration or network resource is created here.
  */
+/**
+ * Encaminha exclusivamente dependências validadas para a factory da callable.
+ */
 export function registerAssistRemoteV1Gen2({
   onCall,
   HttpsError,
@@ -18,8 +25,11 @@ export function registerAssistRemoteV1Gen2({
   contextReader,
   usageReader,
   ledger,
+  providerGateway,
   modelRouter,
   functionOptions,
+  killSwitchActive,
+  providerFeatureEnabled,
 }) {
   const callables = createAssistRemoteV1Callables({
     onCall,
@@ -28,8 +38,11 @@ export function registerAssistRemoteV1Gen2({
     contextReader,
     usageReader,
     ledger,
+    providerGateway,
     ...(modelRouter ? { modelRouter } : {}),
     ...(functionOptions ? { functionOptions } : {}),
+    ...(typeof killSwitchActive === 'boolean' ? { killSwitchActive } : {}),
+    ...(typeof providerFeatureEnabled === 'boolean' ? { providerFeatureEnabled } : {}),
   });
   return Object.freeze({
     [ASSISTANT_REMOTE_FUNCTION_NAME]: callables.assistRemoteV1,

@@ -14,6 +14,14 @@
     "audit:production-artifact": "npm audit --omit=dev --omit=optional --audit-level=moderate"
   },
   "dependencies": {
+    "@google-cloud/vertexai": "1.12.0",
     "firebase-functions": "7.3.2"
+  },
+  "overrides": {
+    "@google-cloud/vertexai": {
+      "google-auth-library": {
+        "gaxios": "6.3.0"
+      }
+    }
   }
 }
