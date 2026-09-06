@@ -110,6 +110,47 @@ void main() {
     );
     expect(speech.listenCalls, 0);
   });
+
+  test(
+    'pergunta por texto interrompe voz e usa a mesma intenção determinística',
+    () async {
+      final _FakeSpeech speech = _FakeSpeech(transcript: 'ignorada');
+      final ProviderContainer container = _container(speech);
+      addTearDown(container.dispose);
+      final AssistantConversationController controller = container.read(
+        assistantConversationControllerProvider.notifier,
+      );
+
+      await controller.submitText('Qual é meu saldo?');
+
+      final AssistantConversationState state = container.read(
+        assistantConversationControllerProvider,
+      );
+      expect(state.question, AssistantGuidedQuestion.currentBalance);
+      expect(state.transcript, 'Qual é meu saldo?');
+      expect(speech.stopCalls, 1);
+      expect(speech.listenCalls, 0);
+    },
+  );
+
+  test('texto inseguro ou sem intenção não inventa resposta', () async {
+    final ProviderContainer container = _container(_FakeSpeech());
+    addTearDown(container.dispose);
+    final AssistantConversationController controller = container.read(
+      assistantConversationControllerProvider.notifier,
+    );
+
+    await controller.submitText('token=nao-enviar');
+    expect(
+      container.read(assistantConversationControllerProvider).question,
+      isNull,
+    );
+    await controller.submitText('Conte algo livremente');
+    expect(
+      container.read(assistantConversationControllerProvider).message,
+      contains('não tenho uma resposta determinística'),
+    );
+  });
 }
 
 ProviderContainer _container(_FakeSpeech speech) => ProviderContainer(

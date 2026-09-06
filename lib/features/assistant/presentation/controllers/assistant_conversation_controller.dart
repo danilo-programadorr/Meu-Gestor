@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:meu_gestor_financeiro/features/assistant/data/assistant_speech_recognizer.dart';
+import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_context.dart';
 import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_conversation.dart';
+import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_summary.dart';
 
 final Provider<AssistantSpeechRecognizer> assistantSpeechRecognizerProvider =
     Provider<AssistantSpeechRecognizer>(
@@ -148,6 +150,37 @@ final class AssistantConversationController
   }
 
   Future<void> interrupt() => stopAndClear();
+
+  /// Usa a mesma classificação determinística da fala e nunca encaminha texto
+  /// para rede. O texto só existe no estado efêmero desta tela.
+  Future<void> submitText(String value) async {
+    final String text = value.trim();
+    await stopAndClear();
+    if (_disposed) return;
+    if (!AssistantContentSafety.isSafe(text)) {
+      state = state.copyWith(
+        message: 'Não foi possível usar essa pergunta com segurança.',
+      );
+      return;
+    }
+    final AssistantGuidedQuestion? question =
+        AssistantConversationQuestionMatcher.match(text);
+    if (question == null) {
+      state = state.copyWith(
+        transcript: text,
+        message:
+            'Ainda não tenho uma resposta determinística para essa pergunta. Tente uma pergunta disponível.',
+        clearQuestion: true,
+      );
+      return;
+    }
+    state = state.copyWith(
+      phase: AssistantConversationPhase.thinking,
+      transcript: text,
+      message: 'Pergunta recebida. Preparando resposta confirmada.',
+      question: question,
+    );
+  }
 
   void _setPrivacyBlocked() {
     state = state.copyWith(

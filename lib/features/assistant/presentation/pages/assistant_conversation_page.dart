@@ -37,6 +37,8 @@ class _AssistantConversationPageState
   bool _isForeground = true;
   bool _conversationEnabled = false;
   bool _activationInProgress = false;
+  final TextEditingController _textController = TextEditingController();
+  bool _textMode = false;
 
   @override
   void initState() {
@@ -54,6 +56,7 @@ class _AssistantConversationPageState
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _textController.dispose();
     unawaited(_stopForExit(clearVoice: true));
     super.dispose();
   }
@@ -66,6 +69,7 @@ class _AssistantConversationPageState
 
   Future<void> _stopForExit({bool clearVoice = false}) async {
     _conversationEnabled = false;
+    _textController.clear();
     await _conversation.interrupt();
     await _voice.interrupt(
       clearVoice
@@ -184,7 +188,7 @@ class _AssistantConversationPageState
                                 .toggle(),
                             label: 'Mostrar dados',
                           )
-                        else
+                        else if (!_textMode)
                           _VoiceAction(
                             state: state,
                             onActivate: _requestVoiceStart,
@@ -195,11 +199,21 @@ class _AssistantConversationPageState
                           _ConversationAnswer(summary: _summary!),
                         ],
                         const SizedBox(height: AppSpacing.md),
-                        OutlinedButton.icon(
-                          onPressed: () => context.pop(),
-                          icon: const Icon(Icons.keyboard_outlined),
-                          label: const Text('Usar perguntas por texto'),
-                        ),
+                        if (_textMode && consent && valuesVisible)
+                          AssistantTextQuestionInput(
+                            controller: _textController,
+                            onSend: _submitText,
+                            onUseVoice: _returnToVoice,
+                          )
+                        else if (!_textMode && consent && valuesVisible)
+                          OutlinedButton.icon(
+                            key: const ValueKey<String>(
+                              'assistant-use-text-action',
+                            ),
+                            onPressed: _useTextMode,
+                            icon: const Icon(Icons.keyboard_outlined),
+                            label: const Text('Usar perguntas por texto'),
+                          ),
                         const SizedBox(height: AppSpacing.md),
                         const Text(
                           'O áudio não é gravado, salvo ou enviado. A transcrição existe apenas nesta tela e é apagada ao sair. Este modo apenas consulta resumos confirmados; nunca altera dados financeiros.',
@@ -237,6 +251,39 @@ class _AssistantConversationPageState
     } finally {
       _activationInProgress = false;
     }
+  }
+
+  Future<void> _useTextMode() async {
+    await _stopForExit();
+    if (mounted) setState(() => _textMode = true);
+  }
+
+  Future<void> _returnToVoice() async {
+    _textController.clear();
+    await _conversation.interrupt();
+    if (mounted) setState(() => _textMode = false);
+  }
+
+  Future<void> _submitText() async {
+    if (!_isForeground || !ref.read(financialPrivacyControllerProvider)) {
+      _textController.clear();
+      return;
+    }
+    final String question = _textController.text;
+    _textController.clear();
+    await _conversation.submitText(question);
+    if (!mounted) return;
+    final AssistantGuidedQuestion? guidedQuestion = ref
+        .read(assistantConversationControllerProvider)
+        .question;
+    if (guidedQuestion == null) return;
+    final AssistantDeterministicSummary summary =
+        AssistantDeterministicSummaryBuilder.build(
+          question: guidedQuestion,
+          snapshot: ref.read(assistantReadModelProvider).snapshot,
+        );
+    setState(() => _summary = summary);
+    if (!summary.isAvailable) _conversation.noConfirmedAnswer();
   }
 
   Future<bool?> _showMicrophoneExplanation() => showDialog<bool>(
@@ -333,6 +380,62 @@ class _VoiceAction extends StatelessWidget {
       label: Text(listening ? 'Parar microfone' : 'Ativar modo de voz'),
     );
   }
+}
+
+class AssistantTextQuestionInput extends StatelessWidget {
+  const AssistantTextQuestionInput({
+    super.key,
+    required this.controller,
+    required this.onSend,
+    required this.onUseVoice,
+  });
+
+  final TextEditingController controller;
+  final Future<void> Function() onSend;
+  final Future<void> Function() onUseVoice;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    color: const Color(0xFF1B252D),
+    child: Padding(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          const Text(
+            'Pergunta por texto',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          TextField(
+            key: const ValueKey<String>('assistant-text-question-field'),
+            controller: controller,
+            textInputAction: TextInputAction.send,
+            onSubmitted: (_) => unawaited(onSend()),
+            maxLines: 3,
+            minLines: 1,
+            decoration: const InputDecoration(
+              hintText: 'Ex.: Qual é meu saldo?',
+              filled: true,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          FilledButton.icon(
+            key: const ValueKey<String>('assistant-text-send-action'),
+            onPressed: () => unawaited(onSend()),
+            icon: const Icon(Icons.send_outlined),
+            label: const Text('Enviar'),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          TextButton.icon(
+            onPressed: () => unawaited(onUseVoice()),
+            icon: const Icon(Icons.mic_none_outlined),
+            label: const Text('Voltar ao modo de voz'),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _ConversationVisual extends StatefulWidget {
