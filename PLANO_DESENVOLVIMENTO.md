@@ -19,6 +19,9 @@
 - ASSIST-2K prepara localmente a ponte oficial Vertex atrás de ADC e dos
   controles já aprovados. Ela continua desligada, sem leitor de dados, chamada
   remota, Function publicada ou acesso a ambiente externo.
+- ASSIST-2L prepara a integração Flutter por ação explícita, com contrato
+  mínimo e resposta fundamentada estrita. A flag remota permanece desligada,
+  sem chamada de rede ou acesso externo nesta etapa.
 - Todas as ações externas de Firebase, Google Cloud e qualquer provedor de IA são exclusivamente manuais pelo solicitante; o agente limita-se a orientar, preparar código autorizado e verificar resultados locais após confirmação. Referências a Gemini nas etapas históricas não representam fornecedor ativo: a ADR-033 exige contrato neutro e nova aprovação antes da escolha.
 
 ## 2. Decisões aprovadas
@@ -1036,6 +1039,20 @@ Vertex, chamada remota ou deploy.
 - A admissão fail-closed confirma privacidade, escopo próprio e finito, fontes
   permitidas e período antes de qualquer leitor futuro. Flash/Pro seguem
   desligados e a borda continua retornando `safe_unavailable`.
+
+## 60. ASSIST-2L — integração Flutter controlada
+
+Situação: implementada somente localmente. Não houve chamada Firebase, Vertex,
+Function em nuvem, deploy, segredo ou envio de dado de usuário.
+
+- A tela de conversa preserva o modo determinístico e só tenta consulta remota
+  por botão explícito, depois de consentimento de IA e sem privacidade
+  financeira ativa.
+- A flag compilada permanece falsa e o controller bloqueia antes do gateway;
+  voz e texto nunca iniciam rede automaticamente.
+- O payload futuro contém somente mensagem sanitizada e `assist-remote-v1`.
+  A tela aceita apenas indisponibilidade segura ou resposta com evidência,
+  fonte e período civil; dados financeiros continuam somente server-side.
 
 ## 58. ASSIST-2F-0 — codebase Firebase local do Assistente
 

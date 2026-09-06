@@ -2,6 +2,12 @@
 
 ## Em desenvolvimento
 
+- ASSIST-2L prepara a integração Flutter controlada com `assistRemoteV1`:
+  pergunta por voz ou texto continua determinística e só um toque separado
+  tenta a consulta; com a flag remota falsa não há gateway ou rede. O payload
+  futuro contém apenas mensagem sanitizada/contrato e a tela aceita somente
+  indisponibilidade segura ou resposta fundamentada com fonte e período civil;
+  consentimento, privacidade, saída e troca de conta descartam o estado local;
 - ASSIST-2K prepara localmente a ponte oficial Vertex do backend: carregamento
   dinâmico sob ADC, Flash padrão/Pro interno, JSON estruturado, limite máximo
   por tier e barreira de evidências. Flag falsa, kill switch ativo e adapters

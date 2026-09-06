@@ -205,3 +205,20 @@ consentimento e rollback em autorização externa futura. Ele não guarda valore
 de configuração e não pode ativar o provedor. O kill switch segue ativo, Flash
 é a rota lógica padrão, Pro é backend-only e o ledger preserva R$5/dia e
 R$45/mês.
+
+## Integração Flutter controlada ASSIST-2L
+
+- O modo de conversa mantém o resumo determinístico como fallback e só expõe a
+  consulta remota por um toque separado. Digitar ou falar uma pergunta nunca
+  liga nem invoca a borda automaticamente.
+- A flag compilada de Flutter começa desligada. Antes do gateway, o controller
+  retorna indisponibilidade segura, portanto não há chamada de rede nessa
+  configuração.
+- Quando autorizada no futuro, a fronteira Flutter transmite exclusivamente a
+  mensagem sanitizada e `assist-remote-v1`. Auth, consentimento, privacidade,
+  contexto, custo, Flash/Pro e Vertex são exclusivamente server-side.
+- O renderer aceita somente `safe_unavailable` ou resposta estruturada com
+  fonte, alias efêmero e período civil `America/Sao_Paulo`; campos extras ou
+  forma inválida não chegam à tela como resposta.
+- Privacidade financeira, saída, troca de conta e retorno tardio descartam o
+  estado local. A ponte é somente leitura e não altera dados financeiros.

@@ -24,11 +24,7 @@ final class AssistantGroundedAssertion {
     required this.statement,
     required this.evidence,
   }) {
-    if (!AssistantContentSafety.isSafe(statement) ||
-        RegExp(
-          r'\b(compre|compra|venda|vender|alocar|alocação|pague|receba|cancele|edite|transfira|agende)\b',
-          caseSensitive: false,
-        ).hasMatch(statement)) {
+    if (!AssistantGroundedResponse._isSafeInformativeText(statement)) {
       throw const AssistantFailure(AssistantFailureKind.invalidContext);
     }
   }
@@ -46,8 +42,8 @@ final class AssistantGroundedResponse {
     required this.missingData,
     required this.disclaimer,
   }) {
-    if (!AssistantContentSafety.isSafe(answer) ||
-        !AssistantContentSafety.isSafe(disclaimer) ||
+    if (!_isSafeInformativeText(answer) ||
+        !_isSafeInformativeText(disclaimer) ||
         (status == AssistantGroundedResponseStatus.grounded &&
             assertions.isEmpty) ||
         (status == AssistantGroundedResponseStatus.safeUnavailable &&
@@ -64,4 +60,14 @@ final class AssistantGroundedResponse {
   final List<AssistantGroundedAssertion> assertions;
   final List<String> missingData;
   final String disclaimer;
+
+  // Responsabilidade: aplica no texto visível a mesma barreira informativa
+  // das afirmações, caso uma resposta inválida alcance o cliente.
+  static bool _isSafeInformativeText(String value) =>
+      AssistantContentSafety.isSafe(value) && !_forbiddenAction.hasMatch(value);
+
+  static final RegExp _forbiddenAction = RegExp(
+    r'\b(compre|compra|venda|vender|alocar|alocação|pague|receba|cancele|edite|transfira|agende)\b',
+    caseSensitive: false,
+  );
 }

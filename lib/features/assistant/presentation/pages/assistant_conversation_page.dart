@@ -13,8 +13,10 @@ import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_conver
 import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_summary.dart';
 import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_voice.dart';
 import 'package:meu_gestor_financeiro/features/assistant/presentation/controllers/assistant_conversation_controller.dart';
+import 'package:meu_gestor_financeiro/features/assistant/presentation/controllers/assistant_remote_conversation_controller.dart';
 import 'package:meu_gestor_financeiro/features/assistant/presentation/controllers/assistant_summary_provider.dart';
 import 'package:meu_gestor_financeiro/features/assistant/presentation/controllers/assistant_voice_controller.dart';
+import 'package:meu_gestor_financeiro/features/assistant/presentation/widgets/assistant_remote_answer_panel.dart';
 import 'package:meu_gestor_financeiro/features/authentication/data/auth_providers.dart';
 import 'package:meu_gestor_financeiro/features/authentication/domain/auth_user.dart';
 import 'package:meu_gestor_financeiro/features/profile/presentation/controllers/profile_gate_controller.dart';
@@ -35,6 +37,7 @@ class _AssistantConversationPageState
     extends ConsumerState<AssistantConversationPage>
     with WidgetsBindingObserver {
   late final AssistantConversationController _conversation;
+  late final AssistantRemoteConversationController _remoteConversation;
   late final AssistantVoiceController _voice;
   AssistantDeterministicSummary? _summary;
   bool _isForeground = true;
@@ -47,6 +50,9 @@ class _AssistantConversationPageState
   void initState() {
     super.initState();
     _conversation = ref.read(assistantConversationControllerProvider.notifier);
+    _remoteConversation = ref.read(
+      assistantRemoteConversationControllerProvider.notifier,
+    );
     _voice = ref.read(assistantVoiceControllerProvider.notifier);
     WidgetsBinding.instance.addObserver(this);
     if (widget.autoStart) {
@@ -70,9 +76,13 @@ class _AssistantConversationPageState
     if (!_isForeground) unawaited(_stopForExit());
   }
 
-  Future<void> _stopForExit({bool clearVoice = false}) async {
+  Future<void> _stopForExit({
+    bool clearVoice = false,
+    bool discardRemoteAnswer = true,
+  }) async {
     _conversationEnabled = false;
     _textController.clear();
+    if (discardRemoteAnswer) _remoteConversation.discard();
     await _conversation.interrupt();
     await _voice.interrupt(
       clearVoice
@@ -89,7 +99,10 @@ class _AssistantConversationPageState
       }
     });
     ref.listen<bool>(financialPrivacyControllerProvider, (previous, next) {
-      if (previous == true && !next) unawaited(_stopForExit(clearVoice: true));
+      if (previous == true && !next) {
+        _remoteConversation.blockForFinancialPrivacy();
+        unawaited(_stopForExit(clearVoice: true, discardRemoteAnswer: false));
+      }
     });
     ref.listen<AssistantVoiceState>(assistantVoiceControllerProvider, (
       AssistantVoiceState? previous,
@@ -108,6 +121,9 @@ class _AssistantConversationPageState
         gate is ProfileGateValid && gate.profile.aiConsentEnabled;
     final AssistantConversationState state = ref.watch(
       assistantConversationControllerProvider,
+    );
+    final AssistantRemoteConversationState remoteState = ref.watch(
+      assistantRemoteConversationControllerProvider,
     );
     return PopScope(
       onPopInvokedWithResult: (bool didPop, Object? _) {
@@ -201,6 +217,18 @@ class _AssistantConversationPageState
                           const SizedBox(height: AppSpacing.md),
                           _ConversationAnswer(summary: _summary!),
                         ],
+                        if (state.transcript.isNotEmpty) ...<Widget>[
+                          const SizedBox(height: AppSpacing.md),
+                          AssistantRemoteAnswerPanel(
+                            state: remoteState,
+                            onRequest: () => unawaited(
+                              _requestGroundedAnswer(
+                                aiConsentEnabled: consent,
+                                financialValuesVisible: valuesVisible,
+                              ),
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: AppSpacing.md),
                         if (_textMode && consent && valuesVisible)
                           AssistantTextQuestionInput(
@@ -243,6 +271,7 @@ class _AssistantConversationPageState
     }
     _activationInProgress = true;
     try {
+      _remoteConversation.discard();
       final bool hasPermission = await _conversation.hasMicrophonePermission();
       if (!mounted) return;
       if (!hasPermission) {
@@ -274,6 +303,7 @@ class _AssistantConversationPageState
     }
     final String question = _textController.text;
     _textController.clear();
+    _remoteConversation.discard();
     await _conversation.submitText(question);
     if (!mounted) return;
     final AssistantGuidedQuestion? guidedQuestion = ref
@@ -287,6 +317,28 @@ class _AssistantConversationPageState
         );
     setState(() => _summary = summary);
     if (!summary.isAvailable) _conversation.noConfirmedAnswer();
+  }
+
+  /// Só o toque no painel inicia a tentativa remota. Voz e texto continuam
+  /// determinísticos até esta escolha explícita e passam somente a mensagem.
+  Future<void> _requestGroundedAnswer({
+    required bool aiConsentEnabled,
+    required bool financialValuesVisible,
+  }) async {
+    if (!_isForeground) return;
+    final String message = ref
+        .read(assistantConversationControllerProvider)
+        .transcript;
+    if (message.isEmpty) return;
+    _conversationEnabled = false;
+    await _conversation.stopAndClear(preserveTranscript: true);
+    await _voice.interrupt(AssistantVoiceInterruption.appInactive);
+    if (!mounted) return;
+    await _remoteConversation.requestGroundedAnswer(
+      message: message,
+      aiConsentEnabled: aiConsentEnabled,
+      financialValuesVisible: financialValuesVisible,
+    );
   }
 
   Future<bool?> _showMicrophoneExplanation() => showDialog<bool>(

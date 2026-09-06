@@ -37,8 +37,8 @@ Auditoria local em 06/09/2026: 495 arquivos próprios elegíveis.
 | Flutter: profile | 17 | pendente | perfil |
 | Flutter: subscriptions | 32 | pendente | assinatura inativa |
 | Flutter: transactions | 23 | pendente | lançamentos |
-| Flutter: assistant | 18 | em revisão inicial | CODE-DOCS-1A |
-| Testes Flutter de módulos | 130 | pendente, exceto Assistente | por módulo |
+| Flutter: assistant | 20 | em revisão inicial | CODE-DOCS-1A |
+| Testes Flutter de módulos | 132 | pendente, exceto Assistente | por módulo |
 | Testes Flutter núcleo/regressão | 28 | pendente | núcleo |
 | Backend: assistant | 33 | em revisão inicial | CODE-DOCS-1A |
 | Backend: privacy | 8 | pendente | privacidade |
@@ -52,14 +52,14 @@ Auditoria local em 06/09/2026: 495 arquivos próprios elegíveis.
 
 ## Módulo Assistente — primeira revisão
 
-Escopo: 73 arquivos.
+Escopo: 77 arquivos.
 
 | Subárea | Arquivos | Estado |
 |---|---:|---|
 | backend/assistant | 33 | comentários de responsabilidade iniciados, incluindo ASSIST-2K |
 | backend/functions/assistant | 7 | comentários de fronteira e fail-closed iniciados |
-| lib/features/assistant | 18 | revisão inicial em andamento |
-| test/features/assistant | 14 | revisão inicial em andamento |
+| lib/features/assistant | 20 | revisão inicial em andamento |
+| test/features/assistant | 16 | revisão inicial em andamento |
 | test/firestore_rules | 1 | pendente de revisão junto à Rule isolada |
 
 O inventário não certifica cobertura total até que cada arquivo do módulo tenha

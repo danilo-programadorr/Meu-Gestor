@@ -145,6 +145,16 @@ Flash e Pro continuam decisões internas e toda saída passa pela barreira
 fundamentada. O override aninhado de gaxios 6.3.0 elimina a cadeia vulnerável
 de produção sem ampliar permissões ou habilitar o provedor.
 
+ASSIST-2L liga a tela apenas ao contrato Flutter local. A política compilada
+começa fechada e bloqueia antes do gateway, sem rede. Uma ativação futura só
+receberá `contractVersion` e mensagem sanitizada: UID, e-mail, token, contexto,
+valor financeiro, modelo, custo e credencial nunca são payload do cliente.
+Consentimento e privacidade são bloqueios locais adicionais, mas o backend os
+revalidará como autoridade. A resposta aceita é estrita e mostra somente texto
+informativo, fontes permitidas e período civil; forma inválida, retorno tardio,
+saída, troca de conta ou privacidade resultam em descarte ou
+`safe_unavailable` sem dados técnicos.
+
 ASSIST-2F-0 adiciona somente o artefato local do codebase `assistant`. Ele contém uma única callable e usa a identidade runtime como parâmetro obrigatório sem valor versionado. Não importa Firebase Admin nem qualquer cliente Firestore, portanto não pode acessar o banco `(default)`, coleções financeiras ou `assistant-controls-dev`. Com provedor desligado, Auth, e-mail verificado e App Check são validados antes de uma resposta fixa `safe_unavailable`; nenhuma leitura de perfil, consentimento, contexto, uso ou ledger ocorre. A publicação development, o valor do parâmetro e todo acesso a dados dependem de autorização separada.
 
 ## Entitlement Premium — SUB-1A/SUB-1B/SUB-1C

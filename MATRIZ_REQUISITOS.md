@@ -554,6 +554,14 @@
 | ASSIST-2K-003 | Preservar custo e saída fundamentada | P0 | ASSIST-2K-LOCAL-1 | Flash/Pro são backend-only, reserva máxima antecede gateway e JSON passa pela barreira de evidência | local e testado com fixtures | ledger persistente e teste sintético futuro | crítico | R$5/dia e R$45/mês planejados |
 | ASSIST-2K-004 | Eliminar vulnerabilidade transitiva de produção | P0 | NPM-VERTEX-UUID-REMEDIATION-2 | override restrito fixa gaxios 6.3.0 na cadeia Vertex e npm audit de produção retorna zero alerta | local e testado | revisão de dependências em CI | alto | zero externo |
 
+## Incremento ASSIST-2L — integração Flutter controlada
+
+| ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |
+|---|---|---:|---:|---|---|---|---|---|
+| ASSIST-2L-001 | Não enviar automaticamente voz ou texto | P0 | ASSIST-2L-LOCAL-1 | flag remota começa falsa e controller não chama gateway; consulta exige toque separado | local e testado | habilitação externa futura | crítico | zero externo |
+| ASSIST-2L-002 | Manter payload Flutter mínimo | P0 | ASSIST-2L-LOCAL-1 | somente `assist-remote-v1` e mensagem sanitizada; identidade, contexto, valor, modelo e token são ausentes | local e testado | callable backend | crítico | zero externo |
+| ASSIST-2L-003 | Renderizar somente resposta fundamentada | P0 | ASSIST-2L-LOCAL-1 | parser estrito aceita fonte/período civil e transforma forma inválida, timeout ou retorno tardio em indisponibilidade segura | local e testado | validação server-side futura | crítico | zero externo |
+
 ## Incremento CALENDAR-1 — calendário financeiro interno
 
 | ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |
