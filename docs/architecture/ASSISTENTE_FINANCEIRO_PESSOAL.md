@@ -222,3 +222,17 @@ R$45/mês.
   forma inválida não chegam à tela como resposta.
 - Privacidade financeira, saída, troca de conta e retorno tardio descartam o
   estado local. A ponte é somente leitura e não altera dados financeiros.
+
+## Contexto runtime por proprietário ASSIST-2M
+
+- O leitor futuro recebe uma autoridade efêmera cujo UID e bearer vêm do mesmo
+  envelope autenticado que a callable já validou. O Flutter não monta esse
+  valor e o backend não o registra ou encaminha ao modelo.
+- Ele faz somente GETs REST para coleções explicitamente permitidas em
+  `users/{uid}`. A autenticação delegada preserva o isolamento já expresso nas
+  Security Rules, sem Firebase Admin ou papel IAM no banco `(default)`.
+- O resultado contém apenas fatos agregados/inteiros, aliases efêmeros,
+  fontes e período civil `America/Sao_Paulo`. Documento, UID, token, e-mail e
+  dados não confirmados são rejeitados ou descartados antes do contexto.
+- A camada permanece desligada no runtime publicado: qualquer integração real
+  exige validação específica em development antes de consultar Firestore.

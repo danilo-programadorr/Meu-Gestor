@@ -38,6 +38,11 @@ const context = () => ({
 const request = (overrides = {}) => ({
   auth: { uid: 'synthetic-user', token: { email_verified: true } },
   app: { appId: 'synthetic-app-check' },
+  rawRequest: {
+    headers: {
+      authorization: 'Bearer synthetic.callable.owner.token.without.pii',
+    },
+  },
   data: { contractVersion: 'assist-remote-v1', message: 'Explique este resumo com segurança.' },
   ...overrides,
 });
@@ -143,4 +148,40 @@ test('factory exige gateway mesmo com o provedor desligado e não habilita por p
     ...base,
     providerGateway: { generate: async () => undefined },
   }));
+});
+
+test('rota futura delega somente a autoridade do envelope ao leitor próprio', async () => {
+  let receivedAuthority;
+  const { calls, invoke } = build({
+    killSwitchActive: false,
+    providerFeatureEnabled: true,
+    contextReader: async ({ ownerAuthority }) => {
+      calls.context += 1;
+      receivedAuthority = ownerAuthority;
+      return context();
+    },
+  });
+
+  await assert.rejects(
+    invoke(request()),
+    (error) => error.code === 'failed-precondition',
+  );
+  assert.deepEqual(receivedAuthority, {
+    uid: 'synthetic-user',
+    authorizationHeader: 'Bearer synthetic.callable.owner.token.without.pii',
+  });
+  assert.equal(calls.context, 1);
+});
+
+test('rota futura falha fechada sem bearer do envelope autenticado', async () => {
+  const { calls, invoke } = build({
+    killSwitchActive: false,
+    providerFeatureEnabled: true,
+  });
+
+  await assert.rejects(
+    invoke(request({ rawRequest: { headers: {} } })),
+    (error) => error.code === 'unauthenticated',
+  );
+  assert.equal(calls.context, 0);
 });

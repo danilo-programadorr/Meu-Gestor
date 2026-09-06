@@ -562,6 +562,14 @@
 | ASSIST-2L-002 | Manter payload Flutter mínimo | P0 | ASSIST-2L-LOCAL-1 | somente `assist-remote-v1` e mensagem sanitizada; identidade, contexto, valor, modelo e token são ausentes | local e testado | callable backend | crítico | zero externo |
 | ASSIST-2L-003 | Renderizar somente resposta fundamentada | P0 | ASSIST-2L-LOCAL-1 | parser estrito aceita fonte/período civil e transforma forma inválida, timeout ou retorno tardio em indisponibilidade segura | local e testado | validação server-side futura | crítico | zero externo |
 
+## Incremento ASSIST-2M — contexto runtime do proprietário
+
+| ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |
+|---|---|---:|---:|---|---|---|---|---|
+| ASSIST-2M-001 | Preservar leitura somente do proprietário | P0 | ASSIST-2M-0 | autoridade efêmera deriva do envelope validado e só alcança `users/{uid}` por GET; UID cruzado é negado antes de leitura | local e testado | validação development futura | crítico | leituras limitadas |
+| ASSIST-2M-002 | Não ampliar IAM do banco padrão | P0 | ASSIST-2M-0 | não há Admin, datastore.user, escrita ou contexto parcial; Rules permanecem autoridade | local e testado | auditoria IAM futura | crítico | zero externo |
+| ASSIST-2M-003 | Montar fatos mínimos e comprovados | P0 | ASSIST-2M-0 | contas, lançamentos, compromissos, calendário, investimentos e proventos passam por schema, fonte e período São Paulo | local e testado | fonte server-side futura | crítico | leituras limitadas |
+
 ## Incremento CALENDAR-1 — calendário financeiro interno
 
 | ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |

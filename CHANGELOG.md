@@ -2,6 +2,10 @@
 
 ## Em desenvolvimento
 
+- ASSIST-2M prepara a leitura runtime delegada ao próprio usuário: o token
+  validado da callable fica apenas em memória e é usado exclusivamente em GETs
+  fechados sob `users/{uid}`. Não há Firebase Admin, papel IAM no banco padrão,
+  contexto parcial, log de token ou ativação remota nesta etapa;
 - ASSIST-2L prepara a integração Flutter controlada com `assistRemoteV1`:
   pergunta por voz ou texto continua determinística e só um toque separado
   tenta a consulta; com a flag remota falsa não há gateway ou rede. O payload

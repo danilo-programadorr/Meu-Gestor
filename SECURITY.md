@@ -155,6 +155,14 @@ informativo, fontes permitidas e período civil; forma inválida, retorno tardio
 saída, troca de conta ou privacidade resultam em descarte ou
 `safe_unavailable` sem dados técnicos.
 
+ASSIST-2M prepara a única leitura runtime admissível do banco `(default)`: a
+callable usa em memória o bearer do mesmo envelope Auth já validado e o repassa
+somente em GETs REST para coleções fechadas sob o UID autenticado. As Security
+Rules continuam impondo o proprietário; Firebase Admin, `datastore.user`,
+papel genérico, escrita, paginação parcial, UID divergente, campo inválido ou
+fonte indisponível falham fechados. O bearer, UID e nome do documento não são
+incluídos no contexto, provider, métricas ou logs.
+
 ASSIST-2F-0 adiciona somente o artefato local do codebase `assistant`. Ele contém uma única callable e usa a identidade runtime como parâmetro obrigatório sem valor versionado. Não importa Firebase Admin nem qualquer cliente Firestore, portanto não pode acessar o banco `(default)`, coleções financeiras ou `assistant-controls-dev`. Com provedor desligado, Auth, e-mail verificado e App Check são validados antes de uma resposta fixa `safe_unavailable`; nenhuma leitura de perfil, consentimento, contexto, uso ou ledger ocorre. A publicação development, o valor do parâmetro e todo acesso a dados dependem de autorização separada.
 
 ## Entitlement Premium — SUB-1A/SUB-1B/SUB-1C

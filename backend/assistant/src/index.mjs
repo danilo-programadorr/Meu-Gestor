@@ -5,6 +5,13 @@ export {
   AssistantFinancialContextBridge,
 } from './financial_context_bridge.mjs';
 export {
+  ASSISTANT_OWNER_SCOPED_CONTEXT_VERSION,
+  OwnerScopedFirestoreContextReader,
+  OwnerScopedFirestoreRestTransport,
+  OwnerScopedFirestoreSourceReaders,
+  createOwnerScopedFirestoreAuthority,
+} from './owner_scoped_firestore_context.mjs';
+export {
   ASSISTANT_CONTEXT_ADMISSION_POLICY_VERSION,
   DEFAULT_ASSISTANT_CONTEXT_SCOPE,
   admitOwnFinancialContext,

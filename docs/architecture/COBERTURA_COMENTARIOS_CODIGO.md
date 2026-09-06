@@ -52,11 +52,11 @@ Auditoria local em 06/09/2026: 495 arquivos próprios elegíveis.
 
 ## Módulo Assistente — primeira revisão
 
-Escopo: 77 arquivos.
+Escopo: 79 arquivos.
 
 | Subárea | Arquivos | Estado |
 |---|---:|---|
-| backend/assistant | 33 | comentários de responsabilidade iniciados, incluindo ASSIST-2K |
+| backend/assistant | 35 | comentários de responsabilidade iniciados, incluindo ASSIST-2M |
 | backend/functions/assistant | 7 | comentários de fronteira e fail-closed iniciados |
 | lib/features/assistant | 20 | revisão inicial em andamento |
 | test/features/assistant | 16 | revisão inicial em andamento |

@@ -17,6 +17,7 @@ import { AssistantModelRouter } from './model_router.mjs';
 import { assertAuthorized } from './policy.mjs';
 import { admitGroundedAssistantResponse } from './grounded_response_contract.mjs';
 import { createAssistantCostRequestId } from './cost_control_ledger.mjs';
+import { createOwnerScopedFirestoreAuthority } from './owner_scoped_firestore_context.mjs';
 
 export const ASSISTANT_REMOTE_CALLABLE_OPTIONS = Object.freeze({
   region: 'southamerica-east1',
@@ -100,8 +101,14 @@ export function createAssistRemoteV1Callables({
         }
 
         validateFlutterAssistantRequest(request.data);
+        // A autorização crua vem somente do envelope já validado pela callable.
+        // Ela é efêmera, serve à leitura própria nas Rules e nunca chega ao modelo.
+        const ownerAuthority = createOwnerScopedFirestoreAuthority({
+          uid,
+          authorizationHeader: request?.rawRequest?.headers?.authorization,
+        });
         const [context, usage] = await Promise.all([
-          contextReader({ uid }),
+          contextReader({ uid, ownerAuthority }),
           usageReader({ uid }),
         ]);
         // The port is intentionally not called while the provider is disabled.
