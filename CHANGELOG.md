@@ -2,6 +2,10 @@
 
 ## Em desenvolvimento
 
+- ASSIST-2N normaliza `minInstanceCount` ausente na inspeção Gen 2 e corrige
+  o ciclo de vida dos dotenvs efêmeros do rollout: flags seguros são avaliados
+  somente no runtime e os arquivos criados pelo script são removidos em sucesso
+  ou falha;
 - ASSIST-2N prepara um roteiro development visível e fail-closed para inspecionar
   a callable, publicar somente o circuito desligado, bloquear ativação antes de
   adaptadores concretos e gerar APK debug por define local, sem executar ação

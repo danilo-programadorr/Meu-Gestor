@@ -26,13 +26,18 @@ financeiro. Toda operação externa continua dependendo de autorização separad
 
 Execute `DeploySafeCircuit` apenas depois de conferir o resultado da inspeção e
 digitar literalmente `PUBLICAR CIRCUITO DEVELOPMENT DESLIGADO`. O script cria
-um `.env` ignorado e efêmero somente durante o deploy da callable
-`assistRemoteV1`, com provedor falso e kill switch ativo; ele o remove mesmo em
-falha. O seletor Firebase é estrito: `functions:assistant:assistRemoteV1`.
+um `.env` e um `.env.<development>` ignorados e efêmeros somente durante o
+deploy da callable `assistRemoteV1`. O primeiro recebe somente a identidade e
+o segundo fixa provedor falso e kill switch ativo, ambos com newline final. O
+script cria apenas arquivos antes ausentes e remove somente os que ele próprio
+registrou, inclusive em falha. O seletor Firebase é estrito:
+`functions:assistant:assistRemoteV1`.
 
 Após o deploy, o roteiro relê região, identidade e limites. A callable deve
 continuar respondendo somente indisponibilidade segura; ela não pode montar
 contexto, reservar custo, consultar Vertex ou receber dados do Flutter.
+Os flags seguros são avaliados apenas no runtime da callable e do gateway; o
+deploy não materializa seus valores por avaliar `defineBoolean.value()`.
 
 ## Ativação global development
 

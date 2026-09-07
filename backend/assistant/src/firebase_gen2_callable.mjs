@@ -66,6 +66,7 @@ export function createAssistRemoteV1Callables({
   functionOptions = ASSISTANT_REMOTE_CALLABLE_OPTIONS,
   killSwitchActive = ASSISTANT_REMOTE_KILL_SWITCH_ACTIVE,
   providerFeatureEnabled = ASSISTANT_REAL_PROVIDER_FEATURE_ENABLED,
+  runtimeControlsReader = () => Object.freeze({ killSwitchActive, providerFeatureEnabled }),
 }) {
   if (
     typeof onCall !== 'function' || typeof HttpsError !== 'function'
@@ -76,7 +77,7 @@ export function createAssistRemoteV1Callables({
   }
   assertLedgerPort(ledger);
   assertProviderGateway(providerGateway);
-  if (typeof killSwitchActive !== 'boolean' || typeof providerFeatureEnabled !== 'boolean') {
+  if (typeof killSwitchActive !== 'boolean' || typeof providerFeatureEnabled !== 'boolean' || typeof runtimeControlsReader !== 'function') {
     throw new TypeError('assistant_callable_controls_invalid');
   }
   if (!functionOptions || typeof functionOptions !== 'object' || Array.isArray(functionOptions)) {
@@ -88,10 +89,12 @@ export function createAssistRemoteV1Callables({
       try {
         const uid = requireAuthenticatedUid(request, HttpsError);
         requireExactFlutterData(request?.data, HttpsError);
+        const runtimeControls = readRuntimeControls(runtimeControlsReader);
+        const { killSwitchActive: runtimeKillSwitchActive, providerFeatureEnabled: runtimeProviderFeatureEnabled } = runtimeControls;
         // Nenhuma leitura de perfil, contexto, ledger ou banco é permitida
         // enquanto a borda está desligada. Auth e App Check já passaram pelo
         // perímetro e a resposta não contém conteúdo do solicitante.
-        if (killSwitchActive || !providerFeatureEnabled) {
+        if (runtimeKillSwitchActive || !runtimeProviderFeatureEnabled) {
           return ASSISTANT_SAFE_UNAVAILABLE;
         }
         const authorization = await deriveServerAuthorization({ request, uid, authorizationReader, HttpsError });
@@ -119,15 +122,15 @@ export function createAssistRemoteV1Callables({
           context,
           usage,
           modelRouter,
-          killSwitchActive,
-          providerFeatureEnabled,
+          killSwitchActive: runtimeKillSwitchActive,
+          providerFeatureEnabled: runtimeProviderFeatureEnabled,
         });
         if (!plan.allowed) {
           return ASSISTANT_SAFE_UNAVAILABLE;
         }
         const execution = resolveAssistantModelExecution({
           routing: Object.freeze({ tier: plan.tier }),
-          featureEnabled: providerFeatureEnabled,
+          featureEnabled: runtimeProviderFeatureEnabled,
         });
         const maximumCostCents = ASSISTANT_MAXIMUM_VERTEX_COST_CENTS[execution.tier];
         const requestId = createAssistantCostRequestId();
@@ -164,6 +167,16 @@ function assertProviderGateway(providerGateway) {
   if (!providerGateway || typeof providerGateway.generate !== 'function') {
     throw new TypeError('assistant_provider_gateway_port_invalid');
   }
+}
+
+function readRuntimeControls(runtimeControlsReader) {
+  const controls = runtimeControlsReader();
+  if (!controls || typeof controls !== 'object' || Array.isArray(controls)
+      || typeof controls.killSwitchActive !== 'boolean'
+      || typeof controls.providerFeatureEnabled !== 'boolean') {
+    throw new TypeError('assistant_callable_runtime_controls_invalid');
+  }
+  return controls;
 }
 
 function requireAuthenticatedUid(request, HttpsError) {

@@ -32,6 +32,22 @@ test('desligado falha antes de carregar cliente, credencial ou rede', async () =
   assert.equal(factoryCalls, 0);
 });
 
+test('flags são lidos no runtime do gateway, não em sua criação', async () => {
+  let reads = 0;
+  const gateway = createVertexRuntimeGateway({
+    runtimeControlsReader: () => {
+      reads += 1;
+      return Object.freeze({ killSwitchActive: true, providerFeatureEnabled: false });
+    },
+  });
+  assert.equal(reads, 0);
+  await assert.rejects(
+    gateway.generate({ execution, maximumCostCents: 20, providerRequest }),
+    (error) => error instanceof AssistantContractError && error.code === 'assistant_provider_unavailable',
+  );
+  assert.equal(reads, 1);
+});
+
 test('fake local valida plano, usa Flash e devolve somente JSON estruturado', async () => {
   const calls = [];
   const gateway = createVertexRuntimeGateway({

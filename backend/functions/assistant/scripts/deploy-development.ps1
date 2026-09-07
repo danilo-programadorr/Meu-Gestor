@@ -27,6 +27,8 @@ $ErrorActionPreference = 'Stop'
 $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..\..')).Path
 $assistantRoot = Join-Path $repositoryRoot 'backend\functions\assistant'
 $temporaryEnvironmentFile = Join-Path $assistantRoot '.env'
+$temporaryProjectEnvironmentFile = Join-Path $assistantRoot ".env.$ProjectId"
+$createdTemporaryEnvironmentFiles = [System.Collections.Generic.List[string]]::new()
 $reportPath = Join-Path $repositoryRoot '.codex-tmp\assistant-rollout-development-result.json'
 $expectedRegion = 'southamerica-east1'
 $expectedLedgerDatabase = 'assistant-controls-dev'
@@ -63,9 +65,29 @@ function Confirm-ManualAction {
 # Responsabilidade: garante que o dotenv efêmero não possa ser versionado antes
 # de receber a identidade runtime e remove-o em finally após o deploy permitido.
 function Assert-TemporaryEnvironmentPath {
-  if (Test-Path -LiteralPath $temporaryEnvironmentFile) { throw 'AÇÃO SUA: .env já existe; remova ou audite manualmente antes de continuar.' }
-  & git -C $repositoryRoot check-ignore -q -- 'backend/functions/assistant/.env'
-  if ($LASTEXITCODE -ne 0) { throw 'AÇÃO SUA: backend/functions/assistant/.env não está ignorado pelo Git.' }
+  foreach ($file in @($temporaryEnvironmentFile, $temporaryProjectEnvironmentFile)) {
+    if (Test-Path -LiteralPath $file) { throw 'AÇÃO SUA: arquivo .env preexistente; preserve-o e audite manualmente antes de continuar.' }
+    $relativeFile = [System.IO.Path]::GetRelativePath($repositoryRoot, $file).Replace('\', '/')
+    & git -C $repositoryRoot check-ignore -q -- $relativeFile
+    if ($LASTEXITCODE -ne 0) { throw 'AÇÃO SUA: arquivo temporário .env não está ignorado pelo Git.' }
+  }
+}
+
+# Responsabilidade: cria somente os dois dotenvs ausentes e com newline final;
+# o arquivo base recebe a identidade e o específico do projeto fixa os flags seguros.
+function New-SafeTemporaryEnvironmentFiles {
+  [System.IO.File]::WriteAllLines($temporaryEnvironmentFile, @("ASSISTANT_RUNTIME_SERVICE_ACCOUNT=$RuntimeServiceAccount"))
+  $createdTemporaryEnvironmentFiles.Add($temporaryEnvironmentFile)
+  [System.IO.File]::WriteAllLines($temporaryProjectEnvironmentFile, @('ASSISTANT_REAL_PROVIDER_ENABLED=false', 'ASSISTANT_KILL_SWITCH_DISABLED=false'))
+  $createdTemporaryEnvironmentFiles.Add($temporaryProjectEnvironmentFile)
+}
+
+# Responsabilidade: remove exclusivamente dotenvs cuja criação foi registrada
+# neste processo, preservando qualquer arquivo preexistente do usuário.
+function Remove-CreatedTemporaryEnvironmentFiles {
+  foreach ($file in $createdTemporaryEnvironmentFiles) {
+    if (Test-Path -LiteralPath $file) { Remove-Item -LiteralPath $file -Force }
+  }
 }
 
 # Responsabilidade: confere o artefato local que será implantado, inclusive os
@@ -163,11 +185,11 @@ switch ($Phase) {
     Confirm-ManualAction -Phrase 'PUBLICAR CIRCUITO DEVELOPMENT DESLIGADO'
     Assert-TemporaryEnvironmentPath
     try {
-      @("ASSISTANT_RUNTIME_SERVICE_ACCOUNT=$RuntimeServiceAccount", 'ASSISTANT_REAL_PROVIDER_ENABLED=false', 'ASSISTANT_KILL_SWITCH_DISABLED=false') | Set-Content -LiteralPath $temporaryEnvironmentFile -Encoding utf8 -NoNewline
+      New-SafeTemporaryEnvironmentFiles
       & $FirebaseCliPath deploy --only functions:assistant:assistRemoteV1 --project $ProjectId
       if ($LASTEXITCODE -ne 0) { throw 'Deploy do circuito development desligado falhou.' }
     } finally {
-      if (Test-Path -LiteralPath $temporaryEnvironmentFile) { Remove-Item -LiteralPath $temporaryEnvironmentFile -Force }
+      Remove-CreatedTemporaryEnvironmentFiles
     }
     Assert-RemoteFunctionConfiguration
     Write-AggregateReport -Result 'safe_circuit_deployed'

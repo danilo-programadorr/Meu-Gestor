@@ -74,11 +74,12 @@ const createPrompt = (providerRequest) => {
 export const createVertexRuntimeGateway = ({
   providerFeatureEnabled = false,
   killSwitchActive = true,
+  runtimeControlsReader = () => Object.freeze({ providerFeatureEnabled, killSwitchActive }),
   projectIdReader = defaultProjectIdReader,
   vertexAiFactory = defaultVertexAiFactory,
   clock = () => Date.now(),
 } = {}) => {
-  if (typeof providerFeatureEnabled !== 'boolean' || typeof killSwitchActive !== 'boolean'
+  if (typeof providerFeatureEnabled !== 'boolean' || typeof killSwitchActive !== 'boolean' || typeof runtimeControlsReader !== 'function'
       || typeof projectIdReader !== 'function' || typeof vertexAiFactory !== 'function'
       || typeof clock !== 'function') {
     throw new TypeError('assistant_vertex_gateway_dependencies_invalid');
@@ -86,7 +87,11 @@ export const createVertexRuntimeGateway = ({
 
   return Object.freeze({
     async generate({ execution, maximumCostCents, providerRequest }) {
-      if (killSwitchActive || !providerFeatureEnabled) {
+      const runtimeControls = runtimeControlsReader();
+      if (!runtimeControls || typeof runtimeControls.killSwitchActive !== 'boolean' || typeof runtimeControls.providerFeatureEnabled !== 'boolean') {
+        throw deny('assistant_provider_configuration_unavailable');
+      }
+      if (runtimeControls.killSwitchActive || !runtimeControls.providerFeatureEnabled) {
         throw deny('assistant_provider_unavailable');
       }
       assertExecution(execution);

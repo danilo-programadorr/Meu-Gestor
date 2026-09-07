@@ -100,6 +100,20 @@ test('estado desligado não consulta consentimento, privacidade ou contexto', as
   assert.deepEqual(calls, { authorization: 0, context: 0, usage: 0, reserve: 0, confirm: 0, provider: 0 });
 });
 
+test('controles são lidos no runtime da callable, nunca durante sua composição', async () => {
+  let reads = 0;
+  const { calls, invoke } = build({
+    runtimeControlsReader: () => {
+      reads += 1;
+      return Object.freeze({ killSwitchActive: true, providerFeatureEnabled: false });
+    },
+  });
+  assert.equal(reads, 0);
+  assert.deepEqual(await invoke(request()), ASSISTANT_SAFE_UNAVAILABLE);
+  assert.equal(reads, 1);
+  assert.deepEqual(calls, { authorization: 0, context: 0, usage: 0, reserve: 0, confirm: 0, provider: 0 });
+});
+
 test('rejeita contexto, UID, e-mail, modelo, custo e instruções do cliente', async () => {
   const forbiddenFields = ['context', 'uid', 'email', 'model', 'cost', 'instructions'];
   for (const field of forbiddenFields) {

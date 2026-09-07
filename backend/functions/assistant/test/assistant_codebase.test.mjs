@@ -4,8 +4,6 @@ import { readFile } from 'node:fs/promises';
 
 import {
   ASSISTANT_FUNCTION_OPTIONS,
-  assistantKillSwitchActive,
-  assistantProviderFeatureEnabled,
   assistantRuntimeServiceAccount,
 } from '../src/function_options.mjs';
 import { createFailClosedAssistantDependencies } from '../src/fail_closed_dependencies.mjs';
@@ -36,7 +34,7 @@ test('codebase assistant é exclusivo, Node 22 e aponta somente à callable prev
   });
 });
 
-test('runtime identity é parâmetro sem valor versionado e opções são conservadoras', () => {
+test('runtime identity é parâmetro sem valor versionado e opções são conservadoras', async () => {
   assert.equal(assistantRuntimeServiceAccount.name, 'ASSISTANT_RUNTIME_SERVICE_ACCOUNT');
   assert.deepEqual(ASSISTANT_FUNCTION_OPTIONS, {
     region: 'southamerica-east1',
@@ -49,8 +47,9 @@ test('runtime identity é parâmetro sem valor versionado e opções são conser
     enforceAppCheck: true,
   });
   assert.equal(process.env.ASSISTANT_RUNTIME_SERVICE_ACCOUNT, undefined);
-  assert.equal(assistantProviderFeatureEnabled.value(), false);
-  assert.equal(assistantKillSwitchActive.value(), true);
+  const entryPoint = await readFile(new URL('../index.mjs', import.meta.url), 'utf8');
+  assert.match(entryPoint, /runtimeControlsReader: readAssistantRuntimeControls/u);
+  assert.doesNotMatch(entryPoint, /\.value\(\)/u);
 });
 
 test('adapters sem banco falham fechados antes de qualquer leitura futura', async () => {
@@ -94,6 +93,15 @@ test('roteiro development separa inspeção, deploy fechado, ativação bloquead
   assert.match(source, /functions:assistant:assistRemoteV1/u);
   assert.match(source, /ASSISTANT_REAL_PROVIDER_ENABLED=false/u);
   assert.match(source, /ASSISTANT_KILL_SWITCH_DISABLED=false/u);
+  assert.match(source, /\.env\.\$ProjectId/u);
+  assert.match(source, /WriteAllLines\(\$temporaryEnvironmentFile/u);
+  assert.match(source, /WriteAllLines\(\$temporaryProjectEnvironmentFile/u);
+  assert.match(source, /Remove-CreatedTemporaryEnvironmentFiles/u);
+  assert.match(source, /finally\s*\{\s*Remove-CreatedTemporaryEnvironmentFiles/u);
+  assert.doesNotMatch(
+    source,
+    /Set-Content[^\n]+\$(?:temporaryEnvironmentFile|temporaryProjectEnvironmentFile)[^\n]+NoNewline/u,
+  );
   assert.match(source, /ASSISTANT_REMOTE_ENABLED=true/u);
   assert.match(source, /ativação global bloqueada/iu);
   assert.match(source, /effectiveMinInstanceCount\s*=\s*if\s*\(\$null -eq \$service\.minInstanceCount\)\s*\{\s*0\s*\}/u);

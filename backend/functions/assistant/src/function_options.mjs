@@ -13,8 +13,18 @@ export const assistantProviderFeatureEnabled = defineBoolean('ASSISTANT_REAL_PRO
 // Logo, o único modo de desligar o circuito é declarar explicitamente a
 // sinalização inversa no ambiente autorizado; a ausência mantém o bloqueio.
 const assistantKillSwitchDisabled = defineBoolean('ASSISTANT_KILL_SWITCH_DISABLED');
+
+/**
+ * Responsabilidade: lê os flags somente durante uma invocação da callable;
+ * a composição e o deploy nunca materializam parâmetros booleanos.
+ */
+export const readAssistantRuntimeControls = () => Object.freeze({
+  providerFeatureEnabled: assistantProviderFeatureEnabled.value() === true,
+  killSwitchActive: assistantKillSwitchDisabled.value() !== true,
+});
+
 export const assistantKillSwitchActive = Object.freeze({
-  value: () => !assistantKillSwitchDisabled.value(),
+  value: () => readAssistantRuntimeControls().killSwitchActive,
 });
 
 export const ASSISTANT_FUNCTION_OPTIONS = Object.freeze({
