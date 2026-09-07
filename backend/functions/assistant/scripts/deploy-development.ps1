@@ -114,8 +114,18 @@ function Assert-RemoteFunctionConfiguration {
   $functionJson = Invoke-CapturedTool -ToolPath $GcloudCliPath -Arguments @('functions', 'describe', 'assistRemoteV1', '--gen2', "--region=$expectedRegion", "--project=$ProjectId", '--format=json') -FailureAction 'a Function development não foi encontrada ou não pôde ser lida.'
   $function = $functionJson | ConvertFrom-Json
   $service = $function.serviceConfig
-  if ($function.environment -ne 'GEN_2' -or [string]$service.availableMemory -notin @('256M', '256Mi', '256MiB') -or $service.timeoutSeconds -ne 30 -or $service.maxInstanceCount -ne 1 -or $service.minInstanceCount -ne 0 -or $service.maxInstanceRequestConcurrency -ne 1 -or $service.serviceAccountEmail -ne $RuntimeServiceAccount) {
-    throw 'AÇÃO SUA: a Function remota não corresponde a região, identidade ou limites aprovados.'
+  $effectiveMinInstanceCount = if ($null -eq $service.minInstanceCount) { 0 } else { $service.minInstanceCount }
+  $differences = [System.Collections.Generic.List[string]]::new()
+  if ($function.environment -ne 'GEN_2') { $differences.Add('ambiente Gen 2') }
+  if ([string]$function.name -notmatch [regex]::Escape("/locations/$expectedRegion/")) { $differences.Add('região') }
+  if ([string]$service.serviceAccountEmail -ne $RuntimeServiceAccount) { $differences.Add('identidade runtime') }
+  if ([string]$service.availableMemory -notin @('256M', '256Mi', '256MiB')) { $differences.Add('memória') }
+  if ($service.timeoutSeconds -ne 30) { $differences.Add('timeout') }
+  if ($service.maxInstanceCount -ne 1) { $differences.Add('máximo de instâncias') }
+  if ($effectiveMinInstanceCount -ne 0) { $differences.Add('mínimo de instâncias') }
+  if ($service.maxInstanceRequestConcurrency -ne 1) { $differences.Add('concorrência') }
+  if ($differences.Count -ne 0) {
+    throw "AÇÃO SUA: a configuração remota divergiu em: $($differences -join ', ')."
   }
   Write-Host 'Function remota confirmada: região, identidade e limites aprovados.'
 }

@@ -96,5 +96,10 @@ test('roteiro development separa inspeção, deploy fechado, ativação bloquead
   assert.match(source, /ASSISTANT_KILL_SWITCH_DISABLED=false/u);
   assert.match(source, /ASSISTANT_REMOTE_ENABLED=true/u);
   assert.match(source, /ativação global bloqueada/iu);
+  assert.match(source, /effectiveMinInstanceCount\s*=\s*if\s*\(\$null -eq \$service\.minInstanceCount\)\s*\{\s*0\s*\}/u);
+  assert.match(source, /configuração remota divergiu em:/iu);
+  assert.match(source, /'região'/u);
+  assert.match(source, /'identidade runtime'/u);
+  assert.match(source, /'máximo de instâncias'/u);
   assert.doesNotMatch(source, /AIza|private[_-]?key|secretmanager|login:ci/iu);
 });

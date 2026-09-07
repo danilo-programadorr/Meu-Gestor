@@ -14,8 +14,11 @@ financeiro. Toda operação externa continua dependendo de autorização separad
 2. Execute primeiro a fase `Inspect`. Ela exige o alvo development, confere a
    única Function, região `southamerica-east1`, 256 MiB, 30 segundos,
    concorrência e instâncias, App Check no artefato, circuito fechado e IAM
-   mínimo. Qualquer papel fora de Vertex, Logs Writer ou acesso condicionado ao
-   ledger nomeado interrompe o roteiro.
+   mínimo. A ausência de `minInstanceCount` no retorno Gen 2 é normalizada
+   estritamente para o valor efetivo `0`; qualquer outro campo ausente ou
+   divergente interrompe o roteiro com o nome do campo. Qualquer papel fora de
+   Vertex, Logs Writer ou acesso condicionado ao ledger nomeado interrompe o
+   roteiro.
 3. Revise somente a mensagem agregada exibida. Não copie saída bruta de IAM,
    Function, token ou configuração para documentação, chat ou Git.
 
