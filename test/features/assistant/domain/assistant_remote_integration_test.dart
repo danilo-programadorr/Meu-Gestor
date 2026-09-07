@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_failure.dart';
 import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_remote_integration.dart';
@@ -34,6 +36,21 @@ void main() {
       );
     },
   );
+
+  test('define remoto exige build development explícito', () {
+    final String source = File(
+      'lib/features/assistant/domain/assistant_remote_integration.dart',
+    ).readAsStringSync();
+
+    expect(source, contains('String.fromEnvironment('));
+    expect(
+      source,
+      contains(
+        "bool.fromEnvironment('ASSISTANT_REMOTE_ENABLED', defaultValue: false)",
+      ),
+    );
+    expect(AssistantRemoteIntegrationPolicy.realCallsEnabled, isFalse);
+  });
 
   test('resposta remota não aceita conteúdo, dados ou campos adicionais', () {
     expect(

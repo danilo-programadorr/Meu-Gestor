@@ -570,6 +570,14 @@
 | ASSIST-2M-002 | Não ampliar IAM do banco padrão | P0 | ASSIST-2M-0 | não há Admin, datastore.user, escrita ou contexto parcial; Rules permanecem autoridade | local e testado | auditoria IAM futura | crítico | zero externo |
 | ASSIST-2M-003 | Montar fatos mínimos e comprovados | P0 | ASSIST-2M-0 | contas, lançamentos, compromissos, calendário, investimentos e proventos passam por schema, fonte e período São Paulo | local e testado | fonte server-side futura | crítico | leituras limitadas |
 
+## Incremento ASSIST-2N — preparação de rollout development
+
+| ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |
+|---|---|---:|---:|---|---|---|---|---|
+| ASSIST-2N-001 | Inspecionar alvo development de modo explícito | P0 | ASSIST-2N-DEV-ROLLOUT-PREP | roteiro confirma ambiente, Function, região, App Check, limites, IAM mínimo e ledger sem registrar conteúdo sensível | local e testado | autorização externa futura | crítico | zero nesta etapa |
+| ASSIST-2N-002 | Separar circuito fechado de ativação global | P0 | ASSIST-2N-DEV-ROLLOUT-PREP | deploy fechado exige confirmação; ativação permanece bloqueada sem adaptadores concretos auditados | local e testado | nova autorização | crítico | zero nesta etapa |
+| ASSIST-2N-003 | Limitar APK remoto a development | P0 | ASSIST-2N-DEV-ROLLOUT-PREP | chamada Flutter exige `APP_ENV=development` e define explícito; produção permanece desligada | local e testado | revisão visual futura | crítico | zero nesta etapa |
+
 ## Incremento CALENDAR-1 — calendário financeiro interno
 
 | ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |

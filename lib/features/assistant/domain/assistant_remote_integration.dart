@@ -1,5 +1,7 @@
 // Responsabilidade: define o contrato mínimo entre Flutter e a borda remota,
 // sem permitir identidade, contexto, modelo ou credencial do cliente.
+import 'package:meu_gestor_financeiro/core/environment/app_environment.dart';
+
 import 'assistant_context.dart';
 import 'assistant_failure.dart';
 import 'assistant_grounded_response.dart';
@@ -149,11 +151,20 @@ final class AssistantRemoteResponse {
       'Nenhuma pergunta foi respondida por um provedor externo.';
 }
 
-/// This remains false in every Flutter build until a separate server-side
-/// activation is approved. It is not a remotely configurable client switch.
-/// Mantém a chamada remota impossível em qualquer build até nova ativação.
+/// Mantém a chamada remota impossível por padrão. Somente um APK development
+/// explicitamente compilado com a flag local pode ativar a borda Flutter;
+/// production continua fechada mesmo se a flag for informada por engano.
 abstract final class AssistantRemoteIntegrationPolicy {
-  static const bool realCallsEnabled = false;
+  static const bool _developmentBuild =
+      String.fromEnvironment(
+        'APP_ENV',
+        defaultValue: AppEnvironment.developmentValue,
+      ) ==
+      AppEnvironment.developmentValue;
+
+  static const bool realCallsEnabled =
+      _developmentBuild &&
+      bool.fromEnvironment('ASSISTANT_REMOTE_ENABLED', defaultValue: false);
 }
 
 /// Fail-closed implementation used by the app while no protected backend edge

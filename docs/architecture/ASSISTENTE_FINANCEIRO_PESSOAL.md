@@ -236,3 +236,15 @@ R$45/mês.
   dados não confirmados são rejeitados ou descartados antes do contexto.
 - A camada permanece desligada no runtime publicado: qualquer integração real
   exige validação específica em development antes de consultar Firestore.
+
+## Rollout development visível ASSIST-2N
+
+- O script versionado separa inspeção, deploy com provedor desligado, ativação
+  global e APK debug. Cada fase mutável exige frase digitada e recusa nomes de
+  alvo que não sejam development.
+- A inspeção futura valida limites Gen 2, App Check no artefato, identidade e
+  papéis mínimos de Vertex/logs/ledger nomeado, sem listar conteúdo sensível.
+- A ativação global está bloqueada enquanto autorização, contexto e ledger forem
+  adaptadores fail-closed. O APK só permite o gateway por dois defines de build:
+  development e `ASSISTANT_REMOTE_ENABLED=true`; produção sempre permanece sem
+  rede do Assistente.

@@ -85,3 +85,16 @@ test('ponte Vertex é dinâmica, genérica e não abre cliente com circuito desl
   assert.doesNotMatch(source, /firebase-admin|getFirestore\(|https?:\/\/|secretmanager|console\./iu);
   assert.doesNotMatch(source, /meu-gestor-financeiro|AIza|private[_-]?key|serviceAccountKey/iu);
 });
+
+test('roteiro development separa inspeção, deploy fechado, ativação bloqueada e APK local', async () => {
+  const source = await readFile(new URL('../scripts/deploy-development.ps1', import.meta.url), 'utf8');
+  for (const phase of ['Inspect', 'DeploySafeCircuit', 'ActivateDevelopment', 'BuildDevelopmentApk']) {
+    assert.match(source, new RegExp(`'${phase}'`, 'u'));
+  }
+  assert.match(source, /functions:assistant:assistRemoteV1/u);
+  assert.match(source, /ASSISTANT_REAL_PROVIDER_ENABLED=false/u);
+  assert.match(source, /ASSISTANT_KILL_SWITCH_DISABLED=false/u);
+  assert.match(source, /ASSISTANT_REMOTE_ENABLED=true/u);
+  assert.match(source, /ativação global bloqueada/iu);
+  assert.doesNotMatch(source, /AIza|private[_-]?key|secretmanager|login:ci/iu);
+});

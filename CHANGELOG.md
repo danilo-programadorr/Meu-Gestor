@@ -2,6 +2,10 @@
 
 ## Em desenvolvimento
 
+- ASSIST-2N prepara um roteiro development visível e fail-closed para inspecionar
+  a callable, publicar somente o circuito desligado, bloquear ativação antes de
+  adaptadores concretos e gerar APK debug por define local, sem executar ação
+  externa nesta etapa;
 - ASSIST-2M prepara a leitura runtime delegada ao próprio usuário: o token
   validado da callable fica apenas em memória e é usado exclusivamente em GETs
   fechados sob `users/{uid}`. Não há Firebase Admin, papel IAM no banco padrão,

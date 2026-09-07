@@ -25,6 +25,9 @@
 - ASSIST-2M prepara localmente o leitor runtime delegado ao proprietário. Ele
   usa o token validado pela callable somente para a leitura própria sujeita às
   Rules; a identidade runtime não ganha acesso IAM ao banco `(default)`.
+- ASSIST-2N prepara o rollout development visível do Assistente, separado em
+  inspeção, deploy fechado, ativação ainda bloqueada e APK debug por define.
+  Nenhuma dessas ações externas foi executada nesta preparação.
 - Todas as ações externas de Firebase, Google Cloud e qualquer provedor de IA são exclusivamente manuais pelo solicitante; o agente limita-se a orientar, preparar código autorizado e verificar resultados locais após confirmação. Referências a Gemini nas etapas históricas não representam fornecedor ativo: a ADR-033 exige contrato neutro e nova aprovação antes da escolha.
 
 ## 2. Decisões aprovadas
