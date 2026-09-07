@@ -7,6 +7,7 @@ import {
   assistantRuntimeServiceAccount,
 } from '../src/function_options.mjs';
 import { createFailClosedAssistantDependencies } from '../src/fail_closed_dependencies.mjs';
+import { createAssistantRuntimeLedger } from '../src/runtime_ledger.mjs';
 
 class FakeHttpsError extends Error {
   constructor(code, message) {
@@ -31,6 +32,7 @@ test('codebase assistant é exclusivo, Node 22 e aponta somente à callable prev
   assert.deepEqual(manifest.dependencies, {
     '@google-cloud/vertexai': '1.12.0',
     'firebase-functions': '7.3.2',
+    'google-auth-library': '10.9.1',
   });
 });
 
@@ -72,6 +74,28 @@ test('artefato não contém Admin, Firestore, URL externa, segredo ou acesso ao 
   assert.doesNotMatch(source, /from\s+['"]firebase-admin|firebase-admin\/firestore|getFirestore\(/iu);
   assert.doesNotMatch(source, /https?:\/\//iu);
   assert.doesNotMatch(source, /secretmanager|api[_-]?key|private[_-]?key|process\.env/iu);
+});
+
+test('ledger usa somente ADC para o banco nomeado e mantém a fronteira do banco padrão fechada', async () => {
+  const source = await readFile(new URL('../src/named_database_ledger_store.mjs', import.meta.url), 'utf8');
+  assert.match(source, /from\s+['"]google-auth-library['"]/u);
+  assert.match(source, /assistant-controls-dev/u);
+  assert.match(source, /https:\/\/firestore\.googleapis\.com\//u);
+  assert.doesNotMatch(source, /firebase-admin|firebase-admin\/firestore|getFirestore\(|\(default\)|GOOGLE_APPLICATION_CREDENTIALS|metadata\.google\/internal/iu);
+});
+
+test('composição runtime usa a porta ADC do ledger sem abrir o provedor', () => {
+  const ledger = createAssistantRuntimeLedger({
+    store: { runTransaction: async () => { throw new Error('ledger_not_called_in_this_test'); } },
+  });
+  assert.equal(typeof ledger.reserve, 'function');
+  assert.equal(typeof ledger.confirm, 'function');
+  const dependencies = createFailClosedAssistantDependencies({
+    HttpsError: FakeHttpsError,
+    ledger,
+    providerGateway: { generate: async () => { throw new Error('provider_must_not_run'); } },
+  });
+  assert.equal(dependencies.ledger, ledger);
 });
 
 test('ponte Vertex é dinâmica, genérica e não abre cliente com circuito desligado', async () => {

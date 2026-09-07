@@ -9,6 +9,7 @@ import {
   registerAssistRemoteV1Gen2,
 } from './shared/index.mjs';
 import { createFailClosedAssistantDependencies } from './src/fail_closed_dependencies.mjs';
+import { createAssistantRuntimeLedger } from './src/runtime_ledger.mjs';
 import {
   ASSISTANT_FUNCTION_OPTIONS,
   readAssistantRuntimeControls,
@@ -20,7 +21,11 @@ import {
 const providerGateway = createVertexRuntimeGateway({
   runtimeControlsReader: readAssistantRuntimeControls,
 });
-const dependencies = createFailClosedAssistantDependencies({ HttpsError, providerGateway });
+const dependencies = createFailClosedAssistantDependencies({
+  HttpsError,
+  providerGateway,
+  ledger: createAssistantRuntimeLedger(),
+});
 const callables = registerAssistRemoteV1Gen2({
   onCall,
   HttpsError,
