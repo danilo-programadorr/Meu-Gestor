@@ -117,14 +117,16 @@ test('ponte Vertex é dinâmica, genérica e não abre cliente com circuito desl
   assert.doesNotMatch(source, /meu-gestor-financeiro|AIza|private[_-]?key|serviceAccountKey/iu);
 });
 
-test('roteiro development separa inspeção, deploy fechado, ativação bloqueada e APK local', async () => {
+test('roteiro development separa inspeção, deploy fechado, ativação confirmada e APK local', async () => {
   const source = await readFile(new URL('../scripts/deploy-development.ps1', import.meta.url), 'utf8');
   for (const phase of ['Inspect', 'DeploySafeCircuit', 'ActivateDevelopment', 'BuildDevelopmentApk']) {
     assert.match(source, new RegExp(`'${phase}'`, 'u'));
   }
   assert.match(source, /functions:assistant:assistRemoteV1/u);
-  assert.match(source, /ASSISTANT_REAL_PROVIDER_ENABLED=false/u);
-  assert.match(source, /ASSISTANT_KILL_SWITCH_DISABLED=false/u);
+  assert.match(source, /New-TemporaryEnvironmentFiles -ProviderEnabled \$false -KillSwitchDisabled \$false/u);
+  assert.match(source, /New-TemporaryEnvironmentFiles -ProviderEnabled \$true -KillSwitchDisabled \$true/u);
+  assert.match(source, /ASSISTANT_REAL_PROVIDER_ENABLED=\$providerValue/u);
+  assert.match(source, /ASSISTANT_KILL_SWITCH_DISABLED=\$killSwitchValue/u);
   assert.match(source, /\.env\.\$ProjectId/u);
   assert.match(source, /WriteAllLines\(\$temporaryEnvironmentFile/u);
   assert.match(source, /WriteAllLines\(\$temporaryProjectEnvironmentFile/u);
@@ -136,6 +138,19 @@ test('roteiro development separa inspeção, deploy fechado, ativação bloquead
   );
   assert.match(source, /ASSISTANT_REMOTE_ENABLED=true/u);
   assert.match(source, /ativação global bloqueada/iu);
+  const activationPhase = source.match(
+    /'ActivateDevelopment'\s*\{([\s\S]*?)\n  \}\n  'BuildDevelopmentApk'/u,
+  )?.[1];
+  assert.ok(activationPhase, 'ramo ActivateDevelopment deve existir isoladamente');
+  assert.match(activationPhase, /Assert-ActivationReadiness/u);
+  assert.match(activationPhase, /Assert-RemoteFunctionConfiguration/u);
+  assert.match(activationPhase, /Confirm-ManualAction -Phrase 'ATIVAR PROVEDOR SOMENTE EM DEVELOPMENT'/u);
+  assert.match(activationPhase, /New-TemporaryEnvironmentFiles -ProviderEnabled \$true -KillSwitchDisabled \$true/u);
+  assert.match(activationPhase, /finally\s*\{\s*Remove-CreatedTemporaryEnvironmentFiles/u);
+  assert.match(source, /Assert-RemoteActivationConfiguration/u);
+  assert.match(source, /\$environment\.ASSISTANT_REAL_PROVIDER_ENABLED -ne 'true'/u);
+  assert.match(source, /\$environment\.ASSISTANT_KILL_SWITCH_DISABLED -ne 'true'/u);
+  assert.doesNotMatch(source, /'ActivateDevelopment'[\s\S]{0,400}throw 'Ativação não pode prosseguir/u);
   assert.match(source, /effectiveMinInstanceCount\s*=\s*if\s*\(\$null -eq \$service\.minInstanceCount\)\s*\{\s*0\s*\}/u);
   assert.match(source, /configuração remota divergiu em:/iu);
   assert.match(source, /'região'/u);

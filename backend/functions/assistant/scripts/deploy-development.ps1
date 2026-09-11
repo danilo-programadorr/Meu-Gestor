@@ -74,11 +74,23 @@ function Assert-TemporaryEnvironmentPath {
 }
 
 # Responsabilidade: cria somente os dois dotenvs ausentes e com newline final;
-# o arquivo base recebe a identidade e o específico do projeto fixa os flags seguros.
-function New-SafeTemporaryEnvironmentFiles {
+# o arquivo base recebe a identidade e o específico do projeto fixa os flags
+# explicitamente informados pela fase manual já confirmada.
+function New-TemporaryEnvironmentFiles {
+  param(
+    [Parameter(Mandatory = $true)]
+    [bool]$ProviderEnabled,
+    [Parameter(Mandatory = $true)]
+    [bool]$KillSwitchDisabled
+  )
+  $providerValue = if ($ProviderEnabled) { 'true' } else { 'false' }
+  $killSwitchValue = if ($KillSwitchDisabled) { 'true' } else { 'false' }
   [System.IO.File]::WriteAllLines($temporaryEnvironmentFile, @("ASSISTANT_RUNTIME_SERVICE_ACCOUNT=$RuntimeServiceAccount"))
   $createdTemporaryEnvironmentFiles.Add($temporaryEnvironmentFile)
-  [System.IO.File]::WriteAllLines($temporaryProjectEnvironmentFile, @('ASSISTANT_REAL_PROVIDER_ENABLED=false', 'ASSISTANT_KILL_SWITCH_DISABLED=false'))
+  [System.IO.File]::WriteAllLines($temporaryProjectEnvironmentFile, @(
+    "ASSISTANT_REAL_PROVIDER_ENABLED=$providerValue",
+    "ASSISTANT_KILL_SWITCH_DISABLED=$killSwitchValue"
+  ))
   $createdTemporaryEnvironmentFiles.Add($temporaryProjectEnvironmentFile)
 }
 
@@ -152,6 +164,24 @@ function Assert-RemoteFunctionConfiguration {
   Write-Host 'Function remota confirmada: região, identidade e limites aprovados.'
 }
 
+# Responsabilidade: confirma após o deploy que os dois controles de runtime
+# recebidos pela Function correspondem à ativação manual development aprovada.
+function Assert-RemoteActivationConfiguration {
+  $functionJson = Invoke-CapturedTool -ToolPath $GcloudCliPath -Arguments @('functions', 'describe', 'assistRemoteV1', '--gen2', "--region=$expectedRegion", "--project=$ProjectId", '--format=json') -FailureAction 'a Function development não pôde ser relida após a ativação.'
+  $function = $functionJson | ConvertFrom-Json
+  $environment = $function.serviceConfig.environmentVariables
+  $differences = [System.Collections.Generic.List[string]]::new()
+  if ($null -eq $environment) { $differences.Add('variáveis de runtime') }
+  else {
+    if ([string]$environment.ASSISTANT_REAL_PROVIDER_ENABLED -ne 'true') { $differences.Add('ASSISTANT_REAL_PROVIDER_ENABLED') }
+    if ([string]$environment.ASSISTANT_KILL_SWITCH_DISABLED -ne 'true') { $differences.Add('ASSISTANT_KILL_SWITCH_DISABLED') }
+  }
+  if ($differences.Count -ne 0) {
+    throw "AÇÃO SUA: a ativação remota não pôde ser confirmada em: $($differences -join ', ')."
+  }
+  Write-Host 'Ativação remota confirmada de forma agregada: provedor development habilitado e kill switch desabilitado.'
+}
+
 # Responsabilidade: impede ativação global enquanto os adaptadores concretos de
 # autorização, ledger e contexto ainda forem explicitamente fail-closed no código.
 function Assert-ActivationReadiness {
@@ -187,7 +217,7 @@ switch ($Phase) {
     Confirm-ManualAction -Phrase 'PUBLICAR CIRCUITO DEVELOPMENT DESLIGADO'
     Assert-TemporaryEnvironmentPath
     try {
-      New-SafeTemporaryEnvironmentFiles
+      New-TemporaryEnvironmentFiles -ProviderEnabled $false -KillSwitchDisabled $false
       & $FirebaseCliPath deploy --only functions:assistant:assistRemoteV1 --project $ProjectId
       if ($LASTEXITCODE -ne 0) { throw 'Deploy do circuito development desligado falhou.' }
     } finally {
@@ -199,8 +229,20 @@ switch ($Phase) {
   }
   'ActivateDevelopment' {
     Assert-ActivationReadiness
+    Assert-RemoteFunctionConfiguration
     Confirm-ManualAction -Phrase 'ATIVAR PROVEDOR SOMENTE EM DEVELOPMENT'
-    throw 'Ativação não pode prosseguir sem uma autorização específica de deploy e adaptadores concretos auditados.'
+    Assert-TemporaryEnvironmentPath
+    try {
+      New-TemporaryEnvironmentFiles -ProviderEnabled $true -KillSwitchDisabled $true
+      & $FirebaseCliPath deploy --only functions:assistant:assistRemoteV1 --project $ProjectId
+      if ($LASTEXITCODE -ne 0) { throw 'Deploy de ativação development falhou.' }
+    } finally {
+      Remove-CreatedTemporaryEnvironmentFiles
+    }
+    Assert-RemoteFunctionConfiguration
+    Assert-RemoteActivationConfiguration
+    Write-AggregateReport -Result 'development_provider_activated'
+    Write-Host 'Ativação development concluída; confirme a primeira chamada sintética antes de qualquer acesso pelo aplicativo.'
   }
   'BuildDevelopmentApk' {
     Confirm-ManualAction -Phrase 'GERAR APK DEVELOPMENT COM ASSISTENTE REMOTO'

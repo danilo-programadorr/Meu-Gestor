@@ -41,14 +41,25 @@ deploy não materializa seus valores por avaliar `defineBoolean.value()`.
 
 ## Ativação global development
 
-`ActivateDevelopment` é deliberadamente bloqueada no estado atual. A fase só
-prosseguirá quando adaptadores concretos, auditados e transacionais de
-autorização, contexto próprio e ledger existirem. Mesmo então exigirá uma nova
-confirmação literal: `ATIVAR PROVEDOR SOMENTE EM DEVELOPMENT`.
+`ActivateDevelopment` permanece apenas como um roteiro manual versionado: ela
+exige que os adaptadores concretos e transacionais de autorização, contexto
+próprio e ledger já passem no pré-check local, que a Function development
+existente corresponda a região, identidade e limites aprovados e que uma pessoa
+digite literalmente `ATIVAR PROVEDOR SOMENTE EM DEVELOPMENT`.
 
-O bloqueio evita que flags de ambiente por si só ativem uma Function sem
-fronteira de proprietário, ledger de R$5/dia e R$45/mês, App Check e kill switch
-funcionais. Production não é alvo aceito pelo script.
+Somente depois dessas fronteiras, a fase cria os dois dotenvs efêmeros antes
+ausentes: o base recebe a identidade runtime fornecida fora do Git e o do
+projeto development recebe explicitamente
+`ASSISTANT_REAL_PROVIDER_ENABLED=true` e
+`ASSISTANT_KILL_SWITCH_DISABLED=true`. O deploy continua limitado a
+`functions:assistant:assistRemoteV1`. Um `finally` remove somente os arquivos
+registrados pelo próprio processo, mesmo se o deploy falhar.
+
+Após o deploy, o roteiro relê a configuração Gen 2 e exige, além da região,
+identidade e limites, os dois controles de runtime com valor efetivo `true`.
+Qualquer alvo production, projeto não-development, adaptador ausente, falha de
+deploy ou flag inconsistente interrompe a etapa. A existência desse roteiro não
+constitui ativação: a execução externa ainda exige autorização específica.
 
 ## APK debug de development
 
