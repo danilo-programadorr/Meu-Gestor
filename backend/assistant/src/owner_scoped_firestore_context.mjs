@@ -37,6 +37,13 @@ const collectionFieldMasks = Object.freeze({
   investmentOperations: Object.freeze(['ownerId', 'kind', 'isVoided', 'occurredAt']),
   investmentIncomeEvents: Object.freeze(['ownerId', 'status', 'receivedDate', 'netAmountCents']),
 });
+const profileFieldMasks = Object.freeze([
+  'ownerId', 'emailVerifiedSnapshot', 'termsVersionAccepted',
+  'privacyVersionAccepted', 'aiConsentEnabled', 'aiConsentUpdatedAt',
+]);
+const remoteSettingsFieldMasks = Object.freeze([
+  'consentVersion', 'financialContextAllowed', 'updatedAt',
+]);
 
 const isExactObject = (value, keys) => value !== null
   && typeof value === 'object'
@@ -149,7 +156,7 @@ export class OwnerScopedFirestoreRestTransport {
     const { uid, authorizationHeader } = authority ?? {};
     assertOwnerUid(uid);
     assertAuthorizationHeader(authorizationHeader);
-    const projectId = this.projectIdReader();
+    const projectId = await this.projectIdReader();
     assertProjectId(projectId);
     const path = `users/${encodeURIComponent(uid)}/${collection}`;
     const query = new URLSearchParams({ pageSize: String(this.pageSize) });
@@ -171,6 +178,32 @@ export class OwnerScopedFirestoreRestTransport {
     return Object.freeze((body.documents ?? []).map((document) => Object.freeze({
       fields: assertDocument({ document, projectId, ownerUid: uid, collection }),
     })));
+  }
+
+  /** Responsabilidade: lê apenas documentos privados usados para autorização
+   * do próprio usuário, por bearer delegado e field masks fechados. */
+  async getOwnAuthorizationDocument({ authority, document }) {
+    const { uid, authorizationHeader } = authority ?? {};
+    assertOwnerUid(uid);
+    assertAuthorizationHeader(authorizationHeader);
+    const configured = document === 'profile'
+      ? { path: `users/${encodeURIComponent(uid)}`, masks: profileFieldMasks }
+      : document === 'remoteSettings'
+        ? { path: `users/${encodeURIComponent(uid)}/assistantSettings/remote`, masks: remoteSettingsFieldMasks }
+        : null;
+    if (configured === null) throw invalidContext();
+    const projectId = await this.projectIdReader();
+    assertProjectId(projectId);
+    const query = new URLSearchParams();
+    for (const fieldPath of configured.masks) query.append('mask.fieldPaths', fieldPath);
+    const url = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/databases/(default)/documents/${configured.path}?${query.toString()}`;
+    const response = await this.fetchImpl(url, Object.freeze({
+      method: 'GET', headers: Object.freeze({ Authorization: authorizationHeader }),
+    }));
+    if (!response || response.ok !== true || typeof response.json !== 'function') throw invalidContext();
+    const body = await response.json();
+    if (!body || typeof body !== 'object' || Array.isArray(body) || !body.fields || typeof body.fields !== 'object') throw invalidContext();
+    return Object.freeze(body.fields);
   }
 }
 

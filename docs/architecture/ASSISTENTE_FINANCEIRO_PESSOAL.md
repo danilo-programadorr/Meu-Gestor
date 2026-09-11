@@ -248,3 +248,17 @@ R$45/mês.
   adaptadores fail-closed. O APK só permite o gateway por dois defines de build:
   development e `ASSISTANT_REMOTE_ENABLED=true`; produção sempre permanece sem
   rede do Assistente.
+
+## Consentimento canônico ASSIST-2P
+
+- `users/{uid}/assistantSettings/remote` é a única fonte de permissão para
+  contexto financeiro remoto. A forma é fechada a versão, booleano de permissão
+  e timestamp do servidor.
+- Ausência, revogação, campo extra, versão inválida, cache ou falha de leitura
+  equivalem a privacidade financeira ativa. O backend bloqueia antes de montar
+  contexto e não admite valor padrão permissivo.
+- A leitura do perfil, do aceite e do contexto usa apenas o bearer do próprio
+  usuário em GETs REST com field masks. ADC continua limitada ao ledger no banco
+  nomeado e não autoriza o banco `(default)`.
+- A interface permite consentir ou revogar após renovação de identidade. A Rule
+  correspondente permanece somente local e não houve publicação neste passo.

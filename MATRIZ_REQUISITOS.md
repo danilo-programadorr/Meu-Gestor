@@ -578,6 +578,14 @@
 | ASSIST-2N-002 | Separar circuito fechado de ativação global | P0 | ASSIST-2N-DEV-ROLLOUT-PREP | deploy fechado exige confirmação; ativação permanece bloqueada sem adaptadores concretos auditados | local e testado | nova autorização | crítico | zero nesta etapa |
 | ASSIST-2N-003 | Limitar APK remoto a development | P0 | ASSIST-2N-DEV-ROLLOUT-PREP | chamada Flutter exige `APP_ENV=development` e define explícito; produção permanece desligada | local e testado | revisão visual futura | crítico | zero nesta etapa |
 
+## Incremento ASSIST-2P — consentimento canônico de contexto remoto
+
+| ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |
+|---|---|---:|---:|---|---|---|---|---|
+| ASSIST-2P-001 | Exigir aceite remoto próprio e revogável | P0 | ASSIST-2P-CONSENT-CONTEXT-1 | documento fechado sob o UID tem versão, booleano e timestamp; ausência, revogação ou forma inválida preservam privacidade ativa | local e testado | publicação de Rule autorizada separadamente | crítico | zero externo |
+| ASSIST-2P-002 | Preservar fronteira do proprietário | P0 | ASSIST-2P-CONSENT-CONTEXT-1 | callable lê perfil, consentimento e contexto apenas por bearer do envelope; ADC não ganha acesso ao banco padrão | local e testado com fakes | validação development futura | crítico | leituras limitadas |
+| ASSIST-2P-003 | Permitir controle explícito na interface | P0 | ASSIST-2P-CONSENT-CONTEXT-1 | Flutter renova identidade antes de escrever/revogar e lê somente do servidor; falha/campo inválido permanece fechado | local e testado | Rule local e backend futuro | crítico | zero externo |
+
 ## Incremento CALENDAR-1 — calendário financeiro interno
 
 | ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |

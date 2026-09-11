@@ -97,7 +97,11 @@ export function createAssistRemoteV1Callables({
         if (runtimeKillSwitchActive || !runtimeProviderFeatureEnabled) {
           return ASSISTANT_SAFE_UNAVAILABLE;
         }
-        const authorization = await deriveServerAuthorization({ request, uid, authorizationReader, HttpsError });
+        const ownerAuthority = createOwnerScopedFirestoreAuthority({
+          uid,
+          authorizationHeader: request?.rawRequest?.headers?.authorization,
+        });
+        const authorization = await deriveServerAuthorization({ request, uid, ownerAuthority, authorizationReader, HttpsError });
         assertAuthorized(authorization);
         if (authorization.financialPrivacyActive === true) {
           throw deny('assistant_financial_privacy_active');
@@ -106,12 +110,8 @@ export function createAssistRemoteV1Callables({
         validateFlutterAssistantRequest(request.data);
         // A autorização crua vem somente do envelope já validado pela callable.
         // Ela é efêmera, serve à leitura própria nas Rules e nunca chega ao modelo.
-        const ownerAuthority = createOwnerScopedFirestoreAuthority({
-          uid,
-          authorizationHeader: request?.rawRequest?.headers?.authorization,
-        });
         const [context, usage] = await Promise.all([
-          contextReader({ uid, ownerAuthority }),
+          contextReader({ uid, ownerAuthority, authorization }),
           usageReader({ uid }),
         ]);
         // The port is intentionally not called while the provider is disabled.
@@ -199,8 +199,8 @@ function requireExactFlutterData(data, HttpsError) {
   }
 }
 
-async function deriveServerAuthorization({ request, uid, authorizationReader, HttpsError }) {
-  const serverAuthorization = await authorizationReader({ uid });
+async function deriveServerAuthorization({ request, uid, ownerAuthority, authorizationReader, HttpsError }) {
+  const serverAuthorization = await authorizationReader({ uid, ownerAuthority });
   if (serverAuthorization === null || typeof serverAuthorization !== 'object' || Array.isArray(serverAuthorization)) {
     throw new HttpsError('failed-precondition', 'Autorização do servidor indisponível.');
   }

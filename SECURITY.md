@@ -163,6 +163,14 @@ papel genérico, escrita, paginação parcial, UID divergente, campo inválido o
 fonte indisponível falham fechados. O bearer, UID e nome do documento não são
 incluídos no contexto, provider, métricas ou logs.
 
+ASSIST-2P torna o contexto financeiro remoto opt-in estrito por documento
+próprio `assistantSettings/remote`. Ausência, revogação, versão/campo inválido
+ou leitura não confirmada equivalem a privacidade financeira ativa e bloqueiam
+a callable antes do contexto. A fonte usa somente bearer do proprietário e
+field masks; ADC permanece limitada ao ledger no banco nomeado. A Rule local
+não permite listar, apagar ou escrever forma diferente e ainda não foi
+publicada.
+
 ASSIST-2F-0 adiciona somente o artefato local do codebase `assistant`. Ele contém uma única callable e usa a identidade runtime como parâmetro obrigatório sem valor versionado. Não importa Firebase Admin nem qualquer cliente Firestore, portanto não pode acessar o banco `(default)`, coleções financeiras ou `assistant-controls-dev`. Com provedor desligado, Auth, e-mail verificado e App Check são validados antes de uma resposta fixa `safe_unavailable`; nenhuma leitura de perfil, consentimento, contexto, uso ou ledger ocorre. A publicação development, o valor do parâmetro e todo acesso a dados dependem de autorização separada.
 
 ## Entitlement Premium — SUB-1A/SUB-1B/SUB-1C

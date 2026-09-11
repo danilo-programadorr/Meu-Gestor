@@ -2,7 +2,7 @@
  * Responsabilidade: fornece portas que recusam leitura ou escrita até existir
  * uma implementação server-side explicitamente autorizada e auditada.
  */
-export function createFailClosedAssistantDependencies({ HttpsError, providerGateway, ledger = undefined }) {
+export function createFailClosedAssistantDependencies({ HttpsError, providerGateway, ledger = undefined, authorizationReader = undefined, contextReader = undefined }) {
   if (typeof HttpsError !== 'function') {
     throw new TypeError('assistant_https_error_required');
   }
@@ -18,10 +18,12 @@ export function createFailClosedAssistantDependencies({ HttpsError, providerGate
   if (ledger !== undefined && (!ledger || typeof ledger.reserve !== 'function' || typeof ledger.confirm !== 'function')) {
     throw new TypeError('assistant_ledger_port_required');
   }
+  if (authorizationReader !== undefined && typeof authorizationReader !== 'function') throw new TypeError('assistant_authorization_reader_required');
+  if (contextReader !== undefined && typeof contextReader !== 'function') throw new TypeError('assistant_context_reader_required');
 
   return Object.freeze({
-    authorizationReader: unavailable,
-    contextReader: unavailable,
+    authorizationReader: authorizationReader ?? unavailable,
+    contextReader: contextReader ?? unavailable,
     usageReader: unavailable,
     ledger: ledger ?? failClosedLedger,
     providerGateway,

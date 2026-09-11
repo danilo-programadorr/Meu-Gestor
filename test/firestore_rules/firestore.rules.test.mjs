@@ -178,6 +178,16 @@ function unverifiedDb(uid = ownerId) {
   return testEnv.authenticatedContext(uid, { email_verified: false }).firestore();
 }
 
+// O aceite remoto só pode existir no documento próprio, com forma e tempo fechados.
+function assistantRemoteConsent(overrides = {}) {
+  return {
+    consentVersion: 'assist-context-v1',
+    financialContextAllowed: true,
+    updatedAt: serverTimestamp(),
+    ...overrides,
+  };
+}
+
 function commitmentRef(db, type, id) {
   return doc(db, `users/${ownerId}/${type === 'payable' ? 'payables' : 'receivables'}/${id}`);
 }
@@ -1671,6 +1681,38 @@ describe('INV-PROV-1 proventos manuais protegidos', () => {
     assert.deepEqual(accountAfter, accountBefore);
     assert.deepEqual(assetAfter, assetBefore);
     assert.equal((await getDoc(transactionRef(db, 'income-1'))).exists(), false);
+  });
+});
+
+describe('ASSIST-2P consentimento remoto próprio', () => {
+  test('proprietário verificado cria, atualiza e lê somente o próprio aceite', async () => {
+    const ownRef = doc(verifiedDb(), `users/${ownerId}/assistantSettings/remote`);
+    await assertSucceeds(setDoc(ownRef, assistantRemoteConsent()));
+    await assertSucceeds(getDoc(ownRef));
+    await assertSucceeds(setDoc(ownRef, assistantRemoteConsent({
+      financialContextAllowed: false,
+    })));
+    await assertFails(getDoc(doc(
+      verifiedDb(otherId),
+      `users/${ownerId}/assistantSettings/remote`,
+    )));
+    await assertFails(getDocs(collection(
+      verifiedDb(),
+      `users/${ownerId}/assistantSettings`,
+    )));
+  });
+
+  test('nega escrita cruzada, campos extras, versão ou timestamp inválidos', async () => {
+    const ownRef = doc(verifiedDb(), `users/${ownerId}/assistantSettings/remote`);
+    await assertFails(setDoc(doc(
+      verifiedDb(otherId),
+      `users/${ownerId}/assistantSettings/remote`,
+    ), assistantRemoteConsent()));
+    await assertFails(setDoc(ownRef, assistantRemoteConsent({ unexpected: true })));
+    await assertFails(setDoc(ownRef, assistantRemoteConsent({
+      consentVersion: 'assist-context-v0',
+    })));
+    await assertFails(setDoc(ownRef, assistantRemoteConsent({ updatedAt: past })));
   });
 });
 

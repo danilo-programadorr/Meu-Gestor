@@ -28,6 +28,9 @@
 - ASSIST-2N prepara o rollout development visível do Assistente, separado em
   inspeção, deploy fechado, ativação ainda bloqueada e APK debug por define.
   Nenhuma dessas ações externas foi executada nesta preparação.
+- ASSIST-2P prepara o consentimento canônico e revogável de contexto financeiro
+  remoto. Ausência ou invalidade permanecem bloqueadas; não houve leitura real,
+  publicação de Rule ou ativação do provedor.
 - Todas as ações externas de Firebase, Google Cloud e qualquer provedor de IA são exclusivamente manuais pelo solicitante; o agente limita-se a orientar, preparar código autorizado e verificar resultados locais após confirmação. Referências a Gemini nas etapas históricas não representam fornecedor ativo: a ADR-033 exige contrato neutro e nova aprovação antes da escolha.
 
 ## 2. Decisões aprovadas
@@ -1072,6 +1075,20 @@ Function em nuvem, Vertex, deploy ou envio de dado real.
   leitura futura depende das Security Rules do próprio proprietário.
 - Fontes ausentes, documentos cruzados, schema inválido ou paginação além do
   limite interrompem toda a montagem sem devolver contexto parcial.
+
+## 62. ASSIST-2P — consentimento canônico de contexto remoto
+
+Situação: implementado somente localmente. Não houve Firebase, leitura de dado
+real, publicação de Rules, deploy, Vertex ou chamada remota.
+
+- O documento próprio `users/{uid}/assistantSettings/remote` tem versão,
+  permissão booleana e timestamp server-side. Ausência, revogação ou forma
+  inválida equivalem a privacidade financeira ativa.
+- A callable compõe autorização, contexto owner-scoped e ledger ADC sem
+  ampliar IAM do banco `(default)`. O bearer do envelope autenticado permanece
+  a única autoridade das leituras próprias.
+- A tela de privacidade permite conceder ou revogar a permissão após renovar a
+  identidade; leitura cache ou falha não libera a interface nem o backend.
 
 ## 58. ASSIST-2F-0 — codebase Firebase local do Assistente
 

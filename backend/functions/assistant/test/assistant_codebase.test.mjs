@@ -69,11 +69,19 @@ test('artefato não contém Admin, Firestore, URL externa, segredo ou acesso ao 
     readFile(new URL('../index.mjs', import.meta.url), 'utf8'),
     readFile(new URL('../src/function_options.mjs', import.meta.url), 'utf8'),
     readFile(new URL('../src/fail_closed_dependencies.mjs', import.meta.url), 'utf8'),
+    readFile(new URL('../src/runtime_adapters.mjs', import.meta.url), 'utf8'),
   ]);
   const source = sources.join('\n');
   assert.doesNotMatch(source, /from\s+['"]firebase-admin|firebase-admin\/firestore|getFirestore\(/iu);
   assert.doesNotMatch(source, /https?:\/\//iu);
   assert.doesNotMatch(source, /secretmanager|api[_-]?key|private[_-]?key|process\.env/iu);
+});
+
+test('adaptadores runtime usam somente bearer próprio para o banco padrão', async () => {
+  const source = await readFile(new URL('../src/runtime_adapters.mjs', import.meta.url), 'utf8');
+  assert.match(source, /OwnerScopedFirestoreRestTransport/u);
+  assert.match(source, /getOwnAuthorizationDocument/u);
+  assert.doesNotMatch(source, /firebase-admin|getFirestore\(|GOOGLE_APPLICATION_CREDENTIALS|metadata\.google|\(default\)/iu);
 });
 
 test('ledger usa somente ADC para o banco nomeado e mantém a fronteira do banco padrão fechada', async () => {

@@ -2,6 +2,10 @@
 
 ## Em desenvolvimento
 
+- ASSIST-2P adiciona consentimento canônico e revogável para contexto
+  financeiro remoto, validado por versão, forma estrita e timestamp de servidor;
+  ausência, falha, valor inválido ou revogação preservam privacidade ativa e
+  impedem a callable antes do contexto. A Rule correspondente permanece local;
 - ASSIST-2N normaliza `minInstanceCount` ausente na inspeção Gen 2 e corrige
   o ciclo de vida dos dotenvs efêmeros do rollout: flags seguros são avaliados
   somente no runtime e os arquivos criados pelo script são removidos em sucesso

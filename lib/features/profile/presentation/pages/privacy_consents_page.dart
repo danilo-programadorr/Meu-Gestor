@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:meu_gestor_financeiro/app/theme/app_spacing.dart';
+import 'package:meu_gestor_financeiro/features/assistant/presentation/controllers/assistant_remote_consent_controller.dart';
 import 'package:meu_gestor_financeiro/features/profile/domain/user_profile.dart';
 import 'package:meu_gestor_financeiro/features/profile/presentation/controllers/profile_action_controller.dart';
 import 'package:meu_gestor_financeiro/features/profile/presentation/controllers/profile_action_state.dart';
@@ -19,6 +20,21 @@ class PrivacyConsentsPage extends ConsumerStatefulWidget {
 class _PrivacyConsentsPageState extends ConsumerState<PrivacyConsentsPage> {
   bool? _aiConsent;
   bool? _analyticsConsent;
+  bool _updatingRemoteConsent = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future<void>.microtask(() async {
+      try {
+        await ref
+            .read(assistantRemoteConsentControllerProvider.notifier)
+            .load();
+      } on Object {
+        // A ausência ou uma falha de leitura preserva o estado fechado.
+      }
+    });
+  }
 
   Future<void> _save() async {
     await ref
@@ -45,6 +61,9 @@ class _PrivacyConsentsPageState extends ConsumerState<PrivacyConsentsPage> {
       profileActionControllerProvider,
     );
     final bool loading = action.isLoading;
+    final bool remoteConsentAllowed = ref.watch(
+      assistantRemoteConsentControllerProvider,
+    );
     final DateFormat dateFormat = DateFormat('dd/MM/yyyy', 'pt_BR');
 
     return ProfilePageShell(
@@ -90,6 +109,21 @@ class _PrivacyConsentsPageState extends ConsumerState<PrivacyConsentsPage> {
           ),
         ),
         SwitchListTile(
+          value: remoteConsentAllowed,
+          onChanged:
+              loading ||
+                  _updatingRemoteConsent ||
+                  (!_aiConsent! && !remoteConsentAllowed)
+              ? null
+              : _setRemoteConsent,
+          title: const Text('Permitir contexto financeiro remoto'),
+          subtitle: Text(
+            _aiConsent!
+                ? 'Permissão separada e revogável. Sem ela, o backend trata a privacidade financeira como ativa e bloqueia qualquer chamada remota.'
+                : 'Ative primeiro o consentimento do Assistente. O contexto remoto permanece bloqueado.',
+          ),
+        ),
+        SwitchListTile(
           value: _analyticsConsent!,
           onChanged: loading
               ? null
@@ -123,5 +157,24 @@ class _PrivacyConsentsPageState extends ConsumerState<PrivacyConsentsPage> {
         ),
       ],
     );
+  }
+
+  Future<void> _setRemoteConsent(bool value) async {
+    setState(() => _updatingRemoteConsent = true);
+    try {
+      await ref
+          .read(assistantRemoteConsentControllerProvider.notifier)
+          .setAllowed(value);
+    } on Object {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Não foi possível atualizar a permissão remota.'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _updatingRemoteConsent = false);
+    }
   }
 }

@@ -34,6 +34,7 @@ export {
 export {
   ASSISTANT_CIVIL_TIME_ZONE,
   civilDateFromUtcInstant,
+  currentCivilDate,
   civilPeriodForSingleDay,
   validateCivilPeriod,
 } from './sao_paulo_civil_time.mjs';

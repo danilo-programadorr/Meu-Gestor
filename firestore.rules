@@ -2025,6 +2025,24 @@ service cloud.firestore {
         && isValidUpdate(userId);
       allow delete: if false;
 
+      // Consentimento remoto é opt-in, próprio e fechado: sua ausência é
+      // interpretada pelo backend como privacidade financeira ativa.
+      match /assistantSettings/remote {
+        allow get: if isVerifiedOwner(userId);
+        allow list, delete: if false;
+        allow create, update: if isVerifiedOwner(userId)
+          && hasNoAccountDeletionLock(userId)
+          && request.resource.data.keys().hasOnly([
+            'consentVersion', 'financialContextAllowed', 'updatedAt'
+          ])
+          && request.resource.data.keys().hasAll([
+            'consentVersion', 'financialContextAllowed', 'updatedAt'
+          ])
+          && request.resource.data.consentVersion == 'assist-context-v1'
+          && request.resource.data.financialContextAllowed is bool
+          && request.resource.data.updatedAt == request.time;
+      }
+
       match /accounts/{accountId} {
         allow get, list: if hasFinancialAccess(userId);
         allow create: if hasFinancialMutationAccess(userId)

@@ -155,8 +155,10 @@ function Assert-RemoteFunctionConfiguration {
 # Responsabilidade: impede ativação global enquanto os adaptadores concretos de
 # autorização, ledger e contexto ainda forem explicitamente fail-closed no código.
 function Assert-ActivationReadiness {
-  $dependencies = Get-Content -LiteralPath (Join-Path $assistantRoot 'src\fail_closed_dependencies.mjs') -Raw
-  if ($dependencies.Contains('const unavailable')) { throw 'AÇÃO SUA: ativação global bloqueada; adaptadores concretos de autorização, ledger e contexto ainda não existem.' }
+  $node = Get-Command node -ErrorAction SilentlyContinue
+  if ($null -eq $node) { throw 'AÇÃO SUA: Node local indisponível para validar os adaptadores antes da ativação.' }
+  & $node.Source (Join-Path $assistantRoot 'scripts\assert-activation-readiness.mjs')
+  if ($LASTEXITCODE -ne 0) { throw 'AÇÃO SUA: ativação global bloqueada; adaptadores concretos não estão conectados localmente.' }
 }
 
 # Responsabilidade: registra apenas fase, instante e limites agregados em pasta
