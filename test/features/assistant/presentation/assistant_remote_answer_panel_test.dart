@@ -1,5 +1,5 @@
-// Intenção: mantém a resposta fundamentada legível, acessível e dependente de
-// uma ação explícita, sem esconder fonte, período ou indisponibilidade segura.
+// Intenção: mantém a resposta fundamentada automática legível e acessível no
+// modo de texto, sem esconder fonte, período ou indisponibilidade segura.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_context.dart';
@@ -8,10 +8,9 @@ import 'package:meu_gestor_financeiro/features/assistant/presentation/controller
 import 'package:meu_gestor_financeiro/features/assistant/presentation/widgets/assistant_remote_answer_panel.dart';
 
 void main() {
-  testWidgets('mostra resposta, fonte, período e ação explícita', (
+  testWidgets('mostra resposta, fonte e período sem ação adicional', (
     WidgetTester tester,
   ) async {
-    var requests = 0;
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -21,7 +20,6 @@ void main() {
               message: 'Resposta fundamentada pronta para leitura.',
               response: _response(),
             ),
-            onRequest: () => requests += 1,
           ),
         ),
       ),
@@ -31,10 +29,7 @@ void main() {
     expect(find.text('Resumo confirmado.'), findsOneWidget);
     expect(find.textContaining('Fonte: Contas e carteiras'), findsOneWidget);
     expect(find.textContaining('America/Sao_Paulo'), findsOneWidget);
-    await tester.tap(
-      find.byKey(const ValueKey<String>('assistant-grounded-answer-action')),
-    );
-    expect(requests, 1);
+    expect(find.text('Consultar resposta fundamentada'), findsNothing);
   });
 
   testWidgets('indisponibilidade segura não mostra resposta inventada', (
@@ -49,7 +44,6 @@ void main() {
               message:
                   'A resposta fundamentada está indisponível com segurança neste momento.',
             ),
-            onRequest: _noop,
           ),
         ),
       ),
@@ -59,8 +53,6 @@ void main() {
     expect(find.text('Resumo confirmado.'), findsNothing);
   });
 }
-
-void _noop() {}
 
 AssistantGroundedResponse _response() => AssistantGroundedResponse(
   status: AssistantGroundedResponseStatus.grounded,

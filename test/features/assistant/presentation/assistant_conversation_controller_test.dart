@@ -64,6 +64,31 @@ void main() {
     expect(speech.stopCalls, 1);
   });
 
+  test(
+    'modo de voz descarta a transcrição depois de preparar o envio',
+    () async {
+      final _FakeSpeech speech = _FakeSpeech(transcript: 'Qual é meu saldo?');
+      final ProviderContainer container = _container(speech);
+      addTearDown(container.dispose);
+      final AssistantConversationController controller = container.read(
+        assistantConversationControllerProvider.notifier,
+      );
+
+      await controller.activate(canUseVoice: true);
+      expect(
+        container.read(assistantConversationControllerProvider).transcript,
+        'Qual é meu saldo?',
+      );
+
+      controller.clearTranscript();
+
+      expect(
+        container.read(assistantConversationControllerProvider).transcript,
+        isEmpty,
+      );
+    },
+  );
+
   test('normaliza RMS efêmero sem reter áudio', () async {
     final Completer<void> subscribed = Completer<void>();
     final StreamController<double> rms = StreamController<double>.broadcast(

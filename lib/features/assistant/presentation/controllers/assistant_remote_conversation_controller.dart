@@ -1,5 +1,5 @@
-// Responsabilidade: controla a consulta remota somente após ação explícita,
-// consentimento e privacidade, sem permitir rede enquanto a flag está fechada.
+// Responsabilidade: controla a consulta remota após uma pergunta confirmada,
+// preservando consentimento e privacidade antes de permitir rede.
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:meu_gestor_financeiro/features/assistant/data/firebase_assistant_remote_gateway.dart';
@@ -51,8 +51,7 @@ final class AssistantRemoteConversationState {
 
   const AssistantRemoteConversationState.initial()
     : phase = AssistantRemoteConversationPhase.idle,
-      message =
-          'A resposta fundamentada só é consultada após sua ação explícita.',
+      message = 'Envie uma pergunta para receber uma resposta fundamentada.',
       response = null;
 
   final AssistantRemoteConversationPhase phase;
@@ -103,11 +102,12 @@ final class AssistantRemoteConversationController
     return const AssistantRemoteConversationState.initial();
   }
 
-  /// Uma consulta exige toque separado da pergunta e nunca monta contexto no
-  /// Flutter. O backend continua sendo a única autoridade para a resposta.
+  /// A pergunta chega somente depois do gesto de envio ou do fim da fala. O
+  /// Flutter nunca monta contexto; o backend continua sendo a autoridade.
   Future<void> requestGroundedAnswer({
     required String message,
     required bool aiConsentEnabled,
+    required bool remoteContextConsentAllowed,
     required bool financialValuesVisible,
   }) async {
     if (state.isPreparing) return;
@@ -119,6 +119,17 @@ final class AssistantRemoteConversationController
           phase: AssistantRemoteConversationPhase.consentRequired,
           message:
               'Confirme o consentimento de IA antes de consultar uma resposta fundamentada.',
+        ),
+      );
+      return;
+    }
+    if (!remoteContextConsentAllowed) {
+      _setIfCurrent(
+        operation,
+        const AssistantRemoteConversationState(
+          phase: AssistantRemoteConversationPhase.consentRequired,
+          message:
+              'Autorize o contexto financeiro remoto em Privacidade e consentimentos antes de enviar uma pergunta.',
         ),
       );
       return;

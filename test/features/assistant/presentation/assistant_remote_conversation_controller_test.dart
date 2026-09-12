@@ -1,5 +1,5 @@
-// Intenção: protege a ponte Flutter contra chamadas automáticas, ausência de
-// consentimento, privacidade, resposta malformada e retorno remoto tardio.
+// Intenção: protege o envio automático contra ausência de consentimento,
+// privacidade, resposta malformada e retorno remoto tardio.
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -27,7 +27,7 @@ void main() {
   );
 
   test(
-    'consentimento ausente e privacidade ativa não chegam ao gateway',
+    'consentimentos ausentes e privacidade ativa não chegam ao gateway',
     () async {
       final _FakeGateway gateway = _FakeGateway();
       final ProviderContainer container = _container(
@@ -37,6 +37,11 @@ void main() {
       addTearDown(container.dispose);
 
       await _request(container, consent: false);
+      expect(
+        container.read(assistantRemoteConversationControllerProvider).phase,
+        AssistantRemoteConversationPhase.consentRequired,
+      );
+      await _request(container, remoteConsent: false);
       expect(
         container.read(assistantRemoteConversationControllerProvider).phase,
         AssistantRemoteConversationPhase.consentRequired,
@@ -129,12 +134,14 @@ void main() {
 Future<void> _request(
   ProviderContainer container, {
   bool consent = true,
+  bool remoteConsent = true,
   bool valuesVisible = true,
 }) => container
     .read(assistantRemoteConversationControllerProvider.notifier)
     .requestGroundedAnswer(
       message: 'Explique o resumo confirmado.',
       aiConsentEnabled: consent,
+      remoteContextConsentAllowed: remoteConsent,
       financialValuesVisible: valuesVisible,
     );
 

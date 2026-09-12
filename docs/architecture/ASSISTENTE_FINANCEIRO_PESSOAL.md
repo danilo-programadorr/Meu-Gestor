@@ -6,7 +6,9 @@ ASSIST-0 implementa domínio, contrato server-side neutro, políticas e testes. 
 
 ASSIST-VOICE-2A-R1 concentra o núcleo visual no eixo da conversa, mantendo estados e transcrição na área inferior segura. A pulsação continua respeitando reduzir animações; há dez partículas discretas no total e nenhuma informação depende apenas de cor ou movimento.
 
-ASSIST-VOICE-2A acrescenta uma rota de conversa local. Após explicação e ação explícita, ela usa somente o reconhecedor configurado no Android e mantém a transcrição na memória da tela. Não grava, salva, envia ou observa áudio em segundo plano. Saída, bloqueio, perda de foco, troca de conta ou privacidade financeira interrompem reconhecimento e TTS e descartam a transcrição. O texto reconhecido é mapeado exclusivamente às quatro perguntas determinísticas; ausência de mapeamento ou evidência não gera conversa inventada nem ação financeira.
+ASSIST-VOICE-2A acrescenta uma rota de conversa local. Após explicação e ação explícita, ela usa somente o reconhecedor configurado no Android e mantém a transcrição na memória da tela. Não grava, salva, envia ou observa áudio em segundo plano. Saída, bloqueio, perda de foco, troca de conta ou privacidade financeira interrompem reconhecimento e TTS e descartam a transcrição. O texto reconhecido permanece efêmero, e ausência de evidência gera somente indisponibilidade segura, nunca conversa inventada nem ação financeira.
+
+ASSIST-VOICE-UX-1 envia a pergunta automaticamente no Enter do modo texto ou no fim da fala. Texto mostra a resposta fundamentada, fontes e período civil. Voz descarta a transcrição antes da resposta e reproduz somente áudio, inclusive para indisponibilidade segura. Os dois modos exigem consentimento geral de IA, aceite remoto próprio e privacidade financeira desativada antes do gateway; o backend preserva a revalidação autoritativa.
 
 ## Roteamento neutro ASSIST-1B-1A
 

@@ -1090,6 +1090,22 @@ real, publicação de Rules, deploy, Vertex ou chamada remota.
 - A tela de privacidade permite conceder ou revogar a permissão após renovar a
   identidade; leitura cache ou falha não libera a interface nem o backend.
 
+## 63. ASSIST-VOICE-UX-1 — conversa automática por texto e voz
+
+Situação: interface e controles locais atualizados. A execução de chamadas
+continua sujeita ao consentimento geral de IA, ao aceite remoto próprio, à
+privacidade financeira e à revalidação do backend.
+
+- Texto envia a pergunta no Enter ou no botão Enviar e mostra automaticamente a
+  resposta fundamentada, com fontes e período civil, sem uma segunda ação.
+- Voz envia ao fim do reconhecimento, remove imediatamente a transcrição do
+  estado visual e reproduz somente a resposta ou indisponibilidade segura em
+  áudio; ela não mostra cartão de resposta escrita nesse modo.
+- Privacidade e consentimentos só permitem editar o aceite remoto depois de o
+  consentimento geral estar salvo. Desativar a IA tenta revogar também o aceite
+  remoto; mesmo uma falha nessa segunda escrita deixa o backend bloqueado pelo
+  consentimento geral revogado.
+
 ## 58. ASSIST-2F-0 — codebase Firebase local do Assistente
 
 Situação: codebase `assistant` preparado somente localmente; não há Function em nuvem, identidade configurada, Firebase Admin, Firestore, Secret Manager, Vertex, URL externa ou deploy.

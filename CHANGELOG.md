@@ -2,6 +2,11 @@
 
 ## Em desenvolvimento
 
+- ASSIST-VOICE-UX-1 envia automaticamente perguntas seguras por texto ou ao fim
+  da fala; texto mostra a resposta fundamentada e voz descarta a transcrição e
+  responde somente em áudio, sem botão intermediário de consulta;
+- a tela Privacidade e consentimentos agora exige salvar o consentimento geral
+  de IA antes de permitir o aceite remoto e revoga esse aceite ao retirar a IA;
 - ASSIST-2P adiciona consentimento canônico e revogável para contexto
   financeiro remoto, validado por versão, forma estrita e timestamp de servidor;
   ausência, falha, valor inválido ou revogação preservam privacidade ativa e

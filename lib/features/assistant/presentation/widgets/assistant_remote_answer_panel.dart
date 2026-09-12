@@ -1,5 +1,5 @@
 // Responsabilidade: apresenta uma resposta remota somente como informação
-// fundamentada, com fontes e período civil visíveis e ação sempre explícita.
+// fundamentada, com fontes e período civil visíveis no modo de texto.
 import 'package:flutter/material.dart';
 import 'package:meu_gestor_financeiro/app/theme/app_spacing.dart';
 import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_context.dart';
@@ -7,14 +7,9 @@ import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_ground
 import 'package:meu_gestor_financeiro/features/assistant/presentation/controllers/assistant_remote_conversation_controller.dart';
 
 class AssistantRemoteAnswerPanel extends StatelessWidget {
-  const AssistantRemoteAnswerPanel({
-    required this.state,
-    required this.onRequest,
-    super.key,
-  });
+  const AssistantRemoteAnswerPanel({required this.state, super.key});
 
   final AssistantRemoteConversationState state;
-  final VoidCallback onRequest;
 
   @override
   Widget build(BuildContext context) => Semantics(
@@ -59,18 +54,6 @@ class AssistantRemoteAnswerPanel extends StatelessWidget {
                 style: const TextStyle(color: Color(0xFFB7E8FF)),
               ),
             ],
-            const SizedBox(height: AppSpacing.sm),
-            OutlinedButton.icon(
-              key: const ValueKey<String>('assistant-grounded-answer-action'),
-              onPressed: state.isPreparing ? null : onRequest,
-              icon: const Icon(Icons.fact_check_outlined),
-              label: const Text('Consultar resposta fundamentada'),
-            ),
-            const Text(
-              'A consulta nunca é iniciada automaticamente por voz ou texto.',
-              style: TextStyle(color: Color(0xFFB7E8FF)),
-              textAlign: TextAlign.center,
-            ),
           ],
         ),
       ),

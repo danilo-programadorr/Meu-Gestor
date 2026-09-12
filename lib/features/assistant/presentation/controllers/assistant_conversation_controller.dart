@@ -122,9 +122,15 @@ final class AssistantConversationController
     if (!_disposed) {
       state = state.copyWith(
         phase: AssistantConversationPhase.speaking,
-        message: 'Respondendo em voz. A resposta escrita continua visível.',
+        message: 'Respondendo somente em voz.',
       );
     }
+  }
+
+  /// Remove a fala reconhecida assim que ela deixa de ser necessária para
+  /// enviar a pergunta, mantendo o modo de voz sem transcrição visível.
+  void clearTranscript() {
+    if (!_disposed) state = state.copyWith(transcript: '');
   }
 
   void noConfirmedAnswer() {

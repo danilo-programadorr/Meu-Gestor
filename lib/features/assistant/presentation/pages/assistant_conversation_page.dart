@@ -10,11 +10,10 @@ import 'package:meu_gestor_financeiro/app/routing/app_routes.dart';
 import 'package:meu_gestor_financeiro/app/theme/app_spacing.dart';
 import 'package:meu_gestor_financeiro/core/privacy/financial_privacy_controller.dart';
 import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_conversation.dart';
-import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_summary.dart';
 import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_voice.dart';
 import 'package:meu_gestor_financeiro/features/assistant/presentation/controllers/assistant_conversation_controller.dart';
+import 'package:meu_gestor_financeiro/features/assistant/presentation/controllers/assistant_remote_consent_controller.dart';
 import 'package:meu_gestor_financeiro/features/assistant/presentation/controllers/assistant_remote_conversation_controller.dart';
-import 'package:meu_gestor_financeiro/features/assistant/presentation/controllers/assistant_summary_provider.dart';
 import 'package:meu_gestor_financeiro/features/assistant/presentation/controllers/assistant_voice_controller.dart';
 import 'package:meu_gestor_financeiro/features/assistant/presentation/widgets/assistant_remote_answer_panel.dart';
 import 'package:meu_gestor_financeiro/features/authentication/data/auth_providers.dart';
@@ -39,7 +38,7 @@ class _AssistantConversationPageState
   late final AssistantConversationController _conversation;
   late final AssistantRemoteConversationController _remoteConversation;
   late final AssistantVoiceController _voice;
-  AssistantDeterministicSummary? _summary;
+  Future<void>? _remoteConsentLoad;
   bool _isForeground = true;
   bool _conversationEnabled = false;
   bool _activationInProgress = false;
@@ -181,7 +180,8 @@ class _AssistantConversationPageState
                           label: 'Estado do modo de conversa: ${state.message}',
                           child: _ConversationStatus(state: state),
                         ),
-                        if (state.transcript.isNotEmpty) ...<Widget>[
+                        if (_textMode &&
+                            state.transcript.isNotEmpty) ...<Widget>[
                           const SizedBox(height: AppSpacing.sm),
                           _TranscriptCard(transcript: state.transcript),
                         ],
@@ -213,21 +213,10 @@ class _AssistantConversationPageState
                             onActivate: _requestVoiceStart,
                             onStop: _stopForExit,
                           ),
-                        if (_summary != null) ...<Widget>[
+                        if (_textMode &&
+                            state.transcript.isNotEmpty) ...<Widget>[
                           const SizedBox(height: AppSpacing.md),
-                          _ConversationAnswer(summary: _summary!),
-                        ],
-                        if (state.transcript.isNotEmpty) ...<Widget>[
-                          const SizedBox(height: AppSpacing.md),
-                          AssistantRemoteAnswerPanel(
-                            state: remoteState,
-                            onRequest: () => unawaited(
-                              _requestGroundedAnswer(
-                                aiConsentEnabled: consent,
-                                financialValuesVisible: valuesVisible,
-                              ),
-                            ),
-                          ),
+                          AssistantRemoteAnswerPanel(state: remoteState),
                         ],
                         const SizedBox(height: AppSpacing.md),
                         if (_textMode && consent && valuesVisible)
@@ -247,7 +236,7 @@ class _AssistantConversationPageState
                           ),
                         const SizedBox(height: AppSpacing.md),
                         const Text(
-                          'O áudio não é gravado, salvo ou enviado. A transcrição existe apenas nesta tela e é apagada ao sair. Este modo apenas consulta resumos confirmados; nunca altera dados financeiros.',
+                          'O áudio não é gravado, salvo ou enviado. No modo de voz, a transcrição é descartada antes da resposta, que é reproduzida apenas em áudio. Este modo nunca altera dados financeiros.',
                           style: TextStyle(color: Color(0xFFD5DEE7)),
                           textAlign: TextAlign.center,
                         ),
@@ -306,39 +295,48 @@ class _AssistantConversationPageState
     _remoteConversation.discard();
     await _conversation.submitText(question);
     if (!mounted) return;
-    final AssistantGuidedQuestion? guidedQuestion = ref
-        .read(assistantConversationControllerProvider)
-        .question;
-    if (guidedQuestion == null) return;
-    final AssistantDeterministicSummary summary =
-        AssistantDeterministicSummaryBuilder.build(
-          question: guidedQuestion,
-          snapshot: ref.read(assistantReadModelProvider).snapshot,
-        );
-    setState(() => _summary = summary);
-    if (!summary.isAvailable) _conversation.noConfirmedAnswer();
-  }
-
-  /// Só o toque no painel inicia a tentativa remota. Voz e texto continuam
-  /// determinísticos até esta escolha explícita e passam somente a mensagem.
-  Future<void> _requestGroundedAnswer({
-    required bool aiConsentEnabled,
-    required bool financialValuesVisible,
-  }) async {
-    if (!_isForeground) return;
     final String message = ref
         .read(assistantConversationControllerProvider)
         .transcript;
     if (message.isEmpty) return;
-    _conversationEnabled = false;
-    await _conversation.stopAndClear(preserveTranscript: true);
-    await _voice.interrupt(AssistantVoiceInterruption.appInactive);
+    await _requestRemoteAnswer(message);
+  }
+
+  /// Aguarda a leitura do aceite remoto próprio antes de liberar uma chamada.
+  /// Falha de leitura permanece fechada e não encaminha a pergunta ao gateway.
+  Future<void> _ensureRemoteConsentLoaded() {
+    return _remoteConsentLoad ??= () async {
+      try {
+        await ref
+            .read(assistantRemoteConsentControllerProvider.notifier)
+            .load();
+      } on Object {
+        // A permissão permanece false e a chamada é bloqueada localmente.
+      }
+    }();
+  }
+
+  /// Envia somente a pergunta já validada pelo modo atual. O backend continua
+  /// responsável pelo contexto, pela evidência e pela resposta segura.
+  Future<void> _requestRemoteAnswer(String message) async {
+    if (!_isForeground) return;
+    await _ensureRemoteConsentLoaded();
     if (!mounted) return;
     await _remoteConversation.requestGroundedAnswer(
       message: message,
-      aiConsentEnabled: aiConsentEnabled,
-      financialValuesVisible: financialValuesVisible,
+      aiConsentEnabled: _aiConsentEnabled,
+      remoteContextConsentAllowed: ref.read(
+        assistantRemoteConsentControllerProvider,
+      ),
+      financialValuesVisible: ref.read(financialPrivacyControllerProvider),
     );
+  }
+
+  bool get _aiConsentEnabled {
+    final ProfileGateState? gate = ref
+        .read(profileGateControllerProvider)
+        .value;
+    return gate is ProfileGateValid && gate.profile.aiConsentEnabled;
   }
 
   Future<bool?> _showMicrophoneExplanation() => showDialog<bool>(
@@ -369,24 +367,19 @@ class _AssistantConversationPageState
     final AssistantConversationState state = ref.read(
       assistantConversationControllerProvider,
     );
-    final AssistantGuidedQuestion? question = state.question;
-    if (question == null) return;
-    final AssistantReadModel model = ref.read(assistantReadModelProvider);
-    final AssistantDeterministicSummary summary =
-        AssistantDeterministicSummaryBuilder.build(
-          question: question,
-          snapshot: model.snapshot,
-        );
-    setState(() => _summary = summary);
-    if (!summary.isAvailable) {
-      _conversation.noConfirmedAnswer();
-      return;
-    }
+    final String message = state.transcript;
+    if (message.isEmpty) return;
+    _conversation.clearTranscript();
+    await _requestRemoteAnswer(message);
+    if (!_conversationEnabled || !_isForeground || !mounted) return;
+    final AssistantRemoteConversationState remoteState = ref.read(
+      assistantRemoteConversationControllerProvider,
+    );
     await _voice.setEnabled(true, valuesVisible: true);
     if (!_conversationEnabled || !_isForeground || !mounted) return;
     _conversation.speaking();
     await _voice.speak(
-      AssistantSpeechFormatter.format(summary),
+      remoteState.response?.answer ?? remoteState.message,
       valuesVisible: true,
     );
   }
@@ -669,39 +662,6 @@ class _TranscriptCard extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(transcript, style: const TextStyle(color: Color(0xFFD5DEE7))),
-        ],
-      ),
-    ),
-  );
-}
-
-class _ConversationAnswer extends StatelessWidget {
-  const _ConversationAnswer({required this.summary});
-  final AssistantDeterministicSummary summary;
-  @override
-  Widget build(BuildContext context) => Card(
-    color: const Color(0xFF1B252D),
-    child: Padding(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            summary.title,
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(color: Colors.white),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            summary.observation,
-            style: const TextStyle(color: Color(0xFFD5DEE7)),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            'Fontes e período: ${summary.periodLabel}',
-            style: const TextStyle(color: Color(0xFFB7E8FF)),
-          ),
         ],
       ),
     ),

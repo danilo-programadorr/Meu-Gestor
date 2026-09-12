@@ -37,12 +37,19 @@ class _PrivacyConsentsPageState extends ConsumerState<PrivacyConsentsPage> {
   }
 
   Future<void> _save() async {
+    final bool aiConsentEnabled = _aiConsent ?? false;
     await ref
         .read(profileActionControllerProvider.notifier)
         .updateOptionalConsents(
-          aiConsentEnabled: _aiConsent ?? false,
+          aiConsentEnabled: aiConsentEnabled,
           analyticsConsentEnabled: _analyticsConsent ?? false,
         );
+    if (!aiConsentEnabled &&
+        ref.read(profileActionControllerProvider).status ==
+            ProfileActionStatus.success &&
+        ref.read(assistantRemoteConsentControllerProvider)) {
+      await _setRemoteConsent(false);
+    }
   }
 
   @override
@@ -105,22 +112,20 @@ class _PrivacyConsentsPageState extends ConsumerState<PrivacyConsentsPage> {
               : (bool value) => setState(() => _aiConsent = value),
           title: const Text('Assistente e análises com IA'),
           subtitle: const Text(
-            'Controla o acesso ao Assistente. Nesta versão, os resumos são determinísticos e nenhum dado é enviado a um serviço de IA. Uma integração futura exigirá política atualizada.',
+            'Controla o acesso ao Assistente. O envio de uma pergunta também exige a permissão separada para contexto financeiro remoto.',
           ),
         ),
         SwitchListTile(
           value: remoteConsentAllowed,
           onChanged:
-              loading ||
-                  _updatingRemoteConsent ||
-                  (!_aiConsent! && !remoteConsentAllowed)
+              loading || _updatingRemoteConsent || !profile.aiConsentEnabled
               ? null
               : _setRemoteConsent,
           title: const Text('Permitir contexto financeiro remoto'),
           subtitle: Text(
-            _aiConsent!
+            profile.aiConsentEnabled
                 ? 'Permissão separada e revogável. Sem ela, o backend trata a privacidade financeira como ativa e bloqueia qualquer chamada remota.'
-                : 'Ative primeiro o consentimento do Assistente. O contexto remoto permanece bloqueado.',
+                : 'Salve primeiro o consentimento do Assistente. O contexto remoto permanece bloqueado.',
           ),
         ),
         SwitchListTile(

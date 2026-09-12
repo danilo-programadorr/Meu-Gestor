@@ -1,5 +1,8 @@
 # ADR-049 — ASSIST-2L: integração Flutter controlada da resposta fundamentada
 
+> Superada para a experiência de envio automático por
+> [ADR-052](ADR-052-assist-voice-ux-automatico.md).
+
 ## Contexto
 
 O backend local já define a callable `assistRemoteV1`, o contrato mínimo
