@@ -10,8 +10,11 @@ import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_remote
 /// A aplicação só conhece a borda tipada; instanciá-la não abre conexão.
 final Provider<AssistantRemoteGateway> assistantRemoteGatewayProvider =
     Provider<AssistantRemoteGateway>(
-      (Ref ref) =>
-          FirebaseAssistantRemoteGateway(functions: FirebaseFunctions.instance),
+      (Ref ref) => FirebaseAssistantRemoteGateway(
+        functions: FirebaseFunctions.instanceFor(
+          region: FirebaseAssistantRemoteGateway.callableRegion,
+        ),
+      ),
     );
 
 /// A política compilada é injetável exclusivamente para testes. Em builds do

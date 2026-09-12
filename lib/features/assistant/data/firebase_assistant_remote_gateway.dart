@@ -34,6 +34,7 @@ final class FirebaseAssistantRemoteGateway implements AssistantRemoteGateway {
        _timeout = timeout;
 
   static const String callableName = 'assistRemoteV1';
+  static const String callableRegion = 'southamerica-east1';
 
   final AssistantRemoteCallableInvoker _invoker;
   final Duration _timeout;

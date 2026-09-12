@@ -1,9 +1,29 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meu_gestor_financeiro/features/assistant/data/firebase_assistant_remote_gateway.dart';
 import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_failure.dart';
 import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_remote_integration.dart';
 
 void main() {
+  test('gateway seleciona southamerica-east1 e nunca a região padrão', () {
+    final String controllerSource = File(
+      'lib/features/assistant/presentation/controllers/'
+      'assistant_remote_conversation_controller.dart',
+    ).readAsStringSync();
+
+    expect(FirebaseAssistantRemoteGateway.callableRegion, 'southamerica-east1');
+    expect(
+      controllerSource,
+      contains(
+        'FirebaseFunctions.instanceFor(\n'
+        '          region: FirebaseAssistantRemoteGateway.callableRegion,',
+      ),
+    );
+    expect(controllerSource, isNot(contains('FirebaseFunctions.instance)')));
+    expect(controllerSource, isNot(contains("region: 'us-central1'")));
+  });
+
   test('flag desligada impede qualquer chamada de rede', () async {
     var calls = 0;
     final FirebaseAssistantRemoteGateway gateway =
