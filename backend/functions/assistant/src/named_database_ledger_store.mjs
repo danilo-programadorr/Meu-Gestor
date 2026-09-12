@@ -3,11 +3,11 @@
  * no banco nomeado, autenticado por ADC da identidade runtime e sem Admin SDK.
  */
 import { GoogleAuth } from 'google-auth-library';
+import { normalizeAssistantCostLedgerState } from '../shared/index.mjs';
 
 const DATABASE_ID = 'assistant-controls-dev';
 const DOCUMENT_PATH = 'assistantRuntime/ledger';
 const MAX_TRANSACTION_ATTEMPTS = 3;
-const emptyState = () => ({ daily: {}, monthly: {}, periods: {}, records: {} });
 const clone = (value) => structuredClone(value);
 
 const invalid = () => new Error('assistant_named_ledger_unavailable');
@@ -16,8 +16,8 @@ const isPlainRecord = (value) => value !== null && typeof value === 'object' && 
 
 const assertLedgerStateShape = (state) => {
   if (!isPlainRecord(state)
-      || Object.keys(state).sort().join('|') !== 'daily|monthly|periods|records'
-      || !['daily', 'monthly', 'periods', 'records'].every((key) => isPlainRecord(state[key]))) {
+      || Object.keys(state).sort().join('|') !== 'daily|monthly|periods|records|usage'
+      || !['daily', 'monthly', 'periods', 'records', 'usage'].every((key) => isPlainRecord(state[key]))) {
     throw invalid();
   }
 };
@@ -28,11 +28,11 @@ const databaseRoot = (projectId) => {
 };
 
 const decodeState = (document) => {
-  if (document === null) return emptyState();
+  if (document === null) throw invalid();
   const raw = document?.fields?.state?.stringValue;
   if (typeof raw !== 'string' || raw.length === 0 || raw.length > 500_000) throw invalid();
   try {
-    const state = JSON.parse(raw);
+    const state = normalizeAssistantCostLedgerState(JSON.parse(raw));
     assertLedgerStateShape(state);
     return state;
   } catch {

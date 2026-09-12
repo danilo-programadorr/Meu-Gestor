@@ -199,3 +199,38 @@ test('rota futura falha fechada sem bearer do envelope autenticado', async () =>
   );
   assert.equal(calls.context, 0);
 });
+
+test('diagnóstico runtime registra somente enumerações sanitizadas e identifica falha antes do ledger', async () => {
+  const events = [];
+  const { calls, invoke } = build({
+    killSwitchActive: false,
+    providerFeatureEnabled: true,
+    usageReader: async () => {
+      calls.usage += 1;
+      throw new Error('synthetic usage dependency failure');
+    },
+    runtimeDiagnostics: { report: (event) => events.push(event) },
+  });
+
+  await assert.rejects(invoke(request()), (error) => error.code === 'failed-precondition');
+  assert.deepEqual(events, [
+    { stage: 'handler_entry', outcome: 'started' },
+    { stage: 'auth_app_check', outcome: 'passed' },
+    { stage: 'runtime_controls', outcome: 'started' },
+    { stage: 'runtime_controls', outcome: 'passed' },
+    { stage: 'authorization_consent', outcome: 'started' },
+    { stage: 'authorization_consent', outcome: 'passed' },
+    { stage: 'owner_scoped_context_and_usage', outcome: 'started' },
+    { stage: 'owner_scoped_context_and_usage', outcome: 'failed' },
+  ]);
+  assert.deepEqual(calls, { authorization: 1, context: 1, usage: 1, reserve: 0, confirm: 0, provider: 0 });
+  assert.doesNotMatch(JSON.stringify(events), /synthetic-user|synthetic\.callable|Explique|failure/iu);
+});
+
+test('diagnóstico runtime é best-effort e não flexibiliza a callable', async () => {
+  const { calls, invoke } = build({
+    runtimeDiagnostics: { report: () => { throw new Error('diagnostics_unavailable'); } },
+  });
+  assert.deepEqual(await invoke(request()), ASSISTANT_SAFE_UNAVAILABLE);
+  assert.deepEqual(calls, { authorization: 0, context: 0, usage: 0, reserve: 0, confirm: 0, provider: 0 });
+});

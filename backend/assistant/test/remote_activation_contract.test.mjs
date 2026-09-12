@@ -69,7 +69,7 @@ test('servidor decide Flash, mas kill switch bloqueia toda execução remota', (
   assert.equal(ASSISTANT_REMOTE_KILL_SWITCH_ACTIVE, true);
   assert.deepEqual(plan, {
     contractVersion: ASSISTANT_FLUTTER_CONTRACT_VERSION,
-    tier: 'flash', maxInputUnits: 2500, maxOutputUnits: 800,
+    tier: 'flash', costUnits: 1, maxInputUnits: 2500, maxOutputUnits: 800,
     allowed: false, disabledReason: 'kill_switch_active',
   });
 });

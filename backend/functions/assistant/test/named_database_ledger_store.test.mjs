@@ -5,11 +5,25 @@ import {
   ASSISTANT_NAMED_LEDGER_DATABASE_ID,
   NamedDatabaseAssistantCostLedgerStore,
 } from '../src/named_database_ledger_store.mjs';
-import { AssistantCostControlLedger } from '../../../assistant/src/cost_control_ledger.mjs';
+import {
+  AssistantCostControlLedger,
+  createAssistantOwnerScope,
+} from '../../../assistant/src/cost_control_ledger.mjs';
 
-const createStore = ({ projectId = 'demo-assistant-controls', failAuth = false } = {}) => {
+const ownerScope = createAssistantOwnerScope('synthetic-owner');
+const state = () => ({
+  daily: {}, monthly: {}, periods: {}, records: {},
+  usage: {
+    [ownerScope]: {
+      windowDay: '2026-09-07', costUnitsInWindow: 0, proCallsInWindow: 0,
+    },
+  },
+});
+const createStore = ({ projectId = 'demo-assistant-controls', failAuth = false, documentPresent = true, ledgerState = state() } = {}) => {
   const requests = [];
-  let document = null;
+  let document = documentPresent
+    ? { updateTime: 'synthetic-update-time', fields: { state: { stringValue: JSON.stringify(ledgerState) } } }
+    : null;
   const client = {
     async request(request) {
       requests.push(request);
@@ -58,8 +72,8 @@ test('reserva e confirmação idempotentes passam pela transação do banco nome
     clock: () => new Date('2026-09-07T12:00:00.000Z'),
   });
   const requestId = '123e4567-e89b-42d3-a456-426614174000';
-  const reservation = await ledger.reserve({ maximumCostCents: 20, requestId, tier: 'flash' });
-  const repeatedReservation = await ledger.reserve({ maximumCostCents: 20, requestId, tier: 'flash' });
+  const reservation = await ledger.reserve({ maximumCostCents: 20, ownerScope, requestId, tier: 'flash', usageCostUnits: 1 });
+  const repeatedReservation = await ledger.reserve({ maximumCostCents: 20, ownerScope, requestId, tier: 'flash', usageCostUnits: 1 });
   const confirmation = await ledger.confirm({ confirmedCostCents: 10, durationMs: 42, requestId });
   const repeatedConfirmation = await ledger.confirm({ confirmedCostCents: 10, durationMs: 42, requestId });
 
@@ -78,9 +92,9 @@ test('não aceita identidade de usuário e aplica limite diário sem duplicar um
   });
   const firstRequestId = '123e4567-e89b-42d3-a456-426614174001';
   const secondRequestId = '123e4567-e89b-42d3-a456-426614174002';
-  await ledger.reserve({ maximumCostCents: 500, requestId: firstRequestId, tier: 'flash' });
+  await ledger.reserve({ maximumCostCents: 500, ownerScope, requestId: firstRequestId, tier: 'flash', usageCostUnits: 1 });
   await assert.rejects(
-    ledger.reserve({ maximumCostCents: 1, requestId: secondRequestId, tier: 'flash' }),
+    ledger.reserve({ maximumCostCents: 1, ownerScope, requestId: secondRequestId, tier: 'flash', usageCostUnits: 1 }),
     /assistant_named_ledger_unavailable/,
   );
   await assert.rejects(
@@ -99,6 +113,38 @@ test('falha fechada para ADC indisponível ou banco incompatível', async () => 
 
   const incorrectProject = createStore({ projectId: '123' });
   await assert.rejects(incorrectProject.store.runTransaction(() => ({})), /assistant_named_ledger_unavailable/);
+});
+
+test('falha fechada quando o documento de controle ou o registro do proprietário não existe', async () => {
+  const missingDocument = createStore({ documentPresent: false });
+  const missingDocumentLedger = new AssistantCostControlLedger({
+    store: missingDocument.store,
+    clock: () => new Date('2026-09-07T12:00:00.000Z'),
+  });
+  await assert.rejects(
+    missingDocumentLedger.readUsage({ ownerScope }),
+    /assistant_named_ledger_unavailable/,
+  );
+
+  const missingOwner = createStore();
+  const missingOwnerLedger = new AssistantCostControlLedger({
+    store: missingOwner.store,
+    clock: () => new Date('2026-09-07T12:00:00.000Z'),
+  });
+  await assert.rejects(
+    missingOwnerLedger.readUsage({ ownerScope: createAssistantOwnerScope('other-synthetic-owner') }),
+    /assistant_named_ledger_unavailable/,
+  );
+
+  const invalidSchema = createStore({ ledgerState: { usage: {} } });
+  const invalidSchemaLedger = new AssistantCostControlLedger({
+    store: invalidSchema.store,
+    clock: () => new Date('2026-09-07T12:00:00.000Z'),
+  });
+  await assert.rejects(
+    invalidSchemaLedger.readUsage({ ownerScope }),
+    /assistant_named_ledger_unavailable/,
+  );
 });
 
 test('falha fechada quando a resposta do banco não preserva o estado estrito do ledger', async () => {

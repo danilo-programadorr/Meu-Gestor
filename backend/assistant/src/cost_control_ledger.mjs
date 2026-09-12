@@ -3,6 +3,7 @@
  * sem registrar prompt, resposta, identidade ou dado financeiro.
  */
 import { randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 
 import { deny } from './errors.mjs';
 
@@ -10,6 +11,13 @@ export const ASSISTANT_COST_CONTROL_POLICY_VERSION = 'assist-cost-control-v1';
 export const ASSISTANT_COST_CONTROL_LIMITS = Object.freeze({
   dailyLimitCents: 500,
   monthlyOperationalLimitCents: 4_500,
+});
+
+export const ASSISTANT_OWNER_USAGE_LIMITS = Object.freeze({
+  costUnitsPerWindow: 32,
+  proCallsPerWindow: 4,
+  flashCostUnits: 1,
+  proCostUnits: 8,
 });
 
 export const ASSISTANT_COST_LEDGER_STATE = Object.freeze({
@@ -29,13 +37,17 @@ const isRequestId = (value) => typeof value === 'string'
   && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(value);
 const isDayKey = (value) => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
 const isMonthKey = (value) => typeof value === 'string' && /^\d{4}-\d{2}$/.test(value);
+const isOwnerScope = (value) => typeof value === 'string' && /^[a-f0-9]{64}$/iu.test(value);
+const isUsageUnits = (value) => Number.isSafeInteger(value) && value > 0;
 
 const clone = (value) => structuredClone(value);
 
 const assertRecord = (record) => {
-  if (!exactKeys(record, ['confirmedCostCents', 'durationMs', 'requestId', 'reservedCostCents', 'state', 'tier'])
+  if (!exactKeys(record, ['confirmedCostCents', 'durationMs', 'ownerScope', 'requestId', 'reservedCostCents', 'state', 'tier', 'usageCostUnits'])
       || !isRequestId(record.requestId)
       || !isTier(record.tier)
+      || !isOwnerScope(record.ownerScope)
+      || !isUsageUnits(record.usageCostUnits)
       || !isPositiveCents(record.reservedCostCents)
       || (record.confirmedCostCents !== null && !isPositiveCents(record.confirmedCostCents))
       || (record.durationMs !== null && !isDuration(record.durationMs))
@@ -67,12 +79,59 @@ const assertReservationPeriod = (period) => {
   }
 };
 
+const assertOwnerUsage = (usage) => {
+  if (!exactKeys(usage, ['costUnitsInWindow', 'proCallsInWindow', 'windowDay'])
+      || !isDayKey(usage.windowDay)
+      || !Number.isSafeInteger(usage.costUnitsInWindow)
+      || !Number.isSafeInteger(usage.proCallsInWindow)
+      || usage.costUnitsInWindow < 0
+      || usage.proCallsInWindow < 0) {
+    throw deny('assistant_usage_record_invalid');
+  }
+};
+
+const assertOwnerUsageMap = (usage) => {
+  if (!usage || typeof usage !== 'object' || Array.isArray(usage)) {
+    throw deny('assistant_usage_record_invalid');
+  }
+  for (const [ownerScope, counters] of Object.entries(usage)) {
+    if (!isOwnerScope(ownerScope)) throw deny('assistant_usage_record_invalid');
+    assertOwnerUsage(counters);
+  }
+};
+
 const emptyCounter = () => ({ confirmedCostCents: 0, reservedCostCents: 0 });
+const emptyOwnerUsage = (windowDay) => ({ windowDay, costUnitsInWindow: 0, proCallsInWindow: 0 });
 const counterTotal = (counter) => counter.confirmedCostCents + counter.reservedCostCents;
 const dayKey = (now) => now.toISOString().slice(0, 10);
 const monthKey = (now) => now.toISOString().slice(0, 7);
 
 export const createAssistantCostRequestId = () => randomUUID();
+
+/** Deriva um escopo pseudonimizado exclusivamente do UID autenticado. */
+export const createAssistantOwnerScope = (uid) => {
+  if (typeof uid !== 'string' || uid.trim() !== uid || uid.length === 0 || uid.length > 128) {
+    throw new TypeError('assistant_owner_scope_invalid');
+  }
+  return createHash('sha256').update(`assistant-owner-usage-v1:${uid}`, 'utf8').digest('hex');
+};
+
+const normalizeState = (state) => {
+  if (!state || typeof state !== 'object' || Array.isArray(state)) {
+    throw deny('assistant_cost_ledger_inconsistent');
+  }
+  const keys = Object.keys(state).sort().join('|');
+  if (keys === 'daily|monthly|periods|records') {
+    return { ...state, usage: {} };
+  }
+  if (keys !== 'daily|monthly|periods|records|usage') {
+    throw deny('assistant_cost_ledger_inconsistent');
+  }
+  return state;
+};
+
+/** Normaliza somente o esquema legado do ledger, sem criar uso de proprietário. */
+export const normalizeAssistantCostLedgerState = (state) => normalizeState(state);
 
 /**
  * Deterministic persistence fake used by the local contract tests. Production
@@ -82,8 +141,8 @@ export const createAssistantCostRequestId = () => randomUUID();
 export class InMemoryAssistantCostLedgerStore {
   constructor(snapshot = undefined) {
     this.state = snapshot === undefined ? {
-      daily: {}, monthly: {}, periods: {}, records: {},
-    } : clone(snapshot);
+      daily: {}, monthly: {}, periods: {}, records: {}, usage: {},
+    } : normalizeState(clone(snapshot));
     this.transactionTail = Promise.resolve();
     this.#assertState(this.state);
   }
@@ -109,16 +168,17 @@ export class InMemoryAssistantCostLedgerStore {
   }
 
   #assertState(state) {
-    if (!exactKeys(state, ['daily', 'monthly', 'periods', 'records'])
-        || !state.daily || !state.monthly || !state.periods || !state.records
+    if (!exactKeys(state, ['daily', 'monthly', 'periods', 'records', 'usage'])
+        || !state.daily || !state.monthly || !state.periods || !state.records || !state.usage
         || Array.isArray(state.daily) || Array.isArray(state.monthly)
-        || Array.isArray(state.periods) || Array.isArray(state.records)) {
+        || Array.isArray(state.periods) || Array.isArray(state.records) || Array.isArray(state.usage)) {
       throw deny('assistant_cost_ledger_inconsistent');
     }
     Object.values(state.daily).forEach(assertCounter);
     Object.values(state.monthly).forEach(assertCounter);
     Object.values(state.records).forEach(assertRecord);
     Object.values(state.periods).forEach(assertReservationPeriod);
+    assertOwnerUsageMap(state.usage);
     const recordIds = Object.keys(state.records).sort().join('|');
     const periodIds = Object.keys(state.periods).sort().join('|');
     if (recordIds !== periodIds) throw deny('assistant_cost_ledger_inconsistent');
@@ -134,29 +194,53 @@ const assertLimits = (limits) => {
 };
 
 export class AssistantCostControlLedger {
-  constructor({ store, clock, limits = ASSISTANT_COST_CONTROL_LIMITS }) {
+  constructor({ store, clock, limits = ASSISTANT_COST_CONTROL_LIMITS, usageLimits = ASSISTANT_OWNER_USAGE_LIMITS }) {
     if (!store || typeof store.runTransaction !== 'function' || typeof clock !== 'function') {
       throw new TypeError('assistant_cost_ledger_dependency_invalid');
     }
     assertLimits(limits);
+    if (!exactKeys(usageLimits, ['costUnitsPerWindow', 'flashCostUnits', 'proCallsPerWindow', 'proCostUnits'])
+        || !Object.values(usageLimits).every(isUsageUnits)) {
+      throw new TypeError('assistant_usage_limits_invalid');
+    }
     this.store = store;
     this.clock = clock;
     this.limits = Object.freeze({ ...limits });
+    this.usageLimits = Object.freeze({ ...usageLimits });
   }
 
-  async reserve({ maximumCostCents, requestId, tier }) {
-    if (!isRequestId(requestId) || !isTier(tier) || !isPositiveCents(maximumCostCents)) {
+  async readUsage({ ownerScope }) {
+    if (!isOwnerScope(ownerScope)) throw new TypeError('assistant_owner_scope_invalid');
+    const currentDay = dayKey(this.#serverNow());
+    return this.store.runTransaction((state) => {
+      const normalized = normalizeState(state);
+      if (normalized !== state) Object.assign(state, normalized);
+      const currentUsage = this.#readCurrentOwnerUsage(state, ownerScope, currentDay);
+      return Object.freeze({
+        costUnitsInWindow: currentUsage.costUnitsInWindow,
+        proCallsInWindow: currentUsage.proCallsInWindow,
+      });
+    });
+  }
+
+  async reserve({ maximumCostCents, ownerScope, requestId, tier, usageCostUnits }) {
+    if (!isRequestId(requestId) || !isTier(tier) || !isPositiveCents(maximumCostCents)
+        || !isOwnerScope(ownerScope) || !isUsageUnits(usageCostUnits)
+        || usageCostUnits !== this.#usageCostForTier(tier)) {
       throw new TypeError('assistant_cost_reservation_invalid');
     }
     const now = this.#serverNow();
     const currentDay = dayKey(now);
     const currentMonth = monthKey(now);
     return this.store.runTransaction((state) => {
+      const normalized = normalizeState(state);
+      if (normalized !== state) Object.assign(state, normalized);
       const existing = state.records[requestId];
       if (existing) {
         assertRecord(existing);
         assertReservationPeriod(state.periods[requestId]);
-        if (existing.tier !== tier || existing.reservedCostCents !== maximumCostCents) {
+        if (existing.tier !== tier || existing.reservedCostCents !== maximumCostCents
+            || existing.ownerScope !== ownerScope || existing.usageCostUnits !== usageCostUnits) {
           throw deny('assistant_cost_request_id_conflict');
         }
         return existing;
@@ -173,8 +257,18 @@ export class AssistantCostControlLedger {
         throw deny('assistant_cost_monthly_limit_reached');
       }
 
+      const ownerUsage = this.#readCurrentOwnerUsage(state, ownerScope, currentDay);
+      if (ownerUsage.costUnitsInWindow + usageCostUnits > this.usageLimits.costUnitsPerWindow) {
+        throw deny('assistant_usage_limit_reached');
+      }
+      if (tier === 'pro' && ownerUsage.proCallsInWindow >= this.usageLimits.proCallsPerWindow) {
+        throw deny('assistant_pro_limit_reached');
+      }
+
       daily.reservedCostCents += maximumCostCents;
       monthly.reservedCostCents += maximumCostCents;
+      ownerUsage.costUnitsInWindow += usageCostUnits;
+      if (tier === 'pro') ownerUsage.proCallsInWindow += 1;
       state.daily[currentDay] = daily;
       state.monthly[currentMonth] = monthly;
       state.periods[requestId] = {
@@ -184,6 +278,8 @@ export class AssistantCostControlLedger {
       const record = {
         requestId,
         tier,
+        ownerScope,
+        usageCostUnits,
         durationMs: null,
         reservedCostCents: maximumCostCents,
         confirmedCostCents: null,
@@ -200,6 +296,8 @@ export class AssistantCostControlLedger {
     }
     this.#serverNow();
     return this.store.runTransaction((state) => {
+      const normalized = normalizeState(state);
+      if (normalized !== state) Object.assign(state, normalized);
       const record = state.records[requestId];
       if (!record) throw deny('assistant_cost_reservation_required');
       assertRecord(record);
@@ -239,5 +337,21 @@ export class AssistantCostControlLedger {
     const now = this.clock();
     if (!(now instanceof Date) || Number.isNaN(now.getTime())) throw deny('assistant_cost_server_time_invalid');
     return now;
+  }
+
+  #readCurrentOwnerUsage(state, ownerScope, currentDay) {
+    const stored = state.usage[ownerScope];
+    if (stored === undefined) throw deny('assistant_usage_record_required');
+    assertOwnerUsage(stored);
+    if (stored.windowDay !== currentDay) {
+      state.usage[ownerScope] = emptyOwnerUsage(currentDay);
+    }
+    return state.usage[ownerScope];
+  }
+
+  #usageCostForTier(tier) {
+    return tier === 'flash'
+      ? this.usageLimits.flashCostUnits
+      : this.usageLimits.proCostUnits;
   }
 }

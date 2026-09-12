@@ -1,4 +1,5 @@
 import { deny } from './errors.mjs';
+import { ASSISTANT_OWNER_USAGE_LIMITS } from './cost_control_ledger.mjs';
 
 export const ASSISTANT_ROUTER_POLICY_VERSION = 'assist-router-2026-08-25';
 
@@ -10,10 +11,10 @@ export const DEFAULT_ROUTER_LIMITS = Object.freeze({
   flashMaxOutputUnits: 800,
   proMaxInputUnits: 6_000,
   proMaxOutputUnits: 1_500,
-  proCallsPerWindow: 4,
-  costUnitsPerWindow: 32,
-  flashCostUnits: 1,
-  proCostUnits: 8,
+  proCallsPerWindow: ASSISTANT_OWNER_USAGE_LIMITS.proCallsPerWindow,
+  costUnitsPerWindow: ASSISTANT_OWNER_USAGE_LIMITS.costUnitsPerWindow,
+  flashCostUnits: ASSISTANT_OWNER_USAGE_LIMITS.flashCostUnits,
+  proCostUnits: ASSISTANT_OWNER_USAGE_LIMITS.proCostUnits,
 });
 
 const complexSignals = Object.freeze([

@@ -31,6 +31,7 @@ export function registerAssistRemoteV1Gen2({
   killSwitchActive,
   providerFeatureEnabled,
   runtimeControlsReader,
+  runtimeDiagnostics,
 }) {
   const callables = createAssistRemoteV1Callables({
     onCall,
@@ -45,6 +46,7 @@ export function registerAssistRemoteV1Gen2({
     ...(typeof killSwitchActive === 'boolean' ? { killSwitchActive } : {}),
     ...(typeof providerFeatureEnabled === 'boolean' ? { providerFeatureEnabled } : {}),
     ...(typeof runtimeControlsReader === 'function' ? { runtimeControlsReader } : {}),
+    ...(runtimeDiagnostics ? { runtimeDiagnostics } : {}),
   });
   return Object.freeze({
     [ASSISTANT_REMOTE_FUNCTION_NAME]: callables.assistRemoteV1,

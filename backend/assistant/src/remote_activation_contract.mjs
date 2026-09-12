@@ -74,6 +74,7 @@ export const prepareAssistantRemoteActivation = ({
   return Object.freeze({
     contractVersion: ASSISTANT_FLUTTER_CONTRACT_VERSION,
     tier: routing.tier,
+    costUnits: routing.costUnits,
     maxInputUnits: routing.maxInputUnits,
     maxOutputUnits: routing.maxOutputUnits,
     allowed: disabledReason === null && providerFeatureEnabled,

@@ -13,6 +13,8 @@ const files = [
   'src/fail_closed_dependencies.mjs',
   'src/runtime_ledger.mjs',
   'src/runtime_adapters.mjs',
+  'src/runtime_diagnostics.mjs',
+  'src/runtime_usage_reader.mjs',
 ];
 const forbidden = /(?:firebase-admin|@google-cloud|googleapis|@google\/genai|vertexai|generative-ai|openai|anthropic|secretmanager|https?:\/\/|process\.env)/iu;
 

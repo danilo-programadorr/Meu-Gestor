@@ -201,11 +201,6 @@ class _AssistantConversationPageState
                           label: 'Estado do modo de conversa: ${state.message}',
                           child: _ConversationStatus(state: state),
                         ),
-                        if (_textMode &&
-                            state.transcript.isNotEmpty) ...<Widget>[
-                          const SizedBox(height: AppSpacing.sm),
-                          _TranscriptCard(transcript: state.transcript),
-                        ],
                         const SizedBox(height: AppSpacing.md),
                         if (!effectiveRemoteConsent)
                           const _ConsentPendingCard()
@@ -239,7 +234,6 @@ class _AssistantConversationPageState
                           AssistantTextQuestionInput(
                             controller: _textController,
                             onSend: _submitText,
-                            onUseVoice: _returnToVoice,
                           )
                         else if (!_textMode &&
                             effectiveRemoteConsent &&
@@ -296,12 +290,6 @@ class _AssistantConversationPageState
   Future<void> _useTextMode() async {
     await _stopForExit();
     if (mounted) setState(() => _textMode = true);
-  }
-
-  Future<void> _returnToVoice() async {
-    _textController.clear();
-    await _conversation.interrupt();
-    if (mounted) setState(() => _textMode = false);
   }
 
   Future<void> _submitText() async {
@@ -498,12 +486,10 @@ class AssistantTextQuestionInput extends StatelessWidget {
     super.key,
     required this.controller,
     required this.onSend,
-    required this.onUseVoice,
   });
 
   final TextEditingController controller;
   final Future<void> Function() onSend;
-  final Future<void> Function() onUseVoice;
 
   @override
   Widget build(BuildContext context) => Card(
@@ -513,11 +499,6 @@ class AssistantTextQuestionInput extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          const Text(
-            'Pergunta por texto',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: AppSpacing.sm),
           TextField(
             key: const ValueKey<String>('assistant-text-question-field'),
             controller: controller,
@@ -536,12 +517,6 @@ class AssistantTextQuestionInput extends StatelessWidget {
             onPressed: () => unawaited(onSend()),
             icon: const Icon(Icons.send_outlined),
             label: const Text('Enviar'),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          TextButton.icon(
-            onPressed: () => unawaited(onUseVoice()),
-            icon: const Icon(Icons.mic_none_outlined),
-            label: const Text('Voltar ao modo de voz'),
           ),
         ],
       ),
@@ -705,29 +680,6 @@ class _ConversationStatus extends StatelessWidget {
         textAlign: TextAlign.center,
       ),
     ],
-  );
-}
-
-class _TranscriptCard extends StatelessWidget {
-  const _TranscriptCard({required this.transcript});
-  final String transcript;
-  @override
-  Widget build(BuildContext context) => Card(
-    color: const Color(0xFF1B252D),
-    child: Padding(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          const Text(
-            'Transcrição desta sessão',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(transcript, style: const TextStyle(color: Color(0xFFD5DEE7))),
-        ],
-      ),
-    ),
   );
 }
 

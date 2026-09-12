@@ -54,9 +54,12 @@ export {
   ASSISTANT_COST_CONTROL_LIMITS,
   ASSISTANT_COST_CONTROL_POLICY_VERSION,
   ASSISTANT_COST_LEDGER_STATE,
+  ASSISTANT_OWNER_USAGE_LIMITS,
   AssistantCostControlLedger,
   InMemoryAssistantCostLedgerStore,
   createAssistantCostRequestId,
+  createAssistantOwnerScope,
+  normalizeAssistantCostLedgerState,
 } from './cost_control_ledger.mjs';
 export { ASSISTANT_REAL_PROVIDER_FEATURE_ENABLED, MODEL_EXECUTION, resolveAssistantModelExecution } from './dual_model_execution.mjs';
 export {

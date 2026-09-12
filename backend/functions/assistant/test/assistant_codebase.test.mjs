@@ -51,6 +51,8 @@ test('runtime identity é parâmetro sem valor versionado e opções são conser
   assert.equal(process.env.ASSISTANT_RUNTIME_SERVICE_ACCOUNT, undefined);
   const entryPoint = await readFile(new URL('../index.mjs', import.meta.url), 'utf8');
   assert.match(entryPoint, /runtimeControlsReader: readAssistantRuntimeControls/u);
+  assert.match(entryPoint, /createAssistantRuntimeUsageReader/u);
+  assert.match(entryPoint, /usageReader: createAssistantRuntimeUsageReader\(\{ ledger \}\)/u);
   assert.doesNotMatch(entryPoint, /\.value\(\)/u);
 });
 
@@ -90,6 +92,13 @@ test('ledger usa somente ADC para o banco nomeado e mantém a fronteira do banco
   assert.match(source, /assistant-controls-dev/u);
   assert.match(source, /https:\/\/firestore\.googleapis\.com\//u);
   assert.doesNotMatch(source, /firebase-admin|firebase-admin\/firestore|getFirestore\(|\(default\)|GOOGLE_APPLICATION_CREDENTIALS|metadata\.google\/internal/iu);
+});
+
+test('leitor de uso não registra identidade e usa apenas o ledger injetado', async () => {
+  const source = await readFile(new URL('../src/runtime_usage_reader.mjs', import.meta.url), 'utf8');
+  assert.match(source, /createAssistantOwnerScope/u);
+  assert.match(source, /ledger\.readUsage/u);
+  assert.doesNotMatch(source, /console\.|firebase-admin|getFirestore\(|https?:\/\//iu);
 });
 
 test('composição runtime usa a porta ADC do ledger sem abrir o provedor', () => {

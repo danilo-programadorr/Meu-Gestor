@@ -16,7 +16,7 @@ import {
 import { AssistantModelRouter } from './model_router.mjs';
 import { assertAuthorized } from './policy.mjs';
 import { admitGroundedAssistantResponse } from './grounded_response_contract.mjs';
-import { createAssistantCostRequestId } from './cost_control_ledger.mjs';
+import { createAssistantCostRequestId, createAssistantOwnerScope } from './cost_control_ledger.mjs';
 import { createOwnerScopedFirestoreAuthority } from './owner_scoped_firestore_context.mjs';
 
 export const ASSISTANT_REMOTE_CALLABLE_OPTIONS = Object.freeze({
@@ -67,6 +67,7 @@ export function createAssistRemoteV1Callables({
   killSwitchActive = ASSISTANT_REMOTE_KILL_SWITCH_ACTIVE,
   providerFeatureEnabled = ASSISTANT_REAL_PROVIDER_FEATURE_ENABLED,
   runtimeControlsReader = () => Object.freeze({ killSwitchActive, providerFeatureEnabled }),
+  runtimeDiagnostics = undefined,
 }) {
   if (
     typeof onCall !== 'function' || typeof HttpsError !== 'function'
@@ -83,37 +84,53 @@ export function createAssistRemoteV1Callables({
   if (!functionOptions || typeof functionOptions !== 'object' || Array.isArray(functionOptions)) {
     throw new TypeError('assistant_callable_options_invalid');
   }
+  const diagnostics = normalizeRuntimeDiagnostics(runtimeDiagnostics);
 
   return Object.freeze({
     assistRemoteV1: onCall(functionOptions, async (request) => {
+      let stage = 'auth_app_check';
+      reportRuntimeStage(diagnostics, 'handler_entry', 'started');
       try {
         const uid = requireAuthenticatedUid(request, HttpsError);
+        const ownerScope = createAssistantOwnerScope(uid);
+        reportRuntimeStage(diagnostics, stage, 'passed');
         requireExactFlutterData(request?.data, HttpsError);
+        stage = 'runtime_controls';
+        reportRuntimeStage(diagnostics, stage, 'started');
         const runtimeControls = readRuntimeControls(runtimeControlsReader);
         const { killSwitchActive: runtimeKillSwitchActive, providerFeatureEnabled: runtimeProviderFeatureEnabled } = runtimeControls;
         // Nenhuma leitura de perfil, contexto, ledger ou banco é permitida
         // enquanto a borda está desligada. Auth e App Check já passaram pelo
         // perímetro e a resposta não contém conteúdo do solicitante.
         if (runtimeKillSwitchActive || !runtimeProviderFeatureEnabled) {
+          reportRuntimeStage(diagnostics, stage, 'blocked');
           return ASSISTANT_SAFE_UNAVAILABLE;
         }
+        reportRuntimeStage(diagnostics, stage, 'passed');
         const ownerAuthority = createOwnerScopedFirestoreAuthority({
           uid,
           authorizationHeader: request?.rawRequest?.headers?.authorization,
         });
+        stage = 'authorization_consent';
+        reportRuntimeStage(diagnostics, stage, 'started');
         const authorization = await deriveServerAuthorization({ request, uid, ownerAuthority, authorizationReader, HttpsError });
         assertAuthorized(authorization);
         if (authorization.financialPrivacyActive === true) {
+          reportRuntimeStage(diagnostics, stage, 'blocked');
           throw deny('assistant_financial_privacy_active');
         }
+        reportRuntimeStage(diagnostics, stage, 'passed');
 
         validateFlutterAssistantRequest(request.data);
         // A autorização crua vem somente do envelope já validado pela callable.
         // Ela é efêmera, serve à leitura própria nas Rules e nunca chega ao modelo.
+        stage = 'owner_scoped_context_and_usage';
+        reportRuntimeStage(diagnostics, stage, 'started');
         const [context, usage] = await Promise.all([
           contextReader({ uid, ownerAuthority, authorization }),
           usageReader({ uid }),
         ]);
+        reportRuntimeStage(diagnostics, stage, 'passed');
         // The port is intentionally not called while the provider is disabled.
         // Its strict shape prevents a later activation from bypassing the ledger.
         const plan = prepareAssistantRemoteActivation({
@@ -126,6 +143,7 @@ export function createAssistRemoteV1Callables({
           providerFeatureEnabled: runtimeProviderFeatureEnabled,
         });
         if (!plan.allowed) {
+          reportRuntimeStage(diagnostics, 'activation_plan', 'blocked');
           return ASSISTANT_SAFE_UNAVAILABLE;
         }
         const execution = resolveAssistantModelExecution({
@@ -134,7 +152,18 @@ export function createAssistRemoteV1Callables({
         });
         const maximumCostCents = ASSISTANT_MAXIMUM_VERTEX_COST_CENTS[execution.tier];
         const requestId = createAssistantCostRequestId();
-        await ledger.reserve({ maximumCostCents, requestId, tier: execution.tier });
+        stage = 'ledger_reserve';
+        reportRuntimeStage(diagnostics, stage, 'started');
+        await ledger.reserve({
+          maximumCostCents,
+          ownerScope,
+          requestId,
+          tier: execution.tier,
+          usageCostUnits: plan.costUnits,
+        });
+        reportRuntimeStage(diagnostics, stage, 'passed');
+        stage = 'vertex_model';
+        reportRuntimeStage(diagnostics, stage, 'started');
         const providerResult = await providerGateway.generate({
           execution,
           maximumCostCents,
@@ -144,17 +173,44 @@ export function createAssistRemoteV1Callables({
             context,
           }),
         });
+        reportRuntimeStage(diagnostics, stage, 'passed');
+        stage = 'ledger_confirm';
+        reportRuntimeStage(diagnostics, stage, 'started');
         await ledger.confirm({
           requestId,
           durationMs: providerResult.durationMs,
           confirmedCostCents: providerResult.confirmedCostCents,
         });
-        return admitGroundedAssistantResponse({ response: providerResult.response, context });
+        reportRuntimeStage(diagnostics, stage, 'passed');
+        stage = 'response_validation';
+        reportRuntimeStage(diagnostics, stage, 'started');
+        const response = admitGroundedAssistantResponse({ response: providerResult.response, context });
+        reportRuntimeStage(diagnostics, stage, 'passed');
+        return response;
       } catch (error) {
+        reportRuntimeStage(diagnostics, stage, 'failed');
         throw toHttpsError(error, HttpsError);
       }
     }),
   });
+}
+
+function normalizeRuntimeDiagnostics(runtimeDiagnostics) {
+  if (runtimeDiagnostics === undefined) return null;
+  if (!runtimeDiagnostics || typeof runtimeDiagnostics.report !== 'function') {
+    throw new TypeError('assistant_callable_runtime_diagnostics_invalid');
+  }
+  return runtimeDiagnostics;
+}
+
+function reportRuntimeStage(diagnostics, stage, outcome) {
+  if (diagnostics === null) return;
+  // A porta recebe somente rótulos constantes; nunca request, erro, UID ou conteúdo.
+  try {
+    diagnostics.report({ stage, outcome });
+  } catch {
+    // Diagnóstico é observabilidade best-effort e não pode alterar o fail-closed.
+  }
 }
 
 function assertLedgerPort(ledger) {
