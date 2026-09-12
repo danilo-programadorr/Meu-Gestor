@@ -69,8 +69,8 @@ class _AssistantConversationPageState
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _textController.dispose();
     unawaited(_stopForExit(clearVoice: true));
+    _textController.dispose();
     super.dispose();
   }
 

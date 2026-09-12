@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:meu_gestor_financeiro/app/navigation/global_quick_navigation.dart';
@@ -57,23 +58,47 @@ import 'package:meu_gestor_financeiro/features/transactions/presentation/pages/t
 import 'package:meu_gestor_financeiro/features/transactions/presentation/pages/transactions_page.dart';
 
 final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((Ref ref) {
-  final FirebaseStartupState startup = ref.watch(firebaseStartupProvider);
-  final AsyncValue<AuthUser?>? authState = startup.isAvailable
-      ? ref.watch(authStateProvider)
-      : null;
-  final AuthUser? authenticatedUser = authState?.value;
-  final AsyncValue<ProfileGateState>? profileGate =
-      startup.isAvailable && authenticatedUser?.emailVerified == true
-      ? ref.watch(profileGateControllerProvider)
-      : null;
-  final ProfileDiagnostics profileDiagnostics = ref.watch(
+  final FirebaseStartupState startup = ref.read(firebaseStartupProvider);
+  final ProfileDiagnostics profileDiagnostics = ref.read(
     profileDiagnosticsProvider,
   );
+  final _RouterRefreshNotifier refreshNotifier = _RouterRefreshNotifier();
+  ref.onDispose(refreshNotifier.dispose);
+
+  // O bootstrap entrega o estado do Firebase antes de montar o ProviderScope.
+  // Depois disso, Auth, perfil e acesso administrativo podem mudar durante a
+  // vida da sessão. Atualizamos somente o redirect: recriar o GoRouter nesses
+  // callbacks reiniciava a pilha na rota inicial e acabava levando à Home.
+  if (startup.isAvailable) {
+    ref.listen<AsyncValue<AuthUser?>>(authStateProvider, (previous, next) {
+      if (_authRouteState(previous) != _authRouteState(next)) {
+        refreshNotifier.refresh();
+      }
+    });
+    ref.listen<AsyncValue<ProfileGateState>>(profileGateControllerProvider, (
+      previous,
+      next,
+    ) {
+      if (_profileRouteState(previous) != _profileRouteState(next)) {
+        refreshNotifier.refresh();
+      }
+    });
+  }
 
   return GoRouter(
     initialLocation: AppRoutes.root,
+    refreshListenable: refreshNotifier,
     redirect: (context, state) {
       final String location = state.uri.path;
+      final FirebaseStartupState startup = ref.read(firebaseStartupProvider);
+      final AsyncValue<AuthUser?>? authState = startup.isAvailable
+          ? ref.read(authStateProvider)
+          : null;
+      final AuthUser? authenticatedUser = authState?.value;
+      final AsyncValue<ProfileGateState>? profileGate =
+          startup.isAvailable && authenticatedUser?.emailVerified == true
+          ? ref.read(profileGateControllerProvider)
+          : null;
       final MasterAccessState masterAccess = ref.read(
         masterAccessControllerProvider,
       );
@@ -452,6 +477,35 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((Ref ref) {
     ],
   );
 });
+
+final class _RouterRefreshNotifier extends ChangeNotifier {
+  void refresh() => notifyListeners();
+}
+
+String _authRouteState(AsyncValue<AuthUser?>? state) {
+  if (state == null || state.isLoading) return 'loading';
+  if (state.hasError) return 'error';
+  final AuthUser? user = state.value;
+  if (user == null) return 'anonymous';
+  return 'user:${user.id}:${user.emailVerified}';
+}
+
+String _profileRouteState(AsyncValue<ProfileGateState>? state) {
+  if (state == null || state.isLoading) return 'loading';
+  if (state.hasError) return 'error';
+  final ProfileGateState? gate = state.value;
+  return switch (gate) {
+    ProfileGateValid() => 'valid',
+    ProfileGateProgress() => 'progress',
+    ProfileGateUnauthenticated() => 'unauthenticated',
+    ProfileGateUnverifiedEmail() => 'unverifiedEmail',
+    ProfileGateMissing() => 'missing',
+    ProfileGateLegalUpdateRequired() => 'legalUpdate',
+    ProfileGateFailure() => 'failure',
+    ProfileGateIncompatible() => 'incompatible',
+    null => 'loading',
+  };
+}
 
 bool _isValidProfileRoute(String location) {
   return location == AppRoutes.home ||

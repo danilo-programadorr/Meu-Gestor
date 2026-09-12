@@ -3,15 +3,27 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:meu_gestor_financeiro/app/app.dart';
+import 'package:meu_gestor_financeiro/app/routing/app_router.dart';
+import 'package:meu_gestor_financeiro/app/routing/app_routes.dart';
 import 'package:meu_gestor_financeiro/core/environment/app_environment.dart';
 import 'package:meu_gestor_financeiro/core/firebase/firebase_startup.dart';
+import 'package:meu_gestor_financeiro/features/assistant/data/assistant_speech_recognizer.dart';
+import 'package:meu_gestor_financeiro/features/assistant/data/assistant_tts_engine.dart';
+import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_remote_consent.dart';
+import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_remote_integration.dart';
+import 'package:meu_gestor_financeiro/features/assistant/presentation/controllers/assistant_conversation_controller.dart';
+import 'package:meu_gestor_financeiro/features/assistant/presentation/controllers/assistant_remote_consent_controller.dart';
+import 'package:meu_gestor_financeiro/features/assistant/presentation/controllers/assistant_remote_conversation_controller.dart';
+import 'package:meu_gestor_financeiro/features/assistant/presentation/controllers/assistant_voice_controller.dart';
 import 'package:meu_gestor_financeiro/features/authentication/data/auth_providers.dart';
 import 'package:meu_gestor_financeiro/features/authentication/domain/auth_user.dart';
 import 'package:meu_gestor_financeiro/features/owner_access/data/master_access_providers.dart';
 import 'package:meu_gestor_financeiro/features/profile/data/user_profile_providers.dart';
 import 'package:meu_gestor_financeiro/features/profile/domain/user_profile.dart';
 import 'package:meu_gestor_financeiro/features/profile/domain/user_profile_failure.dart';
+import 'package:meu_gestor_financeiro/features/profile/presentation/controllers/profile_action_controller.dart';
 
 import '../../../support/fake_auth_repository.dart';
 import '../../../support/fake_user_profile_repository.dart';
@@ -110,6 +122,79 @@ void main() {
     expect(find.text('Salvar preferência de Analytics'), findsOneWidget);
     expect(find.text('Assistente e análises com IA'), findsNothing);
   });
+
+  testWidgets(
+    'Home → Conversa permanece na rota após callbacks de perfil sem consentimento',
+    (WidgetTester tester) async {
+      final _WidgetContext context = await _pumpProfileApp(
+        tester,
+        profile: createTestProfile(ownerId: 'owner', aiConsentEnabled: false),
+      );
+      addTearDown(context.dispose);
+
+      expect(
+        context.router.routerDelegate.currentConfiguration.uri.path,
+        AppRoutes.home,
+      );
+      await tester.tap(find.byKey(const Key('quick-nav-Conversa')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(
+        context.router.routerDelegate.currentConfiguration.uri.path,
+        AppRoutes.assistantConversation,
+      );
+      expect(find.text('Ativar Assistente Financeiro'), findsOneWidget);
+      final Object routerBeforeProfileCallback = context.router;
+
+      await context.container
+          .read(profileActionControllerProvider.notifier)
+          .updateOptionalConsents(
+            aiConsentEnabled: false,
+            analyticsConsentEnabled: true,
+          );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(context.router, same(routerBeforeProfileCallback));
+      expect(
+        context.router.routerDelegate.currentConfiguration.uri.path,
+        AppRoutes.assistantConversation,
+      );
+      expect(find.text('Modo de conversa'), findsOneWidget);
+      expect(find.text('Ativar Assistente Financeiro'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'Perfil → Privacidade e consentimentos permanece na rota após callbacks de perfil',
+    (WidgetTester tester) async {
+      final _WidgetContext context = await _pumpProfileApp(
+        tester,
+        profile: createTestProfile(ownerId: 'owner', aiConsentEnabled: true),
+      );
+      addTearDown(context.dispose);
+
+      await _openProfileFromHome(tester);
+      await _tapVisible(tester, find.text('Privacidade e consentimentos'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Privacidade e consentimentos'), findsOneWidget);
+      final Object routerBeforeProfileCallback = context.router;
+
+      await context.container
+          .read(profileActionControllerProvider.notifier)
+          .updateOptionalConsents(
+            aiConsentEnabled: true,
+            analyticsConsentEnabled: true,
+          );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(context.router, same(routerBeforeProfileCallback));
+      expect(find.text('Privacidade e consentimentos'), findsOneWidget);
+    },
+  );
 
   testWidgets('versão jurídica antiga bloqueia home e exige novo aceite', (
     WidgetTester tester,
@@ -312,12 +397,20 @@ Future<void> _openProfileFromHome(WidgetTester tester) async {
 }
 
 final class _WidgetContext {
-  const _WidgetContext({required this.auth, required this.profiles});
+  const _WidgetContext({
+    required this.container,
+    required this.auth,
+    required this.profiles,
+  });
 
+  final ProviderContainer container;
   final FakeAuthRepository auth;
   final FakeUserProfileRepository profiles;
 
+  GoRouter get router => container.read(appRouterProvider);
+
   void dispose() {
+    container.dispose();
     unawaited(auth.close());
   }
 }
@@ -331,22 +424,111 @@ Future<_WidgetContext> _pumpProfileApp(
   final FakeAuthRepository authRepository = auth ?? _verifiedAuth();
   final FakeUserProfileRepository profileRepository =
       profiles ?? FakeUserProfileRepository(initialProfile: profile);
+  final _FakeAssistantRemoteConsentRepository remoteConsent =
+      _FakeAssistantRemoteConsentRepository();
+  final ProviderContainer container = ProviderContainer(
+    overrides: [
+      appEnvironmentProvider.overrideWithValue(AppEnvironment.development),
+      firebaseStartupProvider.overrideWithValue(
+        const FirebaseStartupAvailable(),
+      ),
+      authRepositoryProvider.overrideWithValue(authRepository),
+      masterAccessSubjectProvider.overrideWithValue(null),
+      userProfileRepositoryProvider.overrideWithValue(profileRepository),
+      assistantRemoteConsentRepositoryProvider.overrideWithValue(remoteConsent),
+      assistantRemoteGatewayProvider.overrideWithValue(
+        const _SafeAssistantRemoteGateway(),
+      ),
+      assistantSpeechRecognizerProvider.overrideWithValue(
+        const _NoopAssistantSpeechRecognizer(),
+      ),
+      assistantTtsEngineProvider.overrideWithValue(const _NoopAssistantTts()),
+    ],
+  );
   await tester.pumpWidget(
-    ProviderScope(
-      overrides: [
-        appEnvironmentProvider.overrideWithValue(AppEnvironment.development),
-        firebaseStartupProvider.overrideWithValue(
-          const FirebaseStartupAvailable(),
-        ),
-        authRepositoryProvider.overrideWithValue(authRepository),
-        masterAccessSubjectProvider.overrideWithValue(null),
-        userProfileRepositoryProvider.overrideWithValue(profileRepository),
-      ],
+    UncontrolledProviderScope(
+      container: container,
       child: const MeuGestorFinanceiroApp(),
     ),
   );
   await tester.pumpAndSettle();
-  return _WidgetContext(auth: authRepository, profiles: profileRepository);
+  return _WidgetContext(
+    container: container,
+    auth: authRepository,
+    profiles: profileRepository,
+  );
+}
+
+final class _FakeAssistantRemoteConsentRepository
+    implements AssistantRemoteConsentRepository {
+  bool allowed = false;
+
+  @override
+  Future<bool> readOwnConsent({required String ownerId}) async => allowed;
+
+  @override
+  Future<void> setOwnConsent({
+    required String ownerId,
+    required bool financialContextAllowed,
+  }) async {
+    allowed = financialContextAllowed;
+  }
+}
+
+final class _SafeAssistantRemoteGateway implements AssistantRemoteGateway {
+  const _SafeAssistantRemoteGateway();
+
+  @override
+  Future<AssistantRemoteResponse> ask(AssistantRemoteRequest request) async =>
+      AssistantRemoteResponse.safeUnavailable;
+}
+
+final class _NoopAssistantSpeechRecognizer
+    implements AssistantSpeechRecognizer {
+  const _NoopAssistantSpeechRecognizer();
+
+  @override
+  Future<bool> hasMicrophonePermission() async => false;
+
+  @override
+  Future<bool> isAvailable() async => false;
+
+  @override
+  Future<String> listen() async => '';
+
+  @override
+  Stream<double> get rmsLevels => const Stream<double>.empty();
+
+  @override
+  Future<void> stop() async {}
+}
+
+final class _NoopAssistantTts implements AssistantTtsEngine {
+  const _NoopAssistantTts();
+
+  @override
+  Future<void> initialize({
+    required AssistantTtsCallback onStart,
+    required AssistantTtsCallback onComplete,
+    required AssistantTtsCallback onPause,
+    required AssistantTtsCallback onContinue,
+    required AssistantTtsErrorCallback onError,
+  }) async {}
+
+  @override
+  Future<void> pause() async {}
+
+  @override
+  Future<void> resume(String text) async {}
+
+  @override
+  Future<void> setSpeed(double rate) async {}
+
+  @override
+  Future<void> speak(String text) async {}
+
+  @override
+  Future<void> stop() async {}
 }
 
 FakeAuthRepository _verifiedAuth() {
