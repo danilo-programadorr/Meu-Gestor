@@ -5,12 +5,11 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:meu_gestor_financeiro/app/routing/app_routes.dart';
 import 'package:meu_gestor_financeiro/app/theme/app_spacing.dart';
 import 'package:meu_gestor_financeiro/core/privacy/financial_privacy_controller.dart';
 import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_conversation.dart';
 import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_voice.dart';
+import 'package:meu_gestor_financeiro/features/assistant/presentation/controllers/assistant_conversation_consent_controller.dart';
 import 'package:meu_gestor_financeiro/features/assistant/presentation/controllers/assistant_conversation_controller.dart';
 import 'package:meu_gestor_financeiro/features/assistant/presentation/controllers/assistant_remote_consent_controller.dart';
 import 'package:meu_gestor_financeiro/features/assistant/presentation/controllers/assistant_remote_conversation_controller.dart';
@@ -18,6 +17,7 @@ import 'package:meu_gestor_financeiro/features/assistant/presentation/controller
 import 'package:meu_gestor_financeiro/features/assistant/presentation/widgets/assistant_remote_answer_panel.dart';
 import 'package:meu_gestor_financeiro/features/authentication/data/auth_providers.dart';
 import 'package:meu_gestor_financeiro/features/authentication/domain/auth_user.dart';
+import 'package:meu_gestor_financeiro/features/profile/domain/user_profile.dart';
 import 'package:meu_gestor_financeiro/features/profile/presentation/controllers/profile_gate_controller.dart';
 
 /// Tela autenticada do modo de conversa; nunca inicia serviço em segundo plano.
@@ -36,12 +36,14 @@ class _AssistantConversationPageState
     extends ConsumerState<AssistantConversationPage>
     with WidgetsBindingObserver {
   late final AssistantConversationController _conversation;
+  late final AssistantConversationConsentController _consent;
   late final AssistantRemoteConversationController _remoteConversation;
   late final AssistantVoiceController _voice;
-  Future<void>? _remoteConsentLoad;
   bool _isForeground = true;
   bool _conversationEnabled = false;
   bool _activationInProgress = false;
+  bool _consentPromptOpen = false;
+  bool _consentChecked = false;
   final TextEditingController _textController = TextEditingController();
   bool _textMode = false;
 
@@ -49,6 +51,9 @@ class _AssistantConversationPageState
   void initState() {
     super.initState();
     _conversation = ref.read(assistantConversationControllerProvider.notifier);
+    _consent = ref.read(
+      assistantConversationConsentControllerProvider.notifier,
+    );
     _remoteConversation = ref.read(
       assistantRemoteConversationControllerProvider.notifier,
     );
@@ -112,12 +117,28 @@ class _AssistantConversationPageState
         unawaited(_resumeListeningAfterSpeech());
       }
     });
+    ref.listen<AssistantConversationConsentState>(
+      assistantConversationConsentControllerProvider,
+      (
+        AssistantConversationConsentState? previous,
+        AssistantConversationConsentState next,
+      ) {
+        if (next.requiresDecision) unawaited(_showConsentPrompt());
+      },
+    );
     final bool valuesVisible = ref.watch(financialPrivacyControllerProvider);
     final ProfileGateState? gate = ref
         .watch(profileGateControllerProvider)
         .value;
     final bool consent =
         gate is ProfileGateValid && gate.profile.aiConsentEnabled;
+    final AssistantConversationConsentState consentState = ref.watch(
+      assistantConversationConsentControllerProvider,
+    );
+    final bool effectiveRemoteConsent = consent && consentState.isReady;
+    if (gate case ProfileGateValid(:final profile)) {
+      _scheduleConsentCheck(profile);
+    }
     final AssistantConversationState state = ref.watch(
       assistantConversationControllerProvider,
     );
@@ -186,15 +207,8 @@ class _AssistantConversationPageState
                           _TranscriptCard(transcript: state.transcript),
                         ],
                         const SizedBox(height: AppSpacing.md),
-                        if (!consent)
-                          _BlockedCard(
-                            icon: Icons.lock_outline,
-                            message:
-                                'Ative o consentimento do Assistente antes de usar perguntas por voz.',
-                            onPressed: () =>
-                                context.push(AppRoutes.privacyConsents),
-                            label: 'Configurar consentimento',
-                          )
+                        if (!effectiveRemoteConsent)
+                          const _ConsentPendingCard()
                         else if (!valuesVisible)
                           _BlockedCard(
                             icon: Icons.visibility_off_outlined,
@@ -219,13 +233,17 @@ class _AssistantConversationPageState
                           AssistantRemoteAnswerPanel(state: remoteState),
                         ],
                         const SizedBox(height: AppSpacing.md),
-                        if (_textMode && consent && valuesVisible)
+                        if (_textMode &&
+                            effectiveRemoteConsent &&
+                            valuesVisible)
                           AssistantTextQuestionInput(
                             controller: _textController,
                             onSend: _submitText,
                             onUseVoice: _returnToVoice,
                           )
-                        else if (!_textMode && consent && valuesVisible)
+                        else if (!_textMode &&
+                            effectiveRemoteConsent &&
+                            valuesVisible)
                           OutlinedButton.icon(
                             key: const ValueKey<String>(
                               'assistant-use-text-action',
@@ -254,6 +272,7 @@ class _AssistantConversationPageState
 
   Future<void> _requestVoiceStart() async {
     if (_activationInProgress || !_isForeground) return;
+    if (!await _ensureEffectiveRemoteConsent()) return;
     if (!ref.read(financialPrivacyControllerProvider)) {
       await _conversation.activate(canUseVoice: false);
       return;
@@ -290,6 +309,7 @@ class _AssistantConversationPageState
       _textController.clear();
       return;
     }
+    if (!await _ensureEffectiveRemoteConsent()) return;
     final String question = _textController.text;
     _textController.clear();
     _remoteConversation.discard();
@@ -302,25 +322,11 @@ class _AssistantConversationPageState
     await _requestRemoteAnswer(message);
   }
 
-  /// Aguarda a leitura do aceite remoto próprio antes de liberar uma chamada.
-  /// Falha de leitura permanece fechada e não encaminha a pergunta ao gateway.
-  Future<void> _ensureRemoteConsentLoaded() {
-    return _remoteConsentLoad ??= () async {
-      try {
-        await ref
-            .read(assistantRemoteConsentControllerProvider.notifier)
-            .load();
-      } on Object {
-        // A permissão permanece false e a chamada é bloqueada localmente.
-      }
-    }();
-  }
-
   /// Envia somente a pergunta já validada pelo modo atual. O backend continua
   /// responsável pelo contexto, pela evidência e pela resposta segura.
   Future<void> _requestRemoteAnswer(String message) async {
     if (!_isForeground) return;
-    await _ensureRemoteConsentLoaded();
+    if (!await _ensureEffectiveRemoteConsent()) return;
     if (!mounted) return;
     await _remoteConversation.requestGroundedAnswer(
       message: message,
@@ -337,6 +343,63 @@ class _AssistantConversationPageState
         .read(profileGateControllerProvider)
         .value;
     return gate is ProfileGateValid && gate.profile.aiConsentEnabled;
+  }
+
+  void _scheduleConsentCheck(UserProfile profile) {
+    if (_consentChecked) return;
+    _consentChecked = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        unawaited(_consent.check(aiConsentEnabled: profile.aiConsentEnabled));
+      }
+    });
+  }
+
+  Future<bool> _ensureEffectiveRemoteConsent() async {
+    final ProfileGateState? gate = ref
+        .read(profileGateControllerProvider)
+        .value;
+    if (gate is! ProfileGateValid) return false;
+    await _consent.check(aiConsentEnabled: gate.profile.aiConsentEnabled);
+    return ref.read(assistantConversationConsentControllerProvider).isReady;
+  }
+
+  Future<void> _showConsentPrompt() async {
+    if (_consentPromptOpen || !mounted) return;
+    _consentPromptOpen = true;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) => Consumer(
+        builder: (BuildContext _, WidgetRef ref, Widget? child) {
+          final AssistantConversationConsentState state = ref.watch(
+            assistantConversationConsentControllerProvider,
+          );
+          return AssistantConversationConsentDialog(
+            state: state,
+            onActivate: () async {
+              final ProfileGateState? currentGate = ref
+                  .read(profileGateControllerProvider)
+                  .value;
+              if (currentGate is! ProfileGateValid) return;
+              await _consent.activate(profile: currentGate.profile);
+              if (!dialogContext.mounted ||
+                  !ref
+                      .read(assistantConversationConsentControllerProvider)
+                      .isReady) {
+                return;
+              }
+              Navigator.of(dialogContext).pop();
+            },
+            onDecline: () {
+              _consent.decline();
+              Navigator.of(dialogContext).pop();
+            },
+          );
+        },
+      ),
+    );
+    _consentPromptOpen = false;
   }
 
   Future<bool?> _showMicrophoneExplanation() => showDialog<bool>(
@@ -698,6 +761,73 @@ class _BlockedCard extends StatelessWidget {
         ],
       ),
     ),
+  );
+}
+
+class _ConsentPendingCard extends StatelessWidget {
+  const _ConsentPendingCard();
+
+  @override
+  Widget build(BuildContext context) => const Card(
+    color: Color(0xFF1B252D),
+    child: Padding(
+      padding: EdgeInsets.all(AppSpacing.md),
+      child: Text(
+        'O Assistente Financeiro permanece desativado nesta conversa. Escolha uma opção no aviso para liberar perguntas remotas.',
+        style: TextStyle(color: Color(0xFFD5DEE7)),
+        textAlign: TextAlign.center,
+      ),
+    ),
+  );
+}
+
+class AssistantConversationConsentDialog extends StatelessWidget {
+  const AssistantConversationConsentDialog({
+    required this.state,
+    required this.onActivate,
+    required this.onDecline,
+    super.key,
+  });
+
+  final AssistantConversationConsentState state;
+  final Future<void> Function() onActivate;
+  final VoidCallback onDecline;
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Ativar Assistente Financeiro'),
+    content: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        const Text(
+          'Para responder nesta conversa, o Assistente precisa do seu consentimento geral para IA e da permissão canônica para contexto financeiro remoto.',
+        ),
+        if (state.message case final String message) ...<Widget>[
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            message,
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
+        ],
+      ],
+    ),
+    actions: <Widget>[
+      TextButton(
+        onPressed: state.isActivating ? null : onDecline,
+        child: const Text('Agora não'),
+      ),
+      FilledButton(
+        key: const ValueKey<String>('assistant-consent-activate-action'),
+        onPressed: state.isActivating ? null : () => unawaited(onActivate()),
+        child: state.isActivating
+            ? const SizedBox.square(
+                dimension: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Text('Ativar e continuar'),
+      ),
+    ],
   );
 }
 

@@ -10,6 +10,13 @@ ASSIST-VOICE-2A acrescenta uma rota de conversa local. Após explicação e aç�
 
 ASSIST-VOICE-UX-1 envia a pergunta automaticamente no Enter do modo texto ou no fim da fala. Texto mostra a resposta fundamentada, fontes e período civil. Voz descarta a transcrição antes da resposta e reproduz somente áudio, inclusive para indisponibilidade segura. Os dois modos exigem consentimento geral de IA, aceite remoto próprio e privacidade financeira desativada antes do gateway; o backend preserva a revalidação autoritativa.
 
+ASSIST-PRIVACY-POPUP-1 mantém a concessão no contexto da Conversa: ausência,
+revogação, leitura inválida ou falha do aceite remoto abre um único popup sem
+navegar para Perfil. A ativação confirma primeiro o consentimento geral de IA
+e depois o documento remoto canônico; até ambas as escritas concluírem, toda
+chamada permanece bloqueada. A recusa somente fecha o popup, e Perfil conserva
+apenas a revogação do Assistente.
+
 ## Roteamento neutro ASSIST-1B-1A
 
 - `flash` é o tier lógico padrão para conversa e explicações comuns;

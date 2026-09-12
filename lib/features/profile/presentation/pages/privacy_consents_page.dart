@@ -18,9 +18,8 @@ class PrivacyConsentsPage extends ConsumerStatefulWidget {
 }
 
 class _PrivacyConsentsPageState extends ConsumerState<PrivacyConsentsPage> {
-  bool? _aiConsent;
   bool? _analyticsConsent;
-  bool _updatingRemoteConsent = false;
+  bool _revokingAssistantConsent = false;
 
   @override
   void initState() {
@@ -36,20 +35,17 @@ class _PrivacyConsentsPageState extends ConsumerState<PrivacyConsentsPage> {
     });
   }
 
-  Future<void> _save() async {
-    final bool aiConsentEnabled = _aiConsent ?? false;
+  Future<void> _saveAnalyticsPreference() async {
+    final ProfileGateState? gate = ref
+        .read(profileGateControllerProvider)
+        .value;
+    if (gate is! ProfileGateValid) return;
     await ref
         .read(profileActionControllerProvider.notifier)
         .updateOptionalConsents(
-          aiConsentEnabled: aiConsentEnabled,
+          aiConsentEnabled: gate.profile.aiConsentEnabled,
           analyticsConsentEnabled: _analyticsConsent ?? false,
         );
-    if (!aiConsentEnabled &&
-        ref.read(profileActionControllerProvider).status ==
-            ProfileActionStatus.success &&
-        ref.read(assistantRemoteConsentControllerProvider)) {
-      await _setRemoteConsent(false);
-    }
   }
 
   @override
@@ -61,7 +57,6 @@ class _PrivacyConsentsPageState extends ConsumerState<PrivacyConsentsPage> {
     if (profile == null) {
       return const SizedBox.shrink();
     }
-    _aiConsent ??= profile.aiConsentEnabled;
     _analyticsConsent ??= profile.analyticsConsentEnabled;
 
     final ProfileActionState action = ref.watch(
@@ -105,29 +100,12 @@ class _PrivacyConsentsPageState extends ConsumerState<PrivacyConsentsPage> {
           style: Theme.of(context).textTheme.titleLarge,
         ),
         const SizedBox(height: AppSpacing.sm),
-        SwitchListTile(
-          value: _aiConsent!,
-          onChanged: loading
-              ? null
-              : (bool value) => setState(() => _aiConsent = value),
-          title: const Text('Assistente e análises com IA'),
-          subtitle: const Text(
-            'Controla o acesso ao Assistente. O envio de uma pergunta também exige a permissão separada para contexto financeiro remoto.',
-          ),
+        _AssistantConsentRevocationCard(
+          enabled: profile.aiConsentEnabled || remoteConsentAllowed,
+          loading: loading || _revokingAssistantConsent,
+          onRevoke: _revokeAssistantConsent,
         ),
-        SwitchListTile(
-          value: remoteConsentAllowed,
-          onChanged:
-              loading || _updatingRemoteConsent || !profile.aiConsentEnabled
-              ? null
-              : _setRemoteConsent,
-          title: const Text('Permitir contexto financeiro remoto'),
-          subtitle: Text(
-            profile.aiConsentEnabled
-                ? 'Permissão separada e revogável. Sem ela, o backend trata a privacidade financeira como ativa e bloqueia qualquer chamada remota.'
-                : 'Salve primeiro o consentimento do Assistente. O contexto remoto permanece bloqueado.',
-          ),
-        ),
+        const SizedBox(height: AppSpacing.sm),
         SwitchListTile(
           value: _analyticsConsent!,
           onChanged: loading
@@ -148,28 +126,44 @@ class _PrivacyConsentsPageState extends ConsumerState<PrivacyConsentsPage> {
         const SizedBox(height: AppSpacing.lg),
         Semantics(
           button: true,
-          label: 'Salvar preferências de privacidade',
+          label: 'Salvar preferência de Analytics',
           child: FilledButton.icon(
-            onPressed: loading ? null : _save,
+            onPressed: loading || _revokingAssistantConsent
+                ? null
+                : _saveAnalyticsPreference,
             icon: loading
                 ? const SizedBox.square(
                     dimension: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.save_outlined),
-            label: const Text('Salvar preferências'),
+            label: const Text('Salvar preferência de Analytics'),
           ),
         ),
       ],
     );
   }
 
-  Future<void> _setRemoteConsent(bool value) async {
-    setState(() => _updatingRemoteConsent = true);
+  Future<void> _revokeAssistantConsent() async {
+    setState(() => _revokingAssistantConsent = true);
     try {
+      final ProfileGateState? gate = ref
+          .read(profileGateControllerProvider)
+          .value;
+      if (gate is! ProfileGateValid) return;
+      await ref
+          .read(profileActionControllerProvider.notifier)
+          .updateOptionalConsents(
+            aiConsentEnabled: false,
+            analyticsConsentEnabled: _analyticsConsent ?? false,
+          );
+      if (ref.read(profileActionControllerProvider).status !=
+          ProfileActionStatus.success) {
+        return;
+      }
       await ref
           .read(assistantRemoteConsentControllerProvider.notifier)
-          .setAllowed(value);
+          .setAllowed(false);
     } on Object {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -179,7 +173,49 @@ class _PrivacyConsentsPageState extends ConsumerState<PrivacyConsentsPage> {
         );
       }
     } finally {
-      if (mounted) setState(() => _updatingRemoteConsent = false);
+      if (mounted) setState(() => _revokingAssistantConsent = false);
     }
   }
+}
+
+class _AssistantConsentRevocationCard extends StatelessWidget {
+  const _AssistantConsentRevocationCard({
+    required this.enabled,
+    required this.loading,
+    required this.onRevoke,
+  });
+
+  final bool enabled;
+  final bool loading;
+  final Future<void> Function() onRevoke;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            'Assistente Financeiro',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            enabled
+                ? 'O consentimento pode ser revogado a qualquer momento. A revogação bloqueia imediatamente novas chamadas remotas.'
+                : 'O Assistente Financeiro está desativado. Para ativá-lo, abra uma conversa e escolha “Ativar e continuar”.',
+          ),
+          if (enabled) ...<Widget>[
+            const SizedBox(height: AppSpacing.sm),
+            OutlinedButton.icon(
+              onPressed: loading ? null : () => onRevoke(),
+              icon: const Icon(Icons.block_outlined),
+              label: const Text('Revogar consentimento do Assistente'),
+            ),
+          ],
+        ],
+      ),
+    ),
+  );
 }

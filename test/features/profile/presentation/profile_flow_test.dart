@@ -83,7 +83,7 @@ void main() {
   ) async {
     final _WidgetContext context = await _pumpProfileApp(
       tester,
-      profile: createTestProfile(ownerId: 'owner'),
+      profile: createTestProfile(ownerId: 'owner', aiConsentEnabled: true),
     );
     addTearDown(context.dispose);
 
@@ -106,7 +106,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('terms-dev-1.0.0'), findsOneWidget);
     expect(find.textContaining('privacy-dev-1.0.0'), findsOneWidget);
-    expect(find.text('Salvar preferências'), findsOneWidget);
+    expect(find.text('Revogar consentimento do Assistente'), findsOneWidget);
+    expect(find.text('Salvar preferência de Analytics'), findsOneWidget);
+    expect(find.text('Assistente e análises com IA'), findsNothing);
   });
 
   testWidgets('versão jurídica antiga bloqueia home e exige novo aceite', (

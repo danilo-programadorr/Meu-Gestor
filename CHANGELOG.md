@@ -2,6 +2,14 @@
 
 ## Em desenvolvimento
 
+- PREMIUM-DEPENDENCY-REPAIR-1 registra como dívida técnica os seis alertas
+  moderados da cadeia opcional de Storage; o artefato implantável omite essa
+  cadeia, passa em `npm ci --omit=dev --omit=optional --ignore-scripts`, no
+  audit de produção e no teste de fronteira, sem alteração de manifestos;
+- ASSIST-PRIVACY-POPUP-1 abre a concessão do Assistente Financeiro dentro da
+  Conversa, confirma consentimento geral e aceite remoto canônico antes de
+  liberar o gateway, mantém a pessoa na tela em recusa ou falha e deixa Perfil
+  somente com a revogação do Assistente;
 - ASSIST-VOICE-UX-1 envia automaticamente perguntas seguras por texto ou ao fim
   da fala; texto mostra a resposta fundamentada e voz descarta a transcrição e
   responde somente em áudio, sem botão intermediário de consulta;

@@ -1106,6 +1106,20 @@ privacidade financeira e à revalidação do backend.
   remoto; mesmo uma falha nessa segunda escrita deixa o backend bloqueado pelo
   consentimento geral revogado.
 
+## 64. ASSIST-PRIVACY-POPUP-1 — ativação contextual do Assistente
+
+Situação: interface e controles locais atualizados, sem alteração externa.
+
+- A entrada em Conversa abre um popup local quando o consentimento efetivo de
+  IA remota estiver ausente, revogado, inválido ou indisponível; a rota atual
+  permanece aberta em todos os casos.
+- “Ativar e continuar” confirma primeiro o consentimento geral de IA e depois
+  o aceite remoto financeiro canônico. O gateway não é liberado entre as duas
+  escritas nem depois de falha.
+- “Agora não” fecha somente o popup e preserva o bloqueio. Perfil retém a
+  revogação do Assistente, enquanto texto e voz mantêm os fluxos automáticos da
+  etapa anterior.
+
 ## 58. ASSIST-2F-0 — codebase Firebase local do Assistente
 
 Situação: codebase `assistant` preparado somente localmente; não há Function em nuvem, identidade configurada, Firebase Admin, Firestore, Secret Manager, Vertex, URL externa ou deploy.

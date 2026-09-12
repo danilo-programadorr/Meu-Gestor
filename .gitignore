@@ -66,6 +66,7 @@ credentials/
 *.ipa
 *.app
 *.log
+firepit-log.txt
 *.tmp
 *.bak
 app.*.symbols
