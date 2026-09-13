@@ -16,6 +16,8 @@ const context = Object.freeze({
   ownerVerified: true, isFromServer: true, hasPendingWrites: false,
   generatedAt: '2026-09-02T03:00:00.000Z', civilPeriod: period,
   technicalWindow: { start: '2026-09-01T03:00:00.000Z', endExclusive: '2026-09-02T03:00:00.000Z' },
+  availableDataWindow: { start: '2026-09-01T03:00:00.000Z', endExclusive: '2026-09-02T03:00:00.000Z' },
+  periodComplete: true,
   facts: [fact], missingSources: [],
 });
 const response = Object.freeze({

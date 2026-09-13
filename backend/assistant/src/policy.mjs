@@ -70,7 +70,7 @@ export const assertAuthorized = (authorization) => {
 };
 
 export const assertConfirmedContext = (context) => {
-  if (!exactKeys(context, ['ownerVerified', 'isFromServer', 'hasPendingWrites', 'generatedAt', 'civilPeriod', 'technicalWindow', 'facts', 'missingSources'])
+  if (!exactKeys(context, ['ownerVerified', 'isFromServer', 'hasPendingWrites', 'generatedAt', 'civilPeriod', 'technicalWindow', 'availableDataWindow', 'periodComplete', 'facts', 'missingSources'])
       || !context.isFromServer
       || context.hasPendingWrites
       || context.ownerVerified !== true
@@ -82,7 +82,13 @@ export const assertConfirmedContext = (context) => {
       || Number.isNaN(Date.parse(context.technicalWindow.start))
       || Number.isNaN(Date.parse(context.technicalWindow.endExclusive))
       || Date.parse(context.technicalWindow.endExclusive) <= Date.parse(context.technicalWindow.start)
-      || Date.parse(context.generatedAt) < Date.parse(context.technicalWindow.endExclusive)
+      || !exactKeys(context.availableDataWindow, ['start', 'endExclusive'])
+      || typeof context.availableDataWindow.start !== 'string'
+      || typeof context.availableDataWindow.endExclusive !== 'string'
+      || Number.isNaN(Date.parse(context.availableDataWindow.start))
+      || Number.isNaN(Date.parse(context.availableDataWindow.endExclusive))
+      || Date.parse(context.availableDataWindow.endExclusive) < Date.parse(context.availableDataWindow.start)
+      || typeof context.periodComplete !== 'boolean'
       || !Array.isArray(context.facts)
       || !Array.isArray(context.missingSources)
       || new Set(context.missingSources).size !== context.missingSources.length
@@ -95,6 +101,19 @@ export const assertConfirmedContext = (context) => {
   }
   if (civilPeriod.technicalWindow.start !== context.technicalWindow.start
       || civilPeriod.technicalWindow.endExclusive !== context.technicalWindow.endExclusive) {
+    throw deny('assistant_invalid_context');
+  }
+  // O corte é o menor valor entre o relógio confiável e o fim do período civil.
+  const periodEndMilliseconds = Date.parse(context.technicalWindow.endExclusive);
+  const generatedAtMilliseconds = Date.parse(context.generatedAt);
+  const expectedPeriodComplete = generatedAtMilliseconds >= periodEndMilliseconds;
+  const expectedAvailableEnd = expectedPeriodComplete
+    ? context.technicalWindow.endExclusive
+    : context.generatedAt;
+  if (context.availableDataWindow.start !== context.technicalWindow.start
+      || context.availableDataWindow.endExclusive !== expectedAvailableEnd
+      || context.periodComplete !== expectedPeriodComplete
+      || generatedAtMilliseconds < Date.parse(context.technicalWindow.start)) {
     throw deny('assistant_invalid_context');
   }
   const ids = new Set();

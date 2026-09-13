@@ -6,6 +6,7 @@
 import { deny } from './errors.mjs';
 
 export const ASSISTANT_VERTEX_LOCATION = 'global';
+export const ASSISTANT_VERTEX_GLOBAL_API_ENDPOINT = 'aiplatform.googleapis.com';
 
 const exactKeys = (value, keys) => value !== null
   && typeof value === 'object'
@@ -37,9 +38,18 @@ const assertProjectId = (projectId) => {
   return projectId;
 };
 
-const defaultVertexAiFactory = async ({ projectId }) => {
+// Mantém o endpoint regional do SDK e corrige somente a localidade global.
+export const assistantVertexClientConfiguration = ({ projectId, location = ASSISTANT_VERTEX_LOCATION }) => {
+  const configuration = { projectId, location };
+  if (location === 'global') {
+    configuration.apiEndpoint = ASSISTANT_VERTEX_GLOBAL_API_ENDPOINT;
+  }
+  return Object.freeze(configuration);
+};
+
+const defaultVertexAiFactory = async ({ projectId, location, apiEndpoint }) => {
   const { VertexAI } = await import('@google-cloud/vertexai');
-  return new VertexAI({ project: projectId, location: ASSISTANT_VERTEX_LOCATION });
+  return new VertexAI({ project: projectId, location, ...(apiEndpoint ? { apiEndpoint } : {}) });
 };
 
 const defaultProjectIdReader = () => process.env.GCLOUD_PROJECT;
@@ -99,7 +109,10 @@ export const createVertexRuntimeGateway = ({
       const prompt = createPrompt(providerRequest);
       const projectId = assertProjectId(await projectIdReader());
       const startedAt = clock();
-      const vertexAi = await vertexAiFactory({ projectId, location: ASSISTANT_VERTEX_LOCATION });
+      const vertexAi = await vertexAiFactory(assistantVertexClientConfiguration({
+        projectId,
+        location: ASSISTANT_VERTEX_LOCATION,
+      }));
       if (!vertexAi || typeof vertexAi.getGenerativeModel !== 'function') {
         throw deny('assistant_provider_configuration_unavailable');
       }

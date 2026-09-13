@@ -10,6 +10,8 @@ const buildProviderRequest = ({ message, context, routing }) => Object.freeze({
   generatedAt: context.generatedAt,
   civilPeriod: context.civilPeriod,
   technicalWindow: context.technicalWindow,
+  availableDataWindow: context.availableDataWindow,
+  periodComplete: context.periodComplete,
   facts: context.facts,
   missingSources: context.missingSources,
   routing,

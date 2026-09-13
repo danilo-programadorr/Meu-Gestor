@@ -44,7 +44,12 @@ export {
   ASSISTANT_SAFE_UNAVAILABLE,
   createAssistRemoteV1Callables,
 } from './firebase_gen2_callable.mjs';
-export { ASSISTANT_VERTEX_LOCATION, createVertexRuntimeGateway } from './vertex_runtime_gateway.mjs';
+export {
+  ASSISTANT_VERTEX_GLOBAL_API_ENDPOINT,
+  ASSISTANT_VERTEX_LOCATION,
+  assistantVertexClientConfiguration,
+  createVertexRuntimeGateway,
+} from './vertex_runtime_gateway.mjs';
 export {
   ASSISTANT_REMOTE_FUNCTION_NAME,
   getAssistRemoteV1Gen2Options,

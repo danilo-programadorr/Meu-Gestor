@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { ASSISTANT_VERTEX_LOCATION, createVertexRuntimeGateway } from '../src/index.mjs';
+import {
+  ASSISTANT_VERTEX_GLOBAL_API_ENDPOINT,
+  ASSISTANT_VERTEX_LOCATION,
+  assistantVertexClientConfiguration,
+  createVertexRuntimeGateway,
+} from '../src/index.mjs';
 import { AssistantContractError } from '../src/errors.mjs';
 
 const execution = Object.freeze({
@@ -81,11 +86,27 @@ test('fake local valida plano, usa Flash e devolve somente JSON estruturado', as
 
   const result = await gateway.generate({ execution, maximumCostCents: 20, providerRequest });
   assert.equal(calls[0].configuration.location, ASSISTANT_VERTEX_LOCATION);
+  assert.equal(calls[0].configuration.apiEndpoint, ASSISTANT_VERTEX_GLOBAL_API_ENDPOINT);
   assert.equal(calls[1].modelConfiguration.model, 'gemini-2.5-flash');
   assert.equal(calls[2].request.contents[0].role, 'user');
   assert.equal(result.confirmedCostCents, 20);
   assert.equal(result.durationMs, 25);
   assert.equal(result.response.status, 'grounded');
+});
+
+test('configura endpoint explícito apenas para location global', () => {
+  assert.deepEqual(
+    assistantVertexClientConfiguration({ projectId: 'synthetic-project', location: 'global' }),
+    {
+      projectId: 'synthetic-project',
+      location: 'global',
+      apiEndpoint: 'aiplatform.googleapis.com',
+    },
+  );
+  assert.deepEqual(
+    assistantVertexClientConfiguration({ projectId: 'synthetic-project', location: 'southamerica-east1' }),
+    { projectId: 'synthetic-project', location: 'southamerica-east1' },
+  );
 });
 
 test('recusa identidade, segredo ou saída não JSON antes de entregar ao chamador', async () => {

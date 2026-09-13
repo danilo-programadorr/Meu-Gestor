@@ -31,6 +31,8 @@ const context = () => ({
   generatedAt: '2026-08-31T03:00:00.000Z',
   civilPeriod: { timeZone: 'America/Sao_Paulo', startDate: '2026-08-01', endDateExclusive: '2026-08-31' },
   technicalWindow: { start: '2026-08-01T03:00:00.000Z', endExclusive: '2026-08-31T03:00:00.000Z' },
+  availableDataWindow: { start: '2026-08-01T03:00:00.000Z', endExclusive: '2026-08-31T03:00:00.000Z' },
+  periodComplete: true,
   facts: [{
     evidenceId: 'saldo_confirmado', source: 'dashboardSummary', kind: 'moneyCentsBrl', value: 75000,
     civilPeriod: { timeZone: 'America/Sao_Paulo', startDate: '2026-08-01', endDateExclusive: '2026-08-31' },

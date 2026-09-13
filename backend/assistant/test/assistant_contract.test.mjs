@@ -26,6 +26,8 @@ const context = (overrides = {}) => ({
   generatedAt: '2026-08-25T03:00:00.000Z',
   civilPeriod: { timeZone: 'America/Sao_Paulo', startDate: '2026-08-01', endDateExclusive: '2026-08-25' },
   technicalWindow: { start: '2026-08-01T03:00:00.000Z', endExclusive: '2026-08-25T03:00:00.000Z' },
+  availableDataWindow: { start: '2026-08-01T03:00:00.000Z', endExclusive: '2026-08-25T03:00:00.000Z' },
+  periodComplete: true,
   facts: [{
     evidenceId: 'monthly_income', source: 'transactions', kind: 'moneyCentsBrl', value: 250000,
     civilPeriod: { timeZone: 'America/Sao_Paulo', startDate: '2026-08-01', endDateExclusive: '2026-08-25' },
@@ -87,6 +89,8 @@ test('monta contexto próprio minimizado e não oferece mutação ao provedor', 
   assert.equal(harness.calls.request.memoryMode, 'none');
   assert.equal(harness.calls.request.responseContract.mutationsAllowed, false);
   assert.equal(harness.calls.request.routing.tier, 'flash');
+  assert.equal(harness.calls.request.periodComplete, true);
+  assert.deepEqual(harness.calls.request.availableDataWindow, context().availableDataWindow);
   const serialized = JSON.stringify(harness.calls.request);
   assert.doesNotMatch(serialized, /own-user|uid|email|token|ownerId/);
 });

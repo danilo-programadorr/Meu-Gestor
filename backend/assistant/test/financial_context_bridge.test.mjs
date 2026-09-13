@@ -24,14 +24,14 @@ const snapshots = Object.freeze({
   income: { confirmed: true, facts: [{ source: 'investmentIncome', kind: 'moneyCentsBrl', value: 321 }] },
 });
 
-const createBridge = (overrides = {}) => new AssistantFinancialContextBridge({
-  clock: { now: () => new Date('2026-09-03T12:00:00.000Z') },
+const createBridge = (overrides = {}, now = '2026-09-03T12:00:00.000Z') => new AssistantFinancialContextBridge({
+  clock: { now: () => new Date(now) },
   sourceReaders: {
-    async readOwnSource({ ownerUid, reader, period: receivedPeriod, technicalWindow }) {
+    async readOwnSource({ ownerUid, reader, period: receivedPeriod, availableDataWindow }) {
       assert.equal(ownerUid, 'synthetic-owner');
       assert.equal(receivedPeriod.timeZone, 'America/Sao_Paulo');
-      assert.equal(technicalWindow.start.endsWith('Z'), true);
-      assert.equal(technicalWindow.endExclusive.endsWith('Z'), true);
+      assert.equal(availableDataWindow.start.endsWith('Z'), true);
+      assert.equal(availableDataWindow.endExclusive.endsWith('Z'), true);
       return overrides[reader] ?? snapshots[reader];
     },
   },
@@ -81,7 +81,7 @@ test('recusa período inválido ou posterior ao relógio confiável', async () =
     /assistant_invalid_context/,
   );
   await assert.rejects(
-    createBridge().buildOwnConfirmedContext({ actor: { uid: 'synthetic-owner' }, period: { timeZone: 'America/Sao_Paulo', startDate: period.startDate, endDateExclusive: '2027-09-02' } }),
+    createBridge().buildOwnConfirmedContext({ actor: { uid: 'synthetic-owner' }, period: { timeZone: 'America/Sao_Paulo', startDate: '2027-09-01', endDateExclusive: '2027-09-02' } }),
     /assistant_invalid_context/,
   );
 });
@@ -96,6 +96,37 @@ test('converte limites civis com horário de verão histórico sem deslocar o m�
   assert.deepEqual(context.technicalWindow, {
     start: '2018-11-03T03:00:00.000Z', endExclusive: '2018-11-05T02:00:00.000Z',
   });
+});
+
+test('mantém hoje como período civil aberto e corta dados no relógio confiável', async () => {
+  const today = {
+    timeZone: 'America/Sao_Paulo', startDate: '2026-09-13', endDateExclusive: '2026-09-14',
+  };
+  const context = await createBridge({}, '2026-09-13T15:30:00.000Z').buildOwnConfirmedContext({
+    actor: { uid: 'synthetic-owner' }, period: today,
+  });
+  assert.deepEqual(context.civilPeriod, today);
+  assert.deepEqual(context.technicalWindow, {
+    start: '2026-09-13T03:00:00.000Z', endExclusive: '2026-09-14T03:00:00.000Z',
+  });
+  assert.deepEqual(context.availableDataWindow, {
+    start: '2026-09-13T03:00:00.000Z', endExclusive: '2026-09-13T15:30:00.000Z',
+  });
+  assert.equal(context.periodComplete, false);
+  assert.doesNotThrow(() => assertConfirmedContext(context));
+});
+
+test('preserva o corte correto na virada de dia e mês em São Paulo', async () => {
+  const octoberFirst = {
+    timeZone: 'America/Sao_Paulo', startDate: '2026-10-01', endDateExclusive: '2026-10-02',
+  };
+  const context = await createBridge({}, '2026-10-01T03:30:00.000Z').buildOwnConfirmedContext({
+    actor: { uid: 'synthetic-owner' }, period: octoberFirst,
+  });
+  assert.equal(context.civilPeriod.startDate, '2026-10-01');
+  assert.equal(context.availableDataWindow.start, '2026-10-01T03:00:00.000Z');
+  assert.equal(context.availableDataWindow.endExclusive, '2026-10-01T03:30:00.000Z');
+  assert.equal(context.periodComplete, false);
 });
 
 test('recusa fato sem fonte, período civil ou evidência correspondente', async () => {

@@ -175,7 +175,7 @@ test('recusa UID cruzado antes de ler qualquer coleção', async () => {
       ownerUid: otherUid,
       reader: 'accounts',
       period,
-      technicalWindow: {
+      availableDataWindow: {
         start: '2026-09-01T03:00:00.000Z', endExclusive: '2026-10-01T03:00:00.000Z',
       },
     }),

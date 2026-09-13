@@ -90,12 +90,24 @@ const validateActor = (actor) => {
   }
 };
 
+// Separa o período civil solicitado do corte dos dados realmente disponíveis.
 const validatePeriod = (period, generatedAt) => {
   const normalized = validateCivilPeriod(period);
-  if (Date.parse(generatedAt) < Date.parse(normalized.technicalWindow.endExclusive)) {
+  const generatedAtMilliseconds = Date.parse(generatedAt);
+  const periodStartMilliseconds = Date.parse(normalized.technicalWindow.start);
+  const periodEndMilliseconds = Date.parse(normalized.technicalWindow.endExclusive);
+  if (generatedAtMilliseconds < periodStartMilliseconds) {
     throw deny('assistant_invalid_context');
   }
-  return normalized;
+  const periodComplete = generatedAtMilliseconds >= periodEndMilliseconds;
+  return Object.freeze({
+    ...normalized,
+    availableDataWindow: Object.freeze({
+      start: normalized.technicalWindow.start,
+      endExclusive: periodComplete ? normalized.technicalWindow.endExclusive : generatedAt,
+    }),
+    periodComplete,
+  });
 };
 
 /**
@@ -133,7 +145,7 @@ export class AssistantFinancialContextBridge {
           ownerUid: actor.uid,
           reader: plan.reader,
           period: providerPeriod,
-          technicalWindow: normalizedPeriod.technicalWindow,
+          availableDataWindow: normalizedPeriod.availableDataWindow,
         }),
         plan,
       );
@@ -165,6 +177,8 @@ export class AssistantFinancialContextBridge {
       generatedAt,
       civilPeriod: providerPeriod,
       technicalWindow: normalizedPeriod.technicalWindow,
+      availableDataWindow: normalizedPeriod.availableDataWindow,
+      periodComplete: normalizedPeriod.periodComplete,
       facts: Object.freeze(facts),
       missingSources: Object.freeze([]),
     });

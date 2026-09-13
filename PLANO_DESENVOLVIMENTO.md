@@ -1034,6 +1034,24 @@ Situação: codebase `assistant` preparado somente localmente; não há Function
 - A identidade runtime é `defineString` sem valor versionado. Sem o parâmetro no processo de deploy, a configuração não pode ser materializada; nenhum `.env`, e-mail ou projeto entra no repositório.
 - Enquanto o kill switch estiver ativo e o provedor real desligado, a callable exige Auth/e-mail verificado/App Check e retorna somente `safe_unavailable`, sem consultar perfil, contexto, custos, ledger ou qualquer banco. Flash/Pro continuam contratos internos para ativação futura autorizada.
 
+## 65. ASSIST-CONTEXT-VERTEX-FIX-1 — contexto corrente e endpoint global
+
+Situação: correção preparada para publicação exclusiva em development; o
+contrato Flutter permanece inalterado.
+
+- O período civil solicitado e o corte dos dados disponíveis são explícitos e
+  independentes. “Hoje” continua sendo o dia corrente em
+  `America/Sao_Paulo`, permanece incompleto até seu fim exclusivo e rejeita
+  fatos posteriores ao relógio confiável do servidor.
+- Períodos encerrados preservam a janela civil completa; períodos futuros,
+  invertidos ou incompatíveis falham fechados antes de qualquer contexto.
+- `location=global` usa explicitamente `aiplatform.googleapis.com`; localidades
+  regionais preservam a resolução nativa do SDK e a autenticação continua por
+  ADC da identidade runtime.
+- Testes de composição exercitam leitores concretos, uso owner-scoped não zero
+  e reserva/confirmação atômica no ledger. A confirmação completa permanece
+  dependente de uma chamada financeira compatível feita pelo aplicativo.
+
 ## 59. ASSIST-2I — período financeiro e admissão de contexto
 
 Situação: implementado somente localmente, sem leitor real, acesso a banco,

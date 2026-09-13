@@ -26,9 +26,16 @@ test('qualquer outra URL permanece proibida, inclusive no leitor proprietário',
 });
 
 test('SDK Vertex e projeto runtime só são permitidos no gateway auditado', () => {
-  const vertexRuntime = "const sdk = '@google-cloud/vertexai'; const project = process.env.GCLOUD_PROJECT;";
+  const vertexRuntime = "const sdk = '@google-cloud/vertexai'; const project = process.env.GCLOUD_PROJECT; const endpoint = 'aiplatform.googleapis.com';";
   assert.equal(hasForbiddenRuntimeDependency(vertexRuntime, 'vertex_runtime_gateway.mjs'), false);
   assert.equal(hasForbiddenRuntimeDependency(vertexRuntime, 'firebase_gen2_callable.mjs'), true);
+});
+
+test('gateway aceita somente o endpoint Vertex global aprovado', () => {
+  assert.equal(
+    hasForbiddenRuntimeDependency("const endpoint = 'global-aiplatform.googleapis.com';", 'vertex_runtime_gateway.mjs'),
+    true,
+  );
 });
 
 test('outra variável de ambiente continua proibida no gateway Vertex', () => {

@@ -113,9 +113,9 @@ const assertDocument = ({ document, projectId, ownerUid, collection }) => {
   return document.fields;
 };
 
-const isInsideWindow = (timestamp, technicalWindow) => {
+const isInsideWindow = (timestamp, availableDataWindow) => {
   const instant = Date.parse(timestamp);
-  return instant >= Date.parse(technicalWindow.start) && instant < Date.parse(technicalWindow.endExclusive);
+  return instant >= Date.parse(availableDataWindow.start) && instant < Date.parse(availableDataWindow.endExclusive);
 };
 
 const sum = (values) => values.reduce((total, value) => {
@@ -221,11 +221,11 @@ const confirmedAccounts = (documents) => {
   });
 };
 
-const confirmedTransactions = (documents, technicalWindow) => {
+const confirmedTransactions = (documents, availableDataWindow) => {
   const confirmed = documents.filter(({ fields }) => {
     const kind = asString(fields, 'kind');
     if (!['income', 'expense'].includes(kind)) throw invalidContext();
-    return !asBoolean(fields, 'isVoided') && isInsideWindow(asTimestamp(fields, 'occurredAt'), technicalWindow);
+    return !asBoolean(fields, 'isVoided') && isInsideWindow(asTimestamp(fields, 'occurredAt'), availableDataWindow);
   });
   return Object.freeze({
     confirmed: true,
@@ -236,10 +236,10 @@ const confirmedTransactions = (documents, technicalWindow) => {
   });
 };
 
-const commitmentFacts = ({ payables, receivables, technicalWindow }) => {
+const commitmentFacts = ({ payables, receivables, availableDataWindow }) => {
   const read = (documents, expectedStatus, source) => documents.filter(({ fields }) => {
     if (!['pending', expectedStatus, 'cancelled', 'voided'].includes(asString(fields, 'status'))) throw invalidContext();
-    return asString(fields, 'status') === 'pending' && isInsideWindow(asTimestamp(fields, 'dueAt'), technicalWindow);
+    return asString(fields, 'status') === 'pending' && isInsideWindow(asTimestamp(fields, 'dueAt'), availableDataWindow);
   }).map(({ fields }) => ({ source, amount: asInteger(fields, 'amountCents'), dueAt: asTimestamp(fields, 'dueAt') }));
   return Object.freeze([...read(payables, 'paid', 'payables'), ...read(receivables, 'received', 'receivables')]);
 };
@@ -268,7 +268,7 @@ const confirmedCalendar = (commitments) => Object.freeze({
   ]),
 });
 
-const confirmedInvestments = ({ portfolios, assets, operations, technicalWindow }) => {
+const confirmedInvestments = ({ portfolios, assets, operations, availableDataWindow }) => {
   const activePortfolios = portfolios.filter(({ fields }) => !asBoolean(fields, 'isArchived'));
   const activeAssets = assets.filter(({ fields }) => {
     if (asString(fields, 'currencyCode') !== 'BRL' || !['stock', 'fii'].includes(asString(fields, 'assetType'))) throw invalidContext();
@@ -276,7 +276,7 @@ const confirmedInvestments = ({ portfolios, assets, operations, technicalWindow 
   });
   const activeOperations = operations.filter(({ fields }) => {
     if (!['buy', 'sell'].includes(asString(fields, 'kind'))) throw invalidContext();
-    return !asBoolean(fields, 'isVoided') && isInsideWindow(asTimestamp(fields, 'occurredAt'), technicalWindow);
+    return !asBoolean(fields, 'isVoided') && isInsideWindow(asTimestamp(fields, 'occurredAt'), availableDataWindow);
   });
   return Object.freeze({
     confirmed: true,
@@ -288,12 +288,12 @@ const confirmedInvestments = ({ portfolios, assets, operations, technicalWindow 
   });
 };
 
-const confirmedIncome = (documents, technicalWindow) => {
+const confirmedIncome = (documents, availableDataWindow) => {
   const received = documents.filter(({ fields }) => {
     const status = asString(fields, 'status');
     if (!['expected', 'received', 'cancelled', 'voided'].includes(status)) throw invalidContext();
     const receivedAt = asTimestamp(fields, 'receivedDate', { nullable: true });
-    return status === 'received' && receivedAt !== null && isInsideWindow(receivedAt, technicalWindow);
+    return status === 'received' && receivedAt !== null && isInsideWindow(receivedAt, availableDataWindow);
   });
   return Object.freeze({
     confirmed: true,
@@ -317,15 +317,15 @@ export class OwnerScopedFirestoreSourceReaders {
     this.cache = new Map();
   }
 
-  async readOwnSource({ ownerUid, reader, technicalWindow }) {
-    if (ownerUid !== this.authority.uid || !technicalWindow) throw invalidContext();
+  async readOwnSource({ ownerUid, reader, availableDataWindow }) {
+    if (ownerUid !== this.authority.uid || !availableDataWindow) throw invalidContext();
     switch (reader) {
       case 'accounts':
         return confirmedAccounts(await this.#collection('accounts'));
       case 'transactions':
         return confirmedTransactions(
           await this.#collection('transactions'),
-          technicalWindow,
+          availableDataWindow,
         );
       case 'commitments':
       case 'financialCalendar': {
@@ -336,7 +336,7 @@ export class OwnerScopedFirestoreSourceReaders {
         const commitments = commitmentFacts({
           payables,
           receivables,
-          technicalWindow,
+          availableDataWindow,
         });
         return reader === 'commitments'
           ? confirmedCommitments(commitments)
@@ -352,13 +352,13 @@ export class OwnerScopedFirestoreSourceReaders {
           portfolios,
           assets,
           operations,
-          technicalWindow,
+          availableDataWindow,
         });
       }
       case 'income':
         return confirmedIncome(
           await this.#collection('investmentIncomeEvents'),
-          technicalWindow,
+          availableDataWindow,
         );
       default: throw invalidContext();
     }
