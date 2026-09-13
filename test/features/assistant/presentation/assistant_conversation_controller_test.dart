@@ -146,13 +146,15 @@ void main() {
         assistantConversationControllerProvider.notifier,
       );
 
-      await controller.submitText('Qual é meu saldo?');
+      final int? operation = await controller.submitText('Qual é meu saldo?');
 
       final AssistantConversationState state = container.read(
         assistantConversationControllerProvider,
       );
       expect(state.question, AssistantGuidedQuestion.currentBalance);
       expect(state.transcript, 'Qual é meu saldo?');
+      expect(state.phase, AssistantConversationPhase.thinking);
+      expect(operation, isNotNull);
       expect(speech.stopCalls, 1);
       expect(speech.listenCalls, 0);
     },
@@ -175,6 +177,100 @@ void main() {
       container.read(assistantConversationControllerProvider).message,
       contains('não tenho uma resposta determinística'),
     );
+  });
+
+  test(
+    'sucesso, indisponibilidade ou exceção remota finalizam o Pensando',
+    () async {
+      final List<Future<void> Function()> outcomes = <Future<void> Function()>[
+        () async {},
+        () async {},
+        () async => throw StateError('synthetic_remote_failure'),
+      ];
+      for (int index = 0; index < outcomes.length; index += 1) {
+        final ProviderContainer container = _container(_FakeSpeech());
+        final AssistantConversationController controller = container.read(
+          assistantConversationControllerProvider.notifier,
+        );
+        final int operation = (await controller.submitText(
+          'Qual é meu saldo?',
+        ))!;
+
+        if (index == 2) {
+          await expectLater(
+            controller.awaitTextRemoteOperation(
+              operation: operation,
+              request: outcomes[index],
+            ),
+            throwsA(isA<StateError>()),
+          );
+        } else {
+          await controller.awaitTextRemoteOperation(
+            operation: operation,
+            request: outcomes[index],
+          );
+        }
+
+        final AssistantConversationState state = container.read(
+          assistantConversationControllerProvider,
+        );
+        expect(state.phase, AssistantConversationPhase.ready, reason: '$index');
+        expect(state.transcript, 'Qual é meu saldo?', reason: '$index');
+        container.dispose();
+      }
+    },
+  );
+
+  test(
+    'conclusão antiga não altera pergunta nova nem restaura estado interrompido',
+    () async {
+      final ProviderContainer container = _container(_FakeSpeech());
+      addTearDown(container.dispose);
+      final AssistantConversationController controller = container.read(
+        assistantConversationControllerProvider.notifier,
+      );
+      final int first = (await controller.submitText('Qual é meu saldo?'))!;
+      final int second = (await controller.submitText(
+        'Como estão minhas receitas?',
+      ))!;
+
+      controller.completeTextRemoteOperation(first);
+      expect(
+        container.read(assistantConversationControllerProvider).phase,
+        AssistantConversationPhase.thinking,
+      );
+      expect(
+        container.read(assistantConversationControllerProvider).transcript,
+        'Como estão minhas receitas?',
+      );
+
+      await controller.interrupt();
+      controller.completeTextRemoteOperation(second);
+      final AssistantConversationState interrupted = container.read(
+        assistantConversationControllerProvider,
+      );
+      expect(interrupted.phase, AssistantConversationPhase.ready);
+      expect(interrupted.transcript, isEmpty);
+    },
+  );
+
+  test('ativação de privacidade invalida conclusão remota pendente', () async {
+    final ProviderContainer container = _container(_FakeSpeech());
+    addTearDown(container.dispose);
+    final AssistantConversationController controller = container.read(
+      assistantConversationControllerProvider.notifier,
+    );
+    final int operation = (await controller.submitText('Qual é meu saldo?'))!;
+
+    await controller.activate(canUseVoice: false);
+    controller.completeTextRemoteOperation(operation);
+
+    final AssistantConversationState state = container.read(
+      assistantConversationControllerProvider,
+    );
+    expect(state.phase, AssistantConversationPhase.ready);
+    expect(state.transcript, isEmpty);
+    expect(state.message, contains('privacidade financeira'));
   });
 }
 

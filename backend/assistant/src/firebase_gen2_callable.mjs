@@ -18,6 +18,7 @@ import { assertAuthorized } from './policy.mjs';
 import { admitGroundedAssistantResponse } from './grounded_response_contract.mjs';
 import { createAssistantCostRequestId, createAssistantOwnerScope } from './cost_control_ledger.mjs';
 import { createOwnerScopedFirestoreAuthority } from './owner_scoped_firestore_context.mjs';
+import { assistantReaderFailureReason } from './reader_failure_diagnostics.mjs';
 
 export const ASSISTANT_REMOTE_CALLABLE_OPTIONS = Object.freeze({
   region: 'southamerica-east1',
@@ -126,10 +127,27 @@ export function createAssistRemoteV1Callables({
         // Ela é efêmera, serve à leitura própria nas Rules e nunca chega ao modelo.
         stage = 'owner_scoped_context_and_usage';
         reportRuntimeStage(diagnostics, stage, 'started');
-        const [context, usage] = await Promise.all([
-          contextReader({ uid, ownerAuthority, authorization }),
-          usageReader({ uid }),
-        ]);
+        // Cada leitor preserva sua execução paralela e relata apenas enums
+        // sanitizados. Em falha, ambos são aguardados antes de relançar a
+        // primeira exceção, sem permitir avanço parcial ao ledger ou Vertex.
+        const contextOperation = traceRuntimeReader({
+          diagnostics,
+          stage: 'owner_scoped_context',
+          read: () => contextReader({ uid, ownerAuthority, authorization }),
+        });
+        const usageOperation = traceRuntimeReader({
+          diagnostics,
+          stage: 'usage_reader',
+          read: () => usageReader({ uid }),
+        });
+        let context;
+        let usage;
+        try {
+          [context, usage] = await Promise.all([contextOperation, usageOperation]);
+        } catch (readerError) {
+          await Promise.allSettled([contextOperation, usageOperation]);
+          throw readerError;
+        }
         reportRuntimeStage(diagnostics, stage, 'passed');
         // The port is intentionally not called while the provider is disabled.
         // Its strict shape prevents a later activation from bypassing the ledger.
@@ -203,13 +221,27 @@ function normalizeRuntimeDiagnostics(runtimeDiagnostics) {
   return runtimeDiagnostics;
 }
 
-function reportRuntimeStage(diagnostics, stage, outcome) {
+function reportRuntimeStage(diagnostics, stage, outcome, reason = undefined) {
   if (diagnostics === null) return;
   // A porta recebe somente rótulos constantes; nunca request, erro, UID ou conteúdo.
   try {
-    diagnostics.report({ stage, outcome });
+    diagnostics.report(reason === undefined ? { stage, outcome } : { stage, outcome, reason });
   } catch {
     // Diagnóstico é observabilidade best-effort e não pode alterar o fail-closed.
+  }
+}
+
+// Envolve exclusivamente o resultado técnico do leitor e sempre relança a
+// mesma exceção; a classificação fechada é derivada do erro na origem.
+async function traceRuntimeReader({ diagnostics, stage, read }) {
+  reportRuntimeStage(diagnostics, stage, 'started');
+  try {
+    const result = await read();
+    reportRuntimeStage(diagnostics, stage, 'passed');
+    return result;
+  } catch (error) {
+    reportRuntimeStage(diagnostics, stage, 'failed', assistantReaderFailureReason(error));
+    throw error;
   }
 }
 

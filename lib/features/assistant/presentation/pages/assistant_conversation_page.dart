@@ -301,13 +301,18 @@ class _AssistantConversationPageState
     final String question = _textController.text;
     _textController.clear();
     _remoteConversation.discard();
-    await _conversation.submitText(question);
+    final int? conversationOperation = await _conversation.submitText(question);
     if (!mounted) return;
     final String message = ref
         .read(assistantConversationControllerProvider)
         .transcript;
-    if (message.isEmpty) return;
-    await _requestRemoteAnswer(message);
+    if (message.isEmpty || conversationOperation == null) return;
+    // A conclusão visual pertence ao mesmo handle monotônico da pergunta;
+    // sucesso, indisponibilidade e exceção encerram “Pensando” sem apagar o card.
+    await _conversation.awaitTextRemoteOperation(
+      operation: conversationOperation,
+      request: () => _requestRemoteAnswer(message),
+    );
   }
 
   /// Envia somente a pergunta já validada pelo modo atual. O backend continua

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  AssistantReaderFailure,
   ASSISTANT_REMOTE_CALLABLE_OPTIONS,
   ASSISTANT_SAFE_UNAVAILABLE,
   createAssistRemoteV1Callables,
@@ -200,19 +201,33 @@ test('rota futura falha fechada sem bearer do envelope autenticado', async () =>
   assert.equal(calls.context, 0);
 });
 
-test('diagnóstico runtime registra somente enumerações sanitizadas e identifica falha antes do ledger', async () => {
+test('diagnóstico runtime separa falha de uso e aguarda sucesso do contexto antes de falhar fechado', async () => {
   const events = [];
+  let releaseContext;
+  const contextPending = new Promise((resolve) => { releaseContext = resolve; });
   const { calls, invoke } = build({
     killSwitchActive: false,
     providerFeatureEnabled: true,
+    contextReader: async () => {
+      calls.context += 1;
+      await contextPending;
+      return context();
+    },
     usageReader: async () => {
       calls.usage += 1;
-      throw new Error('synthetic usage dependency failure');
+      throw new AssistantReaderFailure(
+        'assistant_named_ledger_unavailable',
+        'document_missing',
+      );
     },
     runtimeDiagnostics: { report: (event) => events.push(event) },
   });
 
-  await assert.rejects(invoke(request()), (error) => error.code === 'failed-precondition');
+  const invocation = invoke(request());
+  await Promise.resolve();
+  assert.equal(calls.reserve, 0);
+  releaseContext();
+  await assert.rejects(invocation, (error) => error.code === 'failed-precondition');
   assert.deepEqual(events, [
     { stage: 'handler_entry', outcome: 'started' },
     { stage: 'auth_app_check', outcome: 'passed' },
@@ -221,10 +236,52 @@ test('diagnóstico runtime registra somente enumerações sanitizadas e identifi
     { stage: 'authorization_consent', outcome: 'started' },
     { stage: 'authorization_consent', outcome: 'passed' },
     { stage: 'owner_scoped_context_and_usage', outcome: 'started' },
+    { stage: 'owner_scoped_context', outcome: 'started' },
+    { stage: 'usage_reader', outcome: 'started' },
+    { stage: 'usage_reader', outcome: 'failed', reason: 'document_missing' },
+    { stage: 'owner_scoped_context', outcome: 'passed' },
     { stage: 'owner_scoped_context_and_usage', outcome: 'failed' },
   ]);
   assert.deepEqual(calls, { authorization: 1, context: 1, usage: 1, reserve: 0, confirm: 0, provider: 0 });
-  assert.doesNotMatch(JSON.stringify(events), /synthetic-user|synthetic\.callable|Explique|failure/iu);
+  assert.doesNotMatch(JSON.stringify(events), /synthetic-user|synthetic\.callable|Explique|stack|message/iu);
+});
+
+test('diagnóstico runtime separa falha de contexto sem permitir uso concluído avançar ao ledger', async () => {
+  const events = [];
+  const { calls, invoke } = build({
+    killSwitchActive: false,
+    providerFeatureEnabled: true,
+    contextReader: async () => {
+      calls.context += 1;
+      throw new AssistantReaderFailure('assistant_context_unavailable', 'period_invalid');
+    },
+    runtimeDiagnostics: { report: (event) => events.push(event) },
+  });
+
+  await assert.rejects(invoke(request()), (error) => error.code === 'failed-precondition');
+  assert.deepEqual(events.slice(-6), [
+    { stage: 'owner_scoped_context_and_usage', outcome: 'started' },
+    { stage: 'owner_scoped_context', outcome: 'started' },
+    { stage: 'usage_reader', outcome: 'started' },
+    { stage: 'owner_scoped_context', outcome: 'failed', reason: 'period_invalid' },
+    { stage: 'usage_reader', outcome: 'passed' },
+    { stage: 'owner_scoped_context_and_usage', outcome: 'failed' },
+  ]);
+  assert.deepEqual(calls, { authorization: 1, context: 1, usage: 1, reserve: 0, confirm: 0, provider: 0 });
+});
+
+test('diagnóstico runtime não adivinha motivo de erro sem classificação de origem', async () => {
+  const events = [];
+  const { invoke } = build({
+    killSwitchActive: false,
+    providerFeatureEnabled: true,
+    usageReader: async () => { throw new Error('opaque_dependency_failure'); },
+    runtimeDiagnostics: { report: (event) => events.push(event) },
+  });
+
+  await assert.rejects(invoke(request()), (error) => error.code === 'failed-precondition');
+  assert.ok(events.some((event) => event.stage === 'usage_reader'
+    && event.outcome === 'failed' && event.reason === 'unclassified'));
 });
 
 test('diagnóstico runtime é best-effort e não flexibiliza a callable', async () => {

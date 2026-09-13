@@ -1,5 +1,11 @@
 export { AssistantContractError } from './errors.mjs';
 export {
+  ASSISTANT_READER_FAILURE_REASONS,
+  AssistantReaderFailure,
+  assistantReaderFailureReason,
+  isAssistantReaderFailureReason,
+} from './reader_failure_diagnostics.mjs';
+export {
   ASSISTANT_FINANCIAL_CONTEXT_POLICY_VERSION,
   ASSISTANT_FINANCIAL_CONTEXT_SOURCE_READERS,
   AssistantFinancialContextBridge,

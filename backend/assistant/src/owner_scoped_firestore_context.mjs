@@ -50,11 +50,49 @@ const isExactObject = (value, keys) => value !== null
   && !Array.isArray(value)
   && Object.keys(value).sort().join('|') === [...keys].sort().join('|');
 
-const invalidContext = () => deny('assistant_invalid_context');
+const invalidContext = (diagnosticReason = 'schema_invalid') =>
+  deny('assistant_invalid_context', diagnosticReason);
+
+// Classifica somente sinais técnicos fechados observados na própria fronteira
+// HTTP; nenhum texto ou corpo de erro atravessa para o diagnóstico runtime.
+const responseFailureReason = (response) => {
+  if (response?.status === 401 || response?.status === 403) return 'authorization_denied';
+  if (response?.status === 404) return 'document_missing';
+  if (response?.status === 408 || response?.status === 504) return 'timeout';
+  return 'unclassified';
+};
+
+const fetchOwnContext = async (fetchImpl, url, options) => {
+  try {
+    return await fetchImpl(url, options);
+  } catch (error) {
+    const timeout = error?.name === 'AbortError' || error?.name === 'TimeoutError'
+      || error?.code === 'ETIMEDOUT' || error?.code === 'UND_ERR_CONNECT_TIMEOUT';
+    throw invalidContext(timeout ? 'timeout' : 'unclassified');
+  }
+};
+
+const readRuntimeProjectId = async (projectIdReader) => {
+  try {
+    return await projectIdReader();
+  } catch (error) {
+    const timeout = error?.name === 'AbortError' || error?.name === 'TimeoutError'
+      || error?.code === 'ETIMEDOUT' || error?.code === 'UND_ERR_CONNECT_TIMEOUT';
+    throw invalidContext(timeout ? 'timeout' : 'adc_authentication_unavailable');
+  }
+};
+
+const readResponseBody = async (response) => {
+  try {
+    return await response.json();
+  } catch {
+    throw invalidContext('schema_invalid');
+  }
+};
 
 const assertOwnerUid = (uid) => {
   if (typeof uid !== 'string' || uid.trim() !== uid || uid.length < 1 || uid.length > 128 || /[\\/]/u.test(uid)) {
-    throw deny('assistant_unauthenticated');
+    throw deny('assistant_unauthenticated', 'authorization_denied');
   }
 };
 
@@ -66,7 +104,7 @@ const assertProjectId = (projectId) => {
 
 const assertAuthorizationHeader = (header) => {
   if (typeof header !== 'string' || !/^Bearer [A-Za-z0-9._-]{20,4096}$/u.test(header)) {
-    throw deny('assistant_unauthenticated');
+    throw deny('assistant_unauthenticated', 'authorization_denied');
   }
 };
 
@@ -107,7 +145,7 @@ const assertDocument = ({ document, projectId, ownerUid, collection }) => {
   }
   const prefix = `projects/${projectId}/databases/(default)/documents/users/${ownerUid}/${collection}/`;
   if (!document.name.startsWith(prefix) || document.name.slice(prefix.length).includes('/')) {
-    throw invalidContext();
+    throw invalidContext('authorization_denied');
   }
   if (asString(document.fields, 'ownerId') !== ownerUid) throw invalidContext();
   return document.fields;
@@ -156,7 +194,7 @@ export class OwnerScopedFirestoreRestTransport {
     const { uid, authorizationHeader } = authority ?? {};
     assertOwnerUid(uid);
     assertAuthorizationHeader(authorizationHeader);
-    const projectId = await this.projectIdReader();
+    const projectId = await readRuntimeProjectId(this.projectIdReader);
     assertProjectId(projectId);
     const path = `users/${encodeURIComponent(uid)}/${collection}`;
     const query = new URLSearchParams({ pageSize: String(this.pageSize) });
@@ -164,12 +202,14 @@ export class OwnerScopedFirestoreRestTransport {
       query.append('mask.fieldPaths', fieldPath);
     }
     const url = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/databases/(default)/documents/${path}?${query.toString()}`;
-    const response = await this.fetchImpl(url, Object.freeze({
+    const response = await fetchOwnContext(this.fetchImpl, url, Object.freeze({
       method: 'GET',
       headers: Object.freeze({ Authorization: authorizationHeader }),
     }));
-    if (!response || response.ok !== true || typeof response.json !== 'function') throw invalidContext();
-    const body = await response.json();
+    if (!response || response.ok !== true || typeof response.json !== 'function') {
+      throw invalidContext(responseFailureReason(response));
+    }
+    const body = await readResponseBody(response);
     if (!body || typeof body !== 'object' || Array.isArray(body)
         || (body.nextPageToken !== undefined && body.nextPageToken !== '')
         || (body.documents !== undefined && !Array.isArray(body.documents))) {
@@ -192,16 +232,18 @@ export class OwnerScopedFirestoreRestTransport {
         ? { path: `users/${encodeURIComponent(uid)}/assistantSettings/remote`, masks: remoteSettingsFieldMasks }
         : null;
     if (configured === null) throw invalidContext();
-    const projectId = await this.projectIdReader();
+    const projectId = await readRuntimeProjectId(this.projectIdReader);
     assertProjectId(projectId);
     const query = new URLSearchParams();
     for (const fieldPath of configured.masks) query.append('mask.fieldPaths', fieldPath);
     const url = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/databases/(default)/documents/${configured.path}?${query.toString()}`;
-    const response = await this.fetchImpl(url, Object.freeze({
+    const response = await fetchOwnContext(this.fetchImpl, url, Object.freeze({
       method: 'GET', headers: Object.freeze({ Authorization: authorizationHeader }),
     }));
-    if (!response || response.ok !== true || typeof response.json !== 'function') throw invalidContext();
-    const body = await response.json();
+    if (!response || response.ok !== true || typeof response.json !== 'function') {
+      throw invalidContext(responseFailureReason(response));
+    }
+    const body = await readResponseBody(response);
     if (!body || typeof body !== 'object' || Array.isArray(body) || !body.fields || typeof body.fields !== 'object') throw invalidContext();
     return Object.freeze(body.fields);
   }
@@ -318,7 +360,8 @@ export class OwnerScopedFirestoreSourceReaders {
   }
 
   async readOwnSource({ ownerUid, reader, availableDataWindow }) {
-    if (ownerUid !== this.authority.uid || !availableDataWindow) throw invalidContext();
+    if (ownerUid !== this.authority.uid) throw invalidContext('authorization_denied');
+    if (!availableDataWindow) throw invalidContext('period_invalid');
     switch (reader) {
       case 'accounts':
         return confirmedAccounts(await this.#collection('accounts'));

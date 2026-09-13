@@ -129,6 +129,59 @@ void main() {
       AssistantRemoteConversationPhase.privacyBlocked,
     );
   });
+
+  test(
+    'resposta antiga não substitui nova pergunta após descarte de sessão',
+    () async {
+      final Completer<AssistantRemoteResponse> first =
+          Completer<AssistantRemoteResponse>();
+      final Completer<AssistantRemoteResponse> second =
+          Completer<AssistantRemoteResponse>();
+      final _QueuedGateway gateway = _QueuedGateway(
+        <Future<AssistantRemoteResponse>>[first.future, second.future],
+      );
+      final ProviderContainer container = ProviderContainer(
+        overrides: [
+          assistantRemoteGatewayProvider.overrideWithValue(gateway),
+          assistantRemoteCallPolicyProvider.overrideWithValue(
+            const _FakePolicy(true),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      final ProviderSubscription<AssistantRemoteConversationState>
+      subscription = container.listen(
+        assistantRemoteConversationControllerProvider,
+        (_, _) {},
+      );
+      addTearDown(subscription.close);
+      final AssistantRemoteConversationController controller = container.read(
+        assistantRemoteConversationControllerProvider.notifier,
+      );
+
+      final Future<void> oldRequest = _request(container);
+      await Future<void>.delayed(Duration.zero);
+      controller.discard();
+      final Future<void> currentRequest = _request(container);
+      await Future<void>.delayed(Duration.zero);
+
+      first.complete(
+        AssistantRemoteResponse.fromCallableData(_groundedCallable()),
+      );
+      await oldRequest;
+      expect(
+        container.read(assistantRemoteConversationControllerProvider).phase,
+        AssistantRemoteConversationPhase.preparing,
+      );
+
+      second.complete(AssistantRemoteResponse.safeUnavailable);
+      await currentRequest;
+      expect(
+        container.read(assistantRemoteConversationControllerProvider).phase,
+        AssistantRemoteConversationPhase.safeUnavailable,
+      );
+    },
+  );
 }
 
 Future<void> _request(
@@ -204,5 +257,19 @@ final class _FakeGateway implements AssistantRemoteGateway {
     return Future<AssistantRemoteResponse>.value(
       result ?? AssistantRemoteResponse.safeUnavailable,
     );
+  }
+}
+
+final class _QueuedGateway implements AssistantRemoteGateway {
+  _QueuedGateway(this.responses);
+
+  final List<Future<AssistantRemoteResponse>> responses;
+  int calls = 0;
+
+  @override
+  Future<AssistantRemoteResponse> ask(AssistantRemoteRequest request) {
+    final Future<AssistantRemoteResponse> response = responses[calls];
+    calls += 1;
+    return response;
   }
 }

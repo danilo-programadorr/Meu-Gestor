@@ -1034,6 +1034,20 @@ Situação: codebase `assistant` preparado somente localmente; não há Function
 - A identidade runtime é `defineString` sem valor versionado. Sem o parâmetro no processo de deploy, a configuração não pode ser materializada; nenhum `.env`, e-mail ou projeto entra no repositório.
 - Enquanto o kill switch estiver ativo e o provedor real desligado, a callable exige Auth/e-mail verificado/App Check e retorna somente `safe_unavailable`, sem consultar perfil, contexto, custos, ledger ou qualquer banco. Flash/Pro continuam contratos internos para ativação futura autorizada.
 
+## 66. ASSIST-READERS-TRACE-UI-1 — diagnóstico individual e conclusão visual
+
+- Os leitores `owner_scoped_context` e `usage_reader` preservam execução
+  paralela e emitem somente início, sucesso ou falha com motivo enumerado. A
+  callable aguarda os dois resultados em caso de falha, relança a exceção
+  original e não alcança ledger ou Vertex com resultado parcial.
+- A classificação nasce nas fronteiras de período, transporte owner-scoped,
+  ADC e banco nomeado. Ausência de evidência vira `unclassified`; mensagens,
+  pilhas, identidade, caminhos e conteúdo financeiro não entram nos eventos.
+- A pergunta de texto usa um handle monotônico para encerrar `Pensando` quando
+  a operação remota termina. Handles antigos não alteram pergunta nova nem
+  restauram estado após saída, troca de conta ou ativação da privacidade; o
+  card remoto permanece independente e voz continua somente em áudio.
+
 ## 65. ASSIST-CONTEXT-VERTEX-FIX-1 — contexto corrente e endpoint global
 
 Situação: correção preparada para publicação exclusiva em development; o

@@ -97,7 +97,7 @@ const validatePeriod = (period, generatedAt) => {
   const periodStartMilliseconds = Date.parse(normalized.technicalWindow.start);
   const periodEndMilliseconds = Date.parse(normalized.technicalWindow.endExclusive);
   if (generatedAtMilliseconds < periodStartMilliseconds) {
-    throw deny('assistant_invalid_context');
+    throw deny('assistant_invalid_context', 'period_invalid');
   }
   const periodComplete = generatedAtMilliseconds >= periodEndMilliseconds;
   return Object.freeze({

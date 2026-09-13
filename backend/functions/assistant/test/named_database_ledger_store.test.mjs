@@ -11,6 +11,11 @@ import {
 } from '../../../assistant/src/cost_control_ledger.mjs';
 
 const ownerScope = createAssistantOwnerScope('synthetic-owner');
+const rejectsReason = (promise, diagnosticReason) => assert.rejects(
+  promise,
+  (error) => error?.message === 'assistant_named_ledger_unavailable'
+    && error?.diagnosticReason === diagnosticReason,
+);
 const state = () => ({
   daily: {}, monthly: {}, periods: {}, records: {},
   usage: {
@@ -19,7 +24,13 @@ const state = () => ({
     },
   },
 });
-const createStore = ({ projectId = 'demo-assistant-controls', failAuth = false, documentPresent = true, ledgerState = state() } = {}) => {
+const createStore = ({
+  projectId = 'demo-assistant-controls',
+  failAuth = false,
+  documentPresent = true,
+  ledgerState = state(),
+  requestFailure = null,
+} = {}) => {
   const requests = [];
   let document = documentPresent
     ? { updateTime: 'synthetic-update-time', fields: { state: { stringValue: JSON.stringify(ledgerState) } } }
@@ -27,6 +38,7 @@ const createStore = ({ projectId = 'demo-assistant-controls', failAuth = false, 
   const client = {
     async request(request) {
       requests.push(request);
+      if (requestFailure !== null) throw requestFailure;
       if (request.url.endsWith(':beginTransaction')) return { data: { transaction: 'synthetic-transaction' } };
       if (request.method === 'GET') {
         if (document === null) {
@@ -93,9 +105,9 @@ test('não aceita identidade de usuário e aplica limite diário sem duplicar um
   const firstRequestId = '123e4567-e89b-42d3-a456-426614174001';
   const secondRequestId = '123e4567-e89b-42d3-a456-426614174002';
   await ledger.reserve({ maximumCostCents: 500, ownerScope, requestId: firstRequestId, tier: 'flash', usageCostUnits: 1 });
-  await assert.rejects(
+  await rejectsReason(
     ledger.reserve({ maximumCostCents: 1, ownerScope, requestId: secondRequestId, tier: 'flash', usageCostUnits: 1 }),
-    /assistant_named_ledger_unavailable/,
+    'limit_exceeded',
   );
   await assert.rejects(
     store.runTransaction((state, identity) => {
@@ -109,7 +121,10 @@ test('não aceita identidade de usuário e aplica limite diário sem duplicar um
 
 test('falha fechada para ADC indisponível ou banco incompatível', async () => {
   const unavailable = createStore({ failAuth: true });
-  await assert.rejects(unavailable.store.runTransaction(() => ({})), /assistant_named_ledger_unavailable/);
+  await rejectsReason(
+    unavailable.store.runTransaction(() => ({})),
+    'adc_authentication_unavailable',
+  );
 
   const incorrectProject = createStore({ projectId: '123' });
   await assert.rejects(incorrectProject.store.runTransaction(() => ({})), /assistant_named_ledger_unavailable/);
@@ -121,9 +136,9 @@ test('falha fechada quando o documento de controle ou o registro do proprietári
     store: missingDocument.store,
     clock: () => new Date('2026-09-07T12:00:00.000Z'),
   });
-  await assert.rejects(
+  await rejectsReason(
     missingDocumentLedger.readUsage({ ownerScope }),
-    /assistant_named_ledger_unavailable/,
+    'document_missing',
   );
 
   const missingOwner = createStore();
@@ -131,9 +146,9 @@ test('falha fechada quando o documento de controle ou o registro do proprietári
     store: missingOwner.store,
     clock: () => new Date('2026-09-07T12:00:00.000Z'),
   });
-  await assert.rejects(
+  await rejectsReason(
     missingOwnerLedger.readUsage({ ownerScope: createAssistantOwnerScope('other-synthetic-owner') }),
-    /assistant_named_ledger_unavailable/,
+    'document_missing',
   );
 
   const invalidSchema = createStore({ ledgerState: { usage: {} } });
@@ -141,9 +156,25 @@ test('falha fechada quando o documento de controle ou o registro do proprietári
     store: invalidSchema.store,
     clock: () => new Date('2026-09-07T12:00:00.000Z'),
   });
-  await assert.rejects(
+  await rejectsReason(
     invalidSchemaLedger.readUsage({ ownerScope }),
-    /assistant_named_ledger_unavailable/,
+    'schema_invalid',
+  );
+});
+
+test('classifica autorização e timeout somente pelos sinais técnicos da origem', async () => {
+  const denied = new Error('opaque');
+  denied.response = { status: 403 };
+  await rejectsReason(
+    createStore({ requestFailure: denied }).store.runTransaction(() => ({})),
+    'authorization_denied',
+  );
+
+  const timeout = new Error('opaque');
+  timeout.code = 'ETIMEDOUT';
+  await rejectsReason(
+    createStore({ requestFailure: timeout }).store.runTransaction(() => ({})),
+    'timeout',
   );
 });
 

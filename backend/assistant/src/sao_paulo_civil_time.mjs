@@ -18,11 +18,13 @@ const formatter = new Intl.DateTimeFormat('en-CA', {
 });
 
 const parseCivilDate = (value) => {
-  if (typeof value !== 'string' || !civilDatePattern.test(value)) throw deny('assistant_invalid_context');
+  if (typeof value !== 'string' || !civilDatePattern.test(value)) {
+    throw deny('assistant_invalid_context', 'period_invalid');
+  }
   const [year, month, day] = value.split('-').map(Number);
   const probe = new Date(Date.UTC(year, month - 1, day));
   if (probe.getUTCFullYear() !== year || probe.getUTCMonth() !== month - 1 || probe.getUTCDate() !== day) {
-    throw deny('assistant_invalid_context');
+    throw deny('assistant_invalid_context', 'period_invalid');
   }
   return Object.freeze({ year, month, day, value });
 };
@@ -41,7 +43,7 @@ const nextCivilDate = (value) => {
 
 const asUtcIso = (value) => {
   if (typeof value !== 'string' || !value.endsWith('Z') || Number.isNaN(Date.parse(value))) {
-    throw deny('assistant_invalid_context');
+    throw deny('assistant_invalid_context', 'period_invalid');
   }
   return new Date(value).toISOString();
 };
@@ -54,13 +56,17 @@ const startOfCivilDateUtc = (value) => {
   const center = Date.UTC(parsed.year, parsed.month - 1, parsed.day);
   let low = center - (48 * 60 * 60 * 1000);
   let high = center + (48 * 60 * 60 * 1000);
-  if (civilPartsForEpoch(low) >= value || civilPartsForEpoch(high) < value) throw deny('assistant_invalid_context');
+  if (civilPartsForEpoch(low) >= value || civilPartsForEpoch(high) < value) {
+    throw deny('assistant_invalid_context', 'period_invalid');
+  }
   while (low + 1 < high) {
     const middle = low + Math.floor((high - low) / 2);
     if (civilPartsForEpoch(middle) < value) low = middle;
     else high = middle;
   }
-  if (civilPartsForEpoch(high) !== value) throw deny('assistant_invalid_context');
+  if (civilPartsForEpoch(high) !== value) {
+    throw deny('assistant_invalid_context', 'period_invalid');
+  }
   return new Date(high).toISOString();
 };
 
@@ -73,14 +79,18 @@ export const civilDateFromUtcInstant = (value) => {
 export const validateCivilPeriod = (period) => {
   if (!exactKeys(period, ['timeZone', 'startDate', 'endDateExclusive'])
       || period.timeZone !== ASSISTANT_CIVIL_TIME_ZONE) {
-    throw deny('assistant_invalid_context');
+    throw deny('assistant_invalid_context', 'period_invalid');
   }
   parseCivilDate(period.startDate);
   parseCivilDate(period.endDateExclusive);
-  if (period.endDateExclusive <= period.startDate) throw deny('assistant_invalid_context');
+  if (period.endDateExclusive <= period.startDate) {
+    throw deny('assistant_invalid_context', 'period_invalid');
+  }
   const start = startOfCivilDateUtc(period.startDate);
   const endExclusive = startOfCivilDateUtc(period.endDateExclusive);
-  if (Date.parse(endExclusive) - Date.parse(start) > 366 * 24 * 60 * 60 * 1000) throw deny('assistant_invalid_context');
+  if (Date.parse(endExclusive) - Date.parse(start) > 366 * 24 * 60 * 60 * 1000) {
+    throw deny('assistant_invalid_context', 'period_invalid');
+  }
   return Object.freeze({
     timeZone: ASSISTANT_CIVIL_TIME_ZONE,
     startDate: period.startDate,

@@ -234,6 +234,19 @@ test('recusa documento de outro proprietário e dado financeiro inválido', asyn
   );
 });
 
+test('transporte classifica autorização negada sem preservar resposta bruta', async () => {
+  const transport = new OwnerScopedFirestoreRestTransport({
+    projectIdReader: async () => projectId,
+    fetchImpl: async () => ({ ok: false, status: 403 }),
+  });
+  await assert.rejects(
+    transport.listOwnCollection({ authority: ownerAuthority, collection: 'accounts' }),
+    (error) => error?.code === 'assistant_invalid_context'
+      && error?.diagnosticReason === 'authorization_denied'
+      && !Object.hasOwn(error, 'response'),
+  );
+});
+
 test('a camada não importa Admin nem concede acesso IAM ao banco padrão', async () => {
   const source = await readFile(new URL('../src/owner_scoped_firestore_context.mjs', import.meta.url), 'utf8');
   assert.doesNotMatch(source, /firebase-admin|getFirestore\(|datastore\.user|serviceAccount/iu);

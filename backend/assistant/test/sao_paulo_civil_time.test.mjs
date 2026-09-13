@@ -25,3 +25,15 @@ test('janela inclui o início e exclui o fim, inclusive em horário de verão hi
   assert.equal(civilDateFromUtcInstant(period.technicalWindow.start), '2018-11-03');
   assert.equal(civilDateFromUtcInstant(period.technicalWindow.endExclusive), '2018-11-05');
 });
+
+test('período inválido preserva somente a classificação sanitizada de origem', () => {
+  assert.throws(
+    () => validateCivilPeriod({
+      timeZone: 'America/Sao_Paulo',
+      startDate: '2026-09-13',
+      endDateExclusive: '2026-09-13',
+    }),
+    (error) => error?.code === 'assistant_invalid_context'
+      && error?.diagnosticReason === 'period_invalid',
+  );
+});

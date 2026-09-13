@@ -163,15 +163,16 @@ final class AssistantConversationController
 
   /// Usa a mesma classificação determinística da fala e nunca encaminha texto
   /// para rede. O texto só existe no estado efêmero desta tela.
-  Future<void> submitText(String value) async {
+  Future<int?> submitText(String value) async {
     final String text = value.trim();
     await stopAndClear();
-    if (_disposed) return;
+    if (_disposed) return null;
+    final int operation = _operation;
     if (!AssistantContentSafety.isSafe(text)) {
       state = state.copyWith(
         message: 'Não foi possível usar essa pergunta com segurança.',
       );
-      return;
+      return null;
     }
     final AssistantGuidedQuestion? question =
         AssistantConversationQuestionMatcher.match(text);
@@ -182,7 +183,7 @@ final class AssistantConversationController
             'Ainda não tenho uma resposta determinística para essa pergunta. Tente uma pergunta disponível.',
         clearQuestion: true,
       );
-      return;
+      return operation;
     }
     state = state.copyWith(
       phase: AssistantConversationPhase.thinking,
@@ -190,9 +191,35 @@ final class AssistantConversationController
       message: 'Pergunta recebida. Preparando resposta confirmada.',
       question: question,
     );
+    return operation;
+  }
+
+  /// Finaliza somente a pergunta de texto que originou a operação remota.
+  /// Handles antigos não restauram estado após nova pergunta ou interrupção.
+  void completeTextRemoteOperation(int operation) {
+    if (_disposed || operation != _operation) return;
+    state = state.copyWith(
+      phase: AssistantConversationPhase.ready,
+      message: 'Consulta concluída. O resultado está disponível abaixo.',
+      voiceIntensity: 0,
+    );
+  }
+
+  /// Executa a etapa remota sem absorver sua falha e sempre conclui apenas o
+  /// handle correspondente. A tela mantém o card remoto como fonte do resultado.
+  Future<void> awaitTextRemoteOperation({
+    required int operation,
+    required Future<void> Function() request,
+  }) async {
+    try {
+      await request();
+    } finally {
+      completeTextRemoteOperation(operation);
+    }
   }
 
   void _setPrivacyBlocked() {
+    _operation += 1;
     state = state.copyWith(
       phase: AssistantConversationPhase.ready,
       transcript: '',
