@@ -103,7 +103,11 @@ test('usa rotas REST oficiais e propaga a mesma transação entre leitura e comm
   assert.equal(requests[2].url, `${root}/documents:commit`);
   assert.equal(requests[2].data.transaction, 'synthetic-transaction');
   assert.equal(requests[2].data.writes.length, 1);
-  assert.equal(requests[2].data.writes[0].update.name, `${root}/documents/assistantRuntime/ledger`);
+  assert.equal(
+    requests[2].data.writes[0].update.name,
+    'projects/demo-assistant-controls/databases/assistant-controls-dev/documents/assistantRuntime/ledger',
+  );
+  assert.doesNotMatch(requests[2].data.writes[0].update.name, /^https?:\/\//u);
   assert.ok(requests.every((request) => !/assistant-controls-dev:(?:beginTransaction|commit)$/u.test(request.url)));
 });
 

@@ -56,6 +56,10 @@ const databaseRoot = (projectId) => {
   return `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/databases/${DATABASE_ID}`;
 };
 
+// O campo Document.name usa o resource name canônico, sem host nem versão da API.
+const databaseResource = (projectId) =>
+  `projects/${projectId}/databases/${DATABASE_ID}`;
+
 const decodeState = (document) => {
   if (document === null) throw invalid('document_missing');
   const raw = document?.fields?.state?.stringValue;
@@ -71,9 +75,9 @@ const decodeState = (document) => {
   }
 };
 
-const documentWrite = ({ root, state, updateTime }) => {
+const documentWrite = ({ resource, state, updateTime }) => {
   const update = {
-    name: `${root}/documents/${DOCUMENT_PATH}`,
+    name: `${resource}/documents/${DOCUMENT_PATH}`,
     fields: {
       schemaVersion: { integerValue: '1' },
       state: { stringValue: JSON.stringify(state) },
@@ -128,6 +132,7 @@ export class NamedDatabaseAssistantCostLedgerStore {
     }
     this.#report('usage_adc_credentials', 'passed');
     const root = databaseRoot(projectId);
+    const resource = databaseResource(projectId);
 
     for (let attempt = 0; attempt < MAX_TRANSACTION_ATTEMPTS; attempt += 1) {
       try {
@@ -136,7 +141,7 @@ export class NamedDatabaseAssistantCostLedgerStore {
         const draft = clone(decodeState(document));
         const result = await callback(draft);
         assertLedgerStateShape(draft);
-        await this.#commit(client, root, transaction, draft, document?.updateTime);
+        await this.#commit(client, root, resource, transaction, draft, document?.updateTime);
         return clone(result);
       } catch (error) {
         if (attempt + 1 < MAX_TRANSACTION_ATTEMPTS && error?.response?.status === 409) continue;
@@ -171,11 +176,11 @@ export class NamedDatabaseAssistantCostLedgerStore {
     }
   }
 
-  async #commit(client, root, transaction, state, updateTime) {
+  async #commit(client, root, resource, transaction, state, updateTime) {
     const response = await this.#request(client, 'usage_firestore_commit', {
       method: 'POST',
       url: `${root}/documents:commit`,
-      data: { transaction, writes: [documentWrite({ root, state, updateTime })] },
+      data: { transaction, writes: [documentWrite({ resource, state, updateTime })] },
     });
     if (!response?.data || !Array.isArray(response.data.writeResults) || response.data.writeResults.length !== 1) {
       throw invalid('schema_invalid');

@@ -2,6 +2,10 @@
 
 ## Em desenvolvimento
 
+- ASSIST-USAGE-COMMIT-FIX-1 corrige `writes[].update.name` do ledger para o
+  resource name canônico do Firestore, preservando transação, precondição,
+  isolamento owner-scoped e falha fechada; a sequência foi validada também
+  contra a API do Firestore Emulator;
 - PREMIUM-DEPENDENCY-REPAIR-1 registra como dívida técnica os seis alertas
   moderados da cadeia opcional de Storage; o artefato implantável omite essa
   cadeia, passa em `npm ci --omit=dev --omit=optional --ignore-scripts`, no

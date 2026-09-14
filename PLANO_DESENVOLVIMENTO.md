@@ -1034,6 +1034,15 @@ Situação: codebase `assistant` preparado somente localmente; não há Function
 - A identidade runtime é `defineString` sem valor versionado. Sem o parâmetro no processo de deploy, a configuração não pode ser materializada; nenhum `.env`, e-mail ou projeto entra no repositório.
 - Enquanto o kill switch estiver ativo e o provedor real desligado, a callable exige Auth/e-mail verificado/App Check e retorna somente `safe_unavailable`, sem consultar perfil, contexto, custos, ledger ou qualquer banco. Flash/Pro continuam contratos internos para ativação futura autorizada.
 
+## 68. ASSIST-USAGE-COMMIT-FIX-1 — resource name canônico no commit
+
+- `documents:commit` preserva o identificador de `beginTransaction` e um
+  `write` atômico, mas `Document.name` usa somente
+  `projects/.../databases/.../documents/...`, sem host nem versão REST.
+- O HTTP 400 foi reproduzido na API do Emulator como `INVALID_ARGUMENT`, sem
+  violações de campo estruturadas; a forma corrigida conclui begin, leitura e
+  commit, mantendo quota, idempotência e falha fechada.
+
 ## 67. ASSIST-USAGE-REST-FIX-1 — transação oficial e diagnóstico do uso
 
 - O ledger do banco nomeado usa as rotas oficiais `documents:beginTransaction`
