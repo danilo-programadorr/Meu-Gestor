@@ -30,6 +30,7 @@ const createStore = ({
   documentPresent = true,
   ledgerState = state(),
   requestFailure = null,
+  runtimeDiagnostics = undefined,
 } = {}) => {
   const requests = [];
   let document = documentPresent
@@ -38,20 +39,25 @@ const createStore = ({
   const client = {
     async request(request) {
       requests.push(request);
-      if (requestFailure !== null) throw requestFailure;
-      if (request.url.endsWith(':beginTransaction')) return { data: { transaction: 'synthetic-transaction' } };
+      const failure = typeof requestFailure === 'function'
+        ? requestFailure(request)
+        : requestFailure;
+      if (failure !== null) throw failure;
+      if (request.url.endsWith('/documents:beginTransaction')) {
+        return { status: 200, data: { transaction: 'synthetic-transaction' } };
+      }
       if (request.method === 'GET') {
         if (document === null) {
           const error = new Error('not_found');
           error.response = { status: 404 };
           throw error;
         }
-        return { data: document };
+        return { status: 200, data: document };
       }
-      if (request.url.endsWith(':commit')) {
+      if (request.url.endsWith('/documents:commit')) {
         const write = request.data.writes[0].update;
         document = { updateTime: 'synthetic-update-time', fields: write.fields };
-        return { data: { writeResults: [{}] } };
+        return { status: 200, data: { writeResults: [{}] } };
       }
       throw new Error('unexpected_request');
     },
@@ -59,7 +65,10 @@ const createStore = ({
   const authFactory = () => failAuth
     ? { getClient: async () => { throw new Error('adc_missing'); }, getProjectId: async () => projectId }
     : { getClient: async () => client, getProjectId: async () => projectId };
-  return { store: new NamedDatabaseAssistantCostLedgerStore({ authFactory }), requests };
+  return {
+    store: new NamedDatabaseAssistantCostLedgerStore({ authFactory, runtimeDiagnostics }),
+    requests,
+  };
 };
 
 test('ledger usa somente ADC e o banco nomeado, sem banco padrão', async () => {
@@ -77,6 +86,57 @@ test('ledger usa somente ADC e o banco nomeado, sem banco padrão', async () => 
   }
 });
 
+test('usa rotas REST oficiais e propaga a mesma transação entre leitura e commit', async () => {
+  const { store, requests } = createStore();
+  await store.runTransaction(() => ({ accepted: true }));
+
+  const root = 'https://firestore.googleapis.com/v1/projects/demo-assistant-controls/databases/assistant-controls-dev';
+  assert.equal(requests.length, 3);
+  assert.deepEqual(requests[0], {
+    method: 'POST', url: `${root}/documents:beginTransaction`, data: {},
+  });
+  assert.deepEqual(requests[1], {
+    method: 'GET',
+    url: `${root}/documents/assistantRuntime/ledger?transaction=synthetic-transaction`,
+  });
+  assert.equal(requests[2].method, 'POST');
+  assert.equal(requests[2].url, `${root}/documents:commit`);
+  assert.equal(requests[2].data.transaction, 'synthetic-transaction');
+  assert.equal(requests[2].data.writes.length, 1);
+  assert.equal(requests[2].data.writes[0].update.name, `${root}/documents/assistantRuntime/ledger`);
+  assert.ok(requests.every((request) => !/assistant-controls-dev:(?:beginTransaction|commit)$/u.test(request.url)));
+});
+
+test('diagnostica ADC e transporte HTTP sem alterar resultado ou expor requisição', async () => {
+  const events = [];
+  const runtimeDiagnostics = { report: (event) => events.push(event) };
+  const { store } = createStore({ runtimeDiagnostics });
+
+  assert.deepEqual(await store.runTransaction(() => ({ accepted: true })), { accepted: true });
+  assert.deepEqual(events, [
+    { stage: 'usage_adc_credentials', outcome: 'started' },
+    { stage: 'usage_adc_credentials', outcome: 'passed' },
+    { stage: 'usage_firestore_begin_transaction', outcome: 'started' },
+    { stage: 'usage_firestore_begin_transaction', outcome: 'passed', httpStatus: 200 },
+    { stage: 'usage_firestore_read', outcome: 'started' },
+    { stage: 'usage_firestore_read', outcome: 'passed', httpStatus: 200 },
+    { stage: 'usage_firestore_commit', outcome: 'started' },
+    { stage: 'usage_firestore_commit', outcome: 'passed', httpStatus: 200 },
+  ]);
+  assert.ok(events.every((event) => Object.keys(event).every(
+    (key) => ['stage', 'outcome', 'reason', 'httpStatus'].includes(key),
+  )));
+  assert.doesNotMatch(JSON.stringify(events), /synthetic|bearer|@/iu);
+});
+
+test('falha interna do diagnóstico não altera a transação', async () => {
+  const { store } = createStore({
+    runtimeDiagnostics: { report: () => { throw new Error('diagnostics_unavailable'); } },
+  });
+
+  assert.deepEqual(await store.runTransaction(() => ({ accepted: true })), { accepted: true });
+});
+
 test('reserva e confirmação idempotentes passam pela transação do banco nomeado sem identidade do usuário', async () => {
   const { store, requests } = createStore();
   const ledger = new AssistantCostControlLedger({
@@ -92,7 +152,7 @@ test('reserva e confirmação idempotentes passam pela transação do banco nome
   assert.deepEqual(repeatedReservation, reservation);
   assert.deepEqual(repeatedConfirmation, confirmation);
   assert.equal(confirmation.state, 'confirmed');
-  assert.equal(requests.filter((request) => request.url.endsWith(':commit')).length, 4);
+  assert.equal(requests.filter((request) => request.url.endsWith('/documents:commit')).length, 4);
   assert.doesNotMatch(JSON.stringify(requests), /\b(?:uid|email|authorization|bearer|prompt|response)\b/iu);
 });
 
@@ -120,18 +180,34 @@ test('não aceita identidade de usuário e aplica limite diário sem duplicar um
 });
 
 test('falha fechada para ADC indisponível ou banco incompatível', async () => {
-  const unavailable = createStore({ failAuth: true });
+  const events = [];
+  const unavailable = createStore({
+    failAuth: true,
+    runtimeDiagnostics: { report: (event) => events.push(event) },
+  });
   await rejectsReason(
     unavailable.store.runTransaction(() => ({})),
     'adc_authentication_unavailable',
   );
+  assert.deepEqual(events, [
+    { stage: 'usage_adc_credentials', outcome: 'started' },
+    {
+      stage: 'usage_adc_credentials',
+      outcome: 'failed',
+      reason: 'adc_authentication_unavailable',
+    },
+  ]);
 
   const incorrectProject = createStore({ projectId: '123' });
   await assert.rejects(incorrectProject.store.runTransaction(() => ({})), /assistant_named_ledger_unavailable/);
 });
 
 test('falha fechada quando o documento de controle ou o registro do proprietário não existe', async () => {
-  const missingDocument = createStore({ documentPresent: false });
+  const missingDocumentEvents = [];
+  const missingDocument = createStore({
+    documentPresent: false,
+    runtimeDiagnostics: { report: (event) => missingDocumentEvents.push(event) },
+  });
   const missingDocumentLedger = new AssistantCostControlLedger({
     store: missingDocument.store,
     clock: () => new Date('2026-09-07T12:00:00.000Z'),
@@ -140,6 +216,15 @@ test('falha fechada quando o documento de controle ou o registro do proprietári
     missingDocumentLedger.readUsage({ ownerScope }),
     'document_missing',
   );
+  assert.deepEqual(missingDocumentEvents.slice(-2), [
+    { stage: 'usage_firestore_read', outcome: 'started' },
+    {
+      stage: 'usage_firestore_read',
+      outcome: 'failed',
+      reason: 'document_missing',
+      httpStatus: 404,
+    },
+  ]);
 
   const missingOwner = createStore();
   const missingOwnerLedger = new AssistantCostControlLedger({
@@ -165,10 +250,23 @@ test('falha fechada quando o documento de controle ou o registro do proprietári
 test('classifica autorização e timeout somente pelos sinais técnicos da origem', async () => {
   const denied = new Error('opaque');
   denied.response = { status: 403 };
+  const deniedEvents = [];
   await rejectsReason(
-    createStore({ requestFailure: denied }).store.runTransaction(() => ({})),
+    createStore({
+      requestFailure: denied,
+      runtimeDiagnostics: { report: (event) => deniedEvents.push(event) },
+    }).store.runTransaction(() => ({})),
     'authorization_denied',
   );
+  assert.deepEqual(deniedEvents.slice(-2), [
+    { stage: 'usage_firestore_begin_transaction', outcome: 'started' },
+    {
+      stage: 'usage_firestore_begin_transaction',
+      outcome: 'failed',
+      reason: 'authorization_denied',
+      httpStatus: 403,
+    },
+  ]);
 
   const timeout = new Error('opaque');
   timeout.code = 'ETIMEDOUT';
@@ -176,6 +274,27 @@ test('classifica autorização e timeout somente pelos sinais técnicos da orige
     createStore({ requestFailure: timeout }).store.runTransaction(() => ({})),
     'timeout',
   );
+});
+
+test('falha de commit preserva status sanitizado e não retorna sucesso parcial', async () => {
+  const events = [];
+  const timeout = new Error('opaque');
+  timeout.response = { status: 504 };
+  const { store } = createStore({
+    requestFailure: (request) => request.url.endsWith('/documents:commit') ? timeout : null,
+    runtimeDiagnostics: { report: (event) => events.push(event) },
+  });
+
+  await rejectsReason(store.runTransaction(() => ({ accepted: true })), 'timeout');
+  assert.deepEqual(events.slice(-2), [
+    { stage: 'usage_firestore_commit', outcome: 'started' },
+    {
+      stage: 'usage_firestore_commit',
+      outcome: 'failed',
+      reason: 'timeout',
+      httpStatus: 504,
+    },
+  ]);
 });
 
 test('falha fechada quando a resposta do banco não preserva o estado estrito do ledger', async () => {

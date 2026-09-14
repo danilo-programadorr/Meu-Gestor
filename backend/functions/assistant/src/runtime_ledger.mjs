@@ -11,5 +11,9 @@ import { NamedDatabaseAssistantCostLedgerStore } from './named_database_ledger_s
  */
 export const createAssistantRuntimeLedger = ({
   clock = () => new Date(),
-  store = new NamedDatabaseAssistantCostLedgerStore(),
-} = {}) => new AssistantCostControlLedger({ clock, store });
+  runtimeDiagnostics = undefined,
+  store = undefined,
+} = {}) => new AssistantCostControlLedger({
+  clock,
+  store: store ?? new NamedDatabaseAssistantCostLedgerStore({ runtimeDiagnostics }),
+});

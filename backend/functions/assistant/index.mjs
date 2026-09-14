@@ -26,7 +26,7 @@ const providerGateway = createVertexRuntimeGateway({
 });
 const runtimeAdapters = createAssistantRuntimeAdapters();
 const runtimeDiagnostics = createSanitizedAssistantRuntimeDiagnostics();
-const ledger = createAssistantRuntimeLedger();
+const ledger = createAssistantRuntimeLedger({ runtimeDiagnostics });
 const dependencies = createFailClosedAssistantDependencies({
   HttpsError,
   providerGateway,

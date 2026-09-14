@@ -12,6 +12,10 @@ const stages = new Set([
   'owner_scoped_context_and_usage',
   'owner_scoped_context',
   'usage_reader',
+  'usage_adc_credentials',
+  'usage_firestore_begin_transaction',
+  'usage_firestore_read',
+  'usage_firestore_commit',
   'activation_plan',
   'ledger_reserve',
   'vertex_model',
@@ -21,14 +25,38 @@ const stages = new Set([
 const outcomes = new Set(['started', 'passed', 'blocked', 'failed']);
 const reasons = new Set(ASSISTANT_READER_FAILURE_REASONS);
 const readerStages = new Set(['owner_scoped_context', 'usage_reader']);
+const usageDiagnosticStages = new Set([
+  'usage_adc_credentials',
+  'usage_firestore_begin_transaction',
+  'usage_firestore_read',
+  'usage_firestore_commit',
+]);
+const usageHttpStages = new Set([
+  'usage_firestore_begin_transaction',
+  'usage_firestore_read',
+  'usage_firestore_commit',
+]);
+const validHttpStatus = (value) => Number.isInteger(value) && value >= 100 && value <= 599;
 const exactEvent = (event) => {
   if (event === null || typeof event !== 'object' || Array.isArray(event)) return false;
   const keys = Object.keys(event).sort().join('|');
-  if (keys === 'outcome|stage') return true;
-  return keys === 'outcome|reason|stage'
+  const diagnosticStage = readerStages.has(event.stage) || usageDiagnosticStages.has(event.stage);
+  if (keys === 'outcome|stage') {
+    return event.outcome !== 'failed' || !diagnosticStage;
+  }
+  if (keys === 'outcome|reason|stage') {
+    return event.outcome === 'failed' && diagnosticStage && reasons.has(event.reason);
+  }
+  if (keys === 'httpStatus|outcome|stage') {
+    return event.outcome === 'passed'
+      && usageHttpStages.has(event.stage)
+      && validHttpStatus(event.httpStatus);
+  }
+  return keys === 'httpStatus|outcome|reason|stage'
     && event.outcome === 'failed'
-    && readerStages.has(event.stage)
-    && reasons.has(event.reason);
+    && usageDiagnosticStages.has(event.stage)
+    && reasons.has(event.reason)
+    && validHttpStatus(event.httpStatus);
 };
 
 export function createSanitizedAssistantRuntimeDiagnostics({ emit = console.info } = {}) {

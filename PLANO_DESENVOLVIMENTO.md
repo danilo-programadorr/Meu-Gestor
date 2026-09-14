@@ -1034,6 +1034,20 @@ Situação: codebase `assistant` preparado somente localmente; não há Function
 - A identidade runtime é `defineString` sem valor versionado. Sem o parâmetro no processo de deploy, a configuração não pode ser materializada; nenhum `.env`, e-mail ou projeto entra no repositório.
 - Enquanto o kill switch estiver ativo e o provedor real desligado, a callable exige Auth/e-mail verificado/App Check e retorna somente `safe_unavailable`, sem consultar perfil, contexto, custos, ledger ou qualquer banco. Flash/Pro continuam contratos internos para ativação futura autorizada.
 
+## 67. ASSIST-USAGE-REST-FIX-1 — transação oficial e diagnóstico do uso
+
+- O ledger do banco nomeado usa as rotas oficiais `documents:beginTransaction`
+  e `documents:commit`; a leitura do documento continua dentro da mesma
+  transação e propaga o identificador somente no transporte privado. O
+  adaptador atual não possui operação de rollback a corrigir ou publicar.
+- A obtenção ADC e cada operação HTTP do Firestore emitem eventos separados,
+  limitados a etapa, resultado, motivo enumerado e status HTTP válido quando
+  disponível. URL, transação, identidade, token, conteúdo e erro bruto não são
+  serializados.
+- O adaptador permanece owner-scoped por hash derivado no backend, falha
+  fechado sem registro de uso e mantém reserva, confirmação, concorrência e
+  idempotência no banco `assistant-controls-dev`.
+
 ## 66. ASSIST-READERS-TRACE-UI-1 — diagnóstico individual e conclusão visual
 
 - Os leitores `owner_scoped_context` e `usage_reader` preservam execução
