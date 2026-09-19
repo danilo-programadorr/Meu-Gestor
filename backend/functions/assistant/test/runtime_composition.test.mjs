@@ -60,7 +60,7 @@ class FakeHttpsError extends Error {
   }
 }
 
-test('composição real admite hoje parcial, uso não zero e reserva de quota', async () => {
+test('composição real admite pergunta comum, hoje parcial, uso não zero e reserva de quota', async () => {
   const fetchImpl = async (url) => {
     if (url.includes('/assistantSettings/remote?')) {
       return { ok: true, json: async () => ({ fields: {
@@ -126,7 +126,7 @@ test('composição real admite hoje parcial, uso não zero e reserva de quota', 
     result = await callables.assistRemoteV1({
       data: {
         contractVersion: ASSISTANT_FLUTTER_CONTRACT_VERSION,
-        message: 'Compare cenários com múltiplas fontes confirmadas.',
+        message: 'Explique meu resumo financeiro.',
       },
       auth: { uid: ownerUid, token: { email_verified: true } },
       app: {},
@@ -147,4 +147,16 @@ test('composição real admite hoje parcial, uso não zero e reserva de quota', 
   assert.equal(Object.values(snapshot.records).length, 1);
   assert.equal(Object.values(snapshot.records)[0].state, 'confirmed');
   assert.equal(snapshot.daily['2026-09-13'].confirmedCostCents, 7);
+  assert.deepEqual(stages.slice(-10), [
+    { stage: 'activation_plan', outcome: 'started' },
+    { stage: 'activation_plan', outcome: 'passed' },
+    { stage: 'ledger_reserve', outcome: 'started' },
+    { stage: 'ledger_reserve', outcome: 'passed' },
+    { stage: 'vertex_model', outcome: 'started' },
+    { stage: 'vertex_model', outcome: 'passed' },
+    { stage: 'ledger_confirm', outcome: 'started' },
+    { stage: 'ledger_confirm', outcome: 'passed' },
+    { stage: 'response_validation', outcome: 'started' },
+    { stage: 'response_validation', outcome: 'passed' },
+  ]);
 });

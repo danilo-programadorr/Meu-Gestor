@@ -26,6 +26,24 @@ test('Pro exige múltiplos sinais de análise complexa decididos no backend', ()
   assert.equal(route.reason, 'complex_analysis');
 });
 
+test('contexto que excede Flash mas cabe em Pro é promovido sem ignorar limites', () => {
+  const route = new AssistantModelRouter().route({
+    message: 'Explique meu resumo financeiro',
+    context: context([{ summary: 'x'.repeat(2_600) }]),
+    usage: usage(),
+  });
+  assert.equal(route.tier, 'pro');
+  assert.equal(route.reason, 'context_capacity');
+  assert.throws(
+    () => new AssistantModelRouter().route({
+      message: 'Explique meu resumo financeiro',
+      context: context([{ summary: 'x'.repeat(6_100) }]),
+      usage: usage(),
+    }),
+    (error) => error.code === 'assistant_context_limit_exceeded',
+  );
+});
+
 test('limites de Pro falham fechados sem rebaixar análise complexa', () => {
   assert.throws(
     () => new AssistantModelRouter().route({

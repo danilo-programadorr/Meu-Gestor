@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  AssistantContractError,
   AssistantReaderFailure,
   ASSISTANT_REMOTE_CALLABLE_OPTIONS,
   ASSISTANT_SAFE_UNAVAILABLE,
@@ -30,9 +31,29 @@ const context = () => ({
   isFromServer: true,
   hasPendingWrites: false,
   ownerVerified: true,
-  generatedAt: '2026-09-01T00:00:00.000Z',
-  period: { start: '2026-09-01T00:00:00.000Z', end: '2026-09-01T00:00:00.000Z' },
-  facts: [],
+  generatedAt: '2026-09-02T03:00:00.000Z',
+  civilPeriod: {
+    timeZone: 'America/Sao_Paulo', startDate: '2026-09-01', endDateExclusive: '2026-09-02',
+  },
+  technicalWindow: {
+    start: '2026-09-01T03:00:00.000Z', endExclusive: '2026-09-02T03:00:00.000Z',
+  },
+  availableDataWindow: {
+    start: '2026-09-01T03:00:00.000Z', endExclusive: '2026-09-02T03:00:00.000Z',
+  },
+  periodComplete: true,
+  facts: [{
+    evidenceId: 'saldo_confirmado', source: 'dashboardSummary', kind: 'moneyCentsBrl', value: 75000,
+    civilPeriod: {
+      timeZone: 'America/Sao_Paulo', startDate: '2026-09-01', endDateExclusive: '2026-09-02',
+    },
+    evidence: {
+      alias: 'saldo_confirmado', source: 'dashboardSummary',
+      period: {
+        timeZone: 'America/Sao_Paulo', startDate: '2026-09-01', endDateExclusive: '2026-09-02',
+      },
+    },
+  }],
   missingSources: [],
 });
 
@@ -199,6 +220,31 @@ test('rota futura falha fechada sem bearer do envelope autenticado', async () =>
     (error) => error.code === 'unauthenticated',
   );
   assert.equal(calls.context, 0);
+});
+
+test('falha do plano é atribuída ao estágio correto com código sanitizado', async () => {
+  const events = [];
+  const { calls, invoke } = build({
+    killSwitchActive: false,
+    providerFeatureEnabled: true,
+    modelRouter: {
+      route: () => { throw new AssistantContractError('assistant_context_limit_exceeded'); },
+    },
+    runtimeDiagnostics: { report: (event) => events.push(event) },
+  });
+
+  await assert.rejects(invoke(request()), (error) => error.code === 'failed-precondition');
+  assert.deepEqual(events.slice(-4), [
+    { stage: 'usage_reader', outcome: 'passed' },
+    { stage: 'owner_scoped_context_and_usage', outcome: 'passed' },
+    { stage: 'activation_plan', outcome: 'started' },
+    {
+      stage: 'activation_plan', outcome: 'failed', code: 'assistant_context_limit_exceeded',
+    },
+  ]);
+  assert.deepEqual(calls, {
+    authorization: 1, context: 1, usage: 1, reserve: 0, confirm: 0, provider: 0,
+  });
 });
 
 test('diagnóstico runtime separa falha de uso e aguarda sucesso do contexto antes de falhar fechado', async () => {

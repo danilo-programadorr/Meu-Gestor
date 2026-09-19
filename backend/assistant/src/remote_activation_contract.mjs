@@ -5,6 +5,7 @@
 import { AssistantModelRouter } from './model_router.mjs';
 import { ASSISTANT_REAL_PROVIDER_FEATURE_ENABLED, resolveAssistantModelExecution } from './dual_model_execution.mjs';
 import { admitOwnFinancialContext, DEFAULT_ASSISTANT_CONTEXT_SCOPE } from './context_admission.mjs';
+import { AssistantContractError } from './errors.mjs';
 import { assertAuthorized, assertConfirmedContext, validateClientRequest } from './policy.mjs';
 
 export const ASSISTANT_FLUTTER_CONTRACT_VERSION = 'assist-remote-v1';
@@ -12,6 +13,42 @@ export const ASSISTANT_FLUTTER_CONTRACT_VERSION = 'assist-remote-v1';
 // This is deliberately compiled as enabled: the local-only boundary must fail
 // closed even if a future deployment configuration is incomplete.
 export const ASSISTANT_REMOTE_KILL_SWITCH_ACTIVE = true;
+
+// Códigos fechados da preparação; nenhum texto livre da exceção atravessa o
+// diagnóstico sanitizado da Function.
+export const ASSISTANT_ACTIVATION_FAILURE_CODES = Object.freeze([
+  'assistant_activation_control_invalid',
+  'assistant_app_check_required',
+  'assistant_consent_not_confirmed',
+  'assistant_consent_required',
+  'assistant_consent_version_outdated',
+  'assistant_context_admission_denied',
+  'assistant_context_limit_exceeded',
+  'assistant_email_not_verified',
+  'assistant_execution_plan_invalid',
+  'assistant_financial_privacy_active',
+  'assistant_flutter_contract_invalid',
+  'assistant_invalid_context',
+  'assistant_invalid_request',
+  'assistant_invalid_usage',
+  'assistant_legal_profile_required',
+  'assistant_owner_mismatch',
+  'assistant_pro_limit_reached',
+  'assistant_unauthenticated',
+  'assistant_unsafe_content',
+  'assistant_usage_limit_reached',
+  'assistant_activation_unclassified',
+]);
+const activationFailureCodes = new Set(ASSISTANT_ACTIVATION_FAILURE_CODES);
+
+export const sanitizedAssistantActivationFailureCode = (error) => {
+  const candidate = error instanceof AssistantContractError
+    ? error.code
+    : error instanceof TypeError
+      ? error.message
+      : null;
+  return activationFailureCodes.has(candidate) ? candidate : 'assistant_activation_unclassified';
+};
 
 const exactKeys = (value, keys) =>
   value !== null

@@ -6,6 +6,7 @@ import {
   ASSISTANT_REMOTE_KILL_SWITCH_ACTIVE,
   assertSanitizedAssistantOperationalMetric,
   prepareAssistantRemoteActivation,
+  sanitizedAssistantActivationFailureCode,
 } from '../src/index.mjs';
 import { AssistantContractError } from '../src/errors.mjs';
 
@@ -97,5 +98,16 @@ test('métrica operacional não aceita prompt, resposta, identidade ou valores',
   assert.throws(
     () => assertSanitizedAssistantOperationalMetric({ durationMs: 20, result: 'blocked', tier: 'flash', prompt: 'nunca registrar' }),
     /assistant_operational_metric_invalid/,
+  );
+});
+
+test('código de falha do plano é fechado e não propaga texto livre', () => {
+  assert.equal(
+    sanitizedAssistantActivationFailureCode(new AssistantContractError('assistant_context_limit_exceeded')),
+    'assistant_context_limit_exceeded',
+  );
+  assert.equal(
+    sanitizedAssistantActivationFailureCode(new Error('conteúdo não permitido no diagnóstico')),
+    'assistant_activation_unclassified',
   );
 });

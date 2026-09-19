@@ -50,7 +50,10 @@ export class AssistantModelRouter {
 
     const inputUnits = estimateInputUnits({ message, context });
     const signalCount = complexSignals.reduce((total, pattern) => total + Number(pattern.test(message)), 0);
-    const requiresPro = signalCount >= 2;
+    // Um contexto confirmado que não cabe no envelope Flash exige a capacidade
+    // Pro; o limite maior e a quota Pro continuam sendo aplicados abaixo.
+    const requiresProForAnalysis = signalCount >= 2;
+    const requiresPro = requiresProForAnalysis || inputUnits > this.limits.flashMaxInputUnits;
     if (!requiresPro) {
       if (inputUnits > this.limits.flashMaxInputUnits) throw deny('assistant_context_limit_exceeded');
       if (usage.costUnitsInWindow + this.limits.flashCostUnits > this.limits.costUnitsPerWindow) {
@@ -79,7 +82,7 @@ export class AssistantModelRouter {
       maxInputUnits: this.limits.proMaxInputUnits,
       maxOutputUnits: this.limits.proMaxOutputUnits,
       costUnits: this.limits.proCostUnits,
-      reason: 'complex_analysis',
+      reason: requiresProForAnalysis ? 'complex_analysis' : 'context_capacity',
     });
   }
 }

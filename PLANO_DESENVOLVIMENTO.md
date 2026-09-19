@@ -1034,6 +1034,19 @@ Situação: codebase `assistant` preparado somente localmente; não há Function
 - A identidade runtime é `defineString` sem valor versionado. Sem o parâmetro no processo de deploy, a configuração não pode ser materializada; nenhum `.env`, e-mail ou projeto entra no repositório.
 - Enquanto o kill switch estiver ativo e o provedor real desligado, a callable exige Auth/e-mail verificado/App Check e retorna somente `safe_unavailable`, sem consultar perfil, contexto, custos, ledger ou qualquer banco. Flash/Pro continuam contratos internos para ativação futura autorizada.
 
+## 69. ASSIST-ACTIVATION-PLAN-FIX-1 — capacidade do plano e diagnóstico
+
+Situação: corrigido e validado localmente antes do checkpoint development.
+
+- A composição real reproduziu `assistant_context_limit_exceeded`: o contexto
+  confirmado excedia Flash, mas cabia em Pro, enquanto a pergunta comum não
+  continha sinais semânticos suficientes para selecionar o tier maior.
+- O roteador agora promove esse caso a Pro, mantendo o teto Pro, o limite de
+  fatos e as quotas de custo e chamadas; contexto acima de Pro segue negado.
+- `activation_plan` passa a envolver a preparação e registra somente código
+  interno enumerado. A integração percorre plano, reserva, provedor simulado,
+  confirmação e admissão da resposta com os componentes reais.
+
 ## 68. ASSIST-USAGE-COMMIT-FIX-1 — resource name canônico no commit
 
 - `documents:commit` preserva o identificador de `beginTransaction` e um

@@ -84,6 +84,21 @@ test('diagnóstico do uso separa ADC e HTTP sem aceitar metadados sensíveis', (
   assert.doesNotMatch(emitted.join(''), /synthetic|bearer|@/iu);
 });
 
+test('diagnóstico do plano preserva somente código interno enumerado', () => {
+  const emitted = [];
+  const diagnostics = createSanitizedAssistantRuntimeDiagnostics({ emit: (line) => emitted.push(line) });
+  diagnostics.report({
+    stage: 'activation_plan', outcome: 'failed', code: 'assistant_context_limit_exceeded',
+  });
+  assert.deepEqual(emitted.map(JSON.parse), [{
+    event: 'assistant_runtime_stage',
+    stage: 'activation_plan',
+    outcome: 'failed',
+    code: 'assistant_context_limit_exceeded',
+  }]);
+  assert.doesNotMatch(emitted[0], /message|stack|bearer|@/iu);
+});
+
 test('diagnóstico sanitizado rejeita campos ou valores fora do contrato', () => {
   const diagnostics = createSanitizedAssistantRuntimeDiagnostics({ emit: () => undefined });
   assert.throws(
@@ -114,6 +129,14 @@ test('diagnóstico sanitizado rejeita campos ou valores fora do contrato', () =>
   );
   assert.throws(
     () => diagnostics.report({ stage: 'usage_firestore_read', outcome: 'failed' }),
+    /assistant_runtime_diagnostics_event_invalid/,
+  );
+  assert.throws(
+    () => diagnostics.report({ stage: 'activation_plan', outcome: 'failed', code: 'unknown' }),
+    /assistant_runtime_diagnostics_event_invalid/,
+  );
+  assert.throws(
+    () => diagnostics.report({ stage: 'activation_plan', outcome: 'failed' }),
     /assistant_runtime_diagnostics_event_invalid/,
   );
   assert.throws(

@@ -7,6 +7,7 @@ import {
   ASSISTANT_FLUTTER_CONTRACT_VERSION,
   ASSISTANT_REMOTE_KILL_SWITCH_ACTIVE,
   prepareAssistantRemoteActivation,
+  sanitizedAssistantActivationFailureCode,
   validateFlutterAssistantRequest,
 } from './remote_activation_contract.mjs';
 import {
@@ -151,6 +152,8 @@ export function createAssistRemoteV1Callables({
         reportRuntimeStage(diagnostics, stage, 'passed');
         // The port is intentionally not called while the provider is disabled.
         // Its strict shape prevents a later activation from bypassing the ledger.
+        stage = 'activation_plan';
+        reportRuntimeStage(diagnostics, stage, 'started');
         const plan = prepareAssistantRemoteActivation({
           flutterRequest: request.data,
           authorization,
@@ -161,9 +164,10 @@ export function createAssistRemoteV1Callables({
           providerFeatureEnabled: runtimeProviderFeatureEnabled,
         });
         if (!plan.allowed) {
-          reportRuntimeStage(diagnostics, 'activation_plan', 'blocked');
+          reportRuntimeStage(diagnostics, stage, 'blocked');
           return ASSISTANT_SAFE_UNAVAILABLE;
         }
+        reportRuntimeStage(diagnostics, stage, 'passed');
         const execution = resolveAssistantModelExecution({
           routing: Object.freeze({ tier: plan.tier }),
           featureEnabled: runtimeProviderFeatureEnabled,
@@ -206,7 +210,14 @@ export function createAssistRemoteV1Callables({
         reportRuntimeStage(diagnostics, stage, 'passed');
         return response;
       } catch (error) {
-        reportRuntimeStage(diagnostics, stage, 'failed');
+        reportRuntimeStage(
+          diagnostics,
+          stage,
+          'failed',
+          stage === 'activation_plan'
+            ? { code: sanitizedAssistantActivationFailureCode(error) }
+            : undefined,
+        );
         throw toHttpsError(error, HttpsError);
       }
     }),
@@ -221,11 +232,11 @@ function normalizeRuntimeDiagnostics(runtimeDiagnostics) {
   return runtimeDiagnostics;
 }
 
-function reportRuntimeStage(diagnostics, stage, outcome, reason = undefined) {
+function reportRuntimeStage(diagnostics, stage, outcome, details = undefined) {
   if (diagnostics === null) return;
   // A porta recebe somente rótulos constantes; nunca request, erro, UID ou conteúdo.
   try {
-    diagnostics.report(reason === undefined ? { stage, outcome } : { stage, outcome, reason });
+    diagnostics.report(details === undefined ? { stage, outcome } : { stage, outcome, ...details });
   } catch {
     // Diagnóstico é observabilidade best-effort e não pode alterar o fail-closed.
   }
@@ -240,7 +251,7 @@ async function traceRuntimeReader({ diagnostics, stage, read }) {
     reportRuntimeStage(diagnostics, stage, 'passed');
     return result;
   } catch (error) {
-    reportRuntimeStage(diagnostics, stage, 'failed', assistantReaderFailureReason(error));
+    reportRuntimeStage(diagnostics, stage, 'failed', { reason: assistantReaderFailureReason(error) });
     throw error;
   }
 }

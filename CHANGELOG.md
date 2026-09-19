@@ -2,6 +2,9 @@
 
 ## Em desenvolvimento
 
+- ASSIST-ACTIVATION-PLAN-FIX-1 promove ao tier Pro contextos confirmados que
+  excedem a capacidade Flash, preservando limites e quotas; o marcador do plano
+  agora registra início, sucesso ou código fechado de falha antes do ledger;
 - ASSIST-USAGE-COMMIT-FIX-1 corrige `writes[].update.name` do ledger para o
   resource name canônico do Firestore, preservando transação, precondição,
   isolamento owner-scoped e falha fechada; a sequência foi validada também
