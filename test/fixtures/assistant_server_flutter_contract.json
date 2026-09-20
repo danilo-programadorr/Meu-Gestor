@@ -1,0 +1,97 @@
+{
+  "contractVersion": "assist-remote-v1",
+  "cases": [
+    {
+      "name": "grounded",
+      "providerResult": {
+        "response": {
+          "schemaVersion": 1,
+          "status": "grounded",
+          "answer": "Resumo confirmado por uma evidência.",
+          "assertions": [
+            {
+              "statement": "O saldo confirmado é 75000 centavos.",
+              "evidence": {
+                "alias": "saldo_confirmado",
+                "source": "dashboardSummary",
+                "period": {
+                  "timeZone": "America/Sao_Paulo",
+                  "startDate": "2026-09-01",
+                  "endDateExclusive": "2026-09-02"
+                }
+              }
+            }
+          ],
+          "missingData": [],
+          "disclaimer": "Conteúdo informativo; nenhuma ação financeira foi realizada."
+        },
+        "durationMs": 25,
+        "confirmedCostCents": 7
+      },
+      "expectedResponse": {
+        "schemaVersion": 1,
+        "status": "grounded",
+        "answer": "Resumo confirmado por uma evidência.",
+        "assertions": [
+          {
+            "statement": "O saldo confirmado é 75000 centavos.",
+            "evidence": {
+              "alias": "saldo_confirmado",
+              "source": "dashboardSummary",
+              "period": {
+                "timeZone": "America/Sao_Paulo",
+                "startDate": "2026-09-01",
+                "endDateExclusive": "2026-09-02"
+              }
+            }
+          }
+        ],
+        "missingData": [],
+        "disclaimer": "Conteúdo informativo; nenhuma ação financeira foi realizada."
+      },
+      "expectedFinalStatus": "grounded",
+      "expectedReason": null,
+      "expectedFlutterGrounded": true
+    },
+    {
+      "name": "insufficient_evidence",
+      "providerResult": {
+        "response": {
+          "schemaVersion": 1,
+          "status": "safe_unavailable",
+          "answer": "Não há dados confirmados suficientes para responder com segurança.",
+          "assertions": [],
+          "missingData": [
+            "confirmed_financial_evidence"
+          ],
+          "disclaimer": "Conteúdo informativo; nenhuma ação financeira foi realizada."
+        },
+        "durationMs": 25,
+        "confirmedCostCents": 7
+      },
+      "expectedResponse": {
+        "status": "safe_unavailable",
+        "contractVersion": "assist-remote-v1"
+      },
+      "expectedFinalStatus": "safe_unavailable",
+      "expectedReason": "provider_reported_insufficient_evidence",
+      "expectedFlutterGrounded": false
+    },
+    {
+      "name": "invalid_model_output",
+      "providerResult": {
+        "response": null,
+        "providerOutputIssue": "provider_output_invalid_json",
+        "durationMs": 25,
+        "confirmedCostCents": 7
+      },
+      "expectedResponse": {
+        "status": "safe_unavailable",
+        "contractVersion": "assist-remote-v1"
+      },
+      "expectedFinalStatus": "safe_unavailable",
+      "expectedReason": "provider_output_invalid_json",
+      "expectedFlutterGrounded": false
+    }
+  ]
+}

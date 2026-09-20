@@ -157,6 +157,6 @@ test('composição real admite pergunta comum, hoje parcial, uso não zero e res
     { stage: 'ledger_confirm', outcome: 'started' },
     { stage: 'ledger_confirm', outcome: 'passed' },
     { stage: 'response_validation', outcome: 'started' },
-    { stage: 'response_validation', outcome: 'passed' },
+    { stage: 'response_validation', outcome: 'passed', finalStatus: 'grounded' },
   ]);
 });

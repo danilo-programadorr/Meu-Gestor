@@ -1047,6 +1047,21 @@ Situação: corrigido e validado localmente antes do checkpoint development.
   interno enumerado. A integração percorre plano, reserva, provedor simulado,
   confirmação e admissão da resposta com os componentes reais.
 
+## 70. ASSIST-RESPONSE-FALLBACK-CONTRACT-1 — contrato final e diagnóstico
+
+- A admissão classifica o resultado final como `grounded` ou
+  `safe_unavailable`; neste último caso, preserva somente um motivo enumerado
+  originado na interpretação, no formato ou no vínculo de evidência.
+- A callable entrega qualquer fallback exclusivamente como o envelope mínimo
+  `assist-remote-v1` aceito pelo Flutter. Conteúdo sem evidência, inválido ou
+  inseguro nunca é promovido a resposta fundamentada.
+- O pedido Vertex declara schema JSON e instruções explícitas para copiar
+  alias, fonte e período do contexto confirmado. A barreira local permanece
+  autoritativa e continua rejeitando números, fontes e períodos sem vínculo.
+- Um contrato compartilhado de teste percorre callable, quota, admissão e
+  parser Flutter para resposta válida, ausência legítima de evidência e saída
+  inválida do modelo, sem inferência externa.
+
 ## 68. ASSIST-USAGE-COMMIT-FIX-1 — resource name canônico no commit
 
 - `documents:commit` preserva o identificador de `beginTransaction` e um

@@ -99,10 +99,49 @@ test('diagnóstico do plano preserva somente código interno enumerado', () => {
   assert.doesNotMatch(emitted[0], /message|stack|bearer|@/iu);
 });
 
+test('diagnóstico final distingue grounded e fallback por motivo fechado', () => {
+  const emitted = [];
+  const diagnostics = createSanitizedAssistantRuntimeDiagnostics({ emit: (line) => emitted.push(line) });
+  diagnostics.report({
+    stage: 'response_validation', outcome: 'passed', finalStatus: 'grounded',
+  });
+  diagnostics.report({
+    stage: 'response_validation',
+    outcome: 'passed',
+    finalStatus: 'safe_unavailable',
+    reason: 'provider_reported_insufficient_evidence',
+  });
+  assert.deepEqual(emitted.map(JSON.parse), [
+    {
+      event: 'assistant_runtime_stage',
+      stage: 'response_validation',
+      outcome: 'passed',
+      finalStatus: 'grounded',
+    },
+    {
+      event: 'assistant_runtime_stage',
+      stage: 'response_validation',
+      outcome: 'passed',
+      finalStatus: 'safe_unavailable',
+      reason: 'provider_reported_insufficient_evidence',
+    },
+  ]);
+  assert.doesNotMatch(emitted.join(''), /message|stack|bearer|@|answer|assertion/iu);
+});
+
 test('diagnóstico sanitizado rejeita campos ou valores fora do contrato', () => {
   const diagnostics = createSanitizedAssistantRuntimeDiagnostics({ emit: () => undefined });
   assert.throws(
     () => diagnostics.report({ stage: 'owner_scoped_context_and_usage', outcome: 'failed', uid: 'synthetic-user' }),
+    /assistant_runtime_diagnostics_event_invalid/,
+  );
+  assert.throws(
+    () => diagnostics.report({
+      stage: 'response_validation',
+      outcome: 'passed',
+      finalStatus: 'safe_unavailable',
+      reason: 'guessed_reason',
+    }),
     /assistant_runtime_diagnostics_event_invalid/,
   );
   assert.throws(

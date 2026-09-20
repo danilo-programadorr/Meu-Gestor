@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -133,4 +134,32 @@ void main() {
       throwsA(isA<AssistantFailure>()),
     );
   });
+
+  test(
+    'contrato completo da callable é consumido sem reinterpretar fallback',
+    () {
+      final Map<String, Object?> fixture =
+          jsonDecode(
+                File(
+                  'test/fixtures/assistant_server_flutter_contract.json',
+                ).readAsStringSync(),
+              )
+              as Map<String, Object?>;
+      final List<Object?> cases = fixture['cases']! as List<Object?>;
+
+      for (final Object? value in cases) {
+        final Map<String, Object?> contractCase =
+            value! as Map<String, Object?>;
+        final AssistantRemoteResponse response =
+            AssistantRemoteResponse.fromCallableData(
+              contractCase['expectedResponse'],
+            );
+        expect(
+          response.isGrounded,
+          contractCase['expectedFlutterGrounded'],
+          reason: contractCase['name']! as String,
+        );
+      }
+    },
+  );
 }

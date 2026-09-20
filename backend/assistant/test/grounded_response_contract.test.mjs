@@ -27,23 +27,51 @@ const response = Object.freeze({
 });
 
 test('admite resposta fundamentada somente por alias, fonte e período confirmados', () => {
-  assert.equal(admitGroundedAssistantResponse({ response, context }).status, 'grounded');
+  const admission = admitGroundedAssistantResponse({ response, context });
+  assert.equal(admission.finalStatus, 'grounded');
+  assert.equal(admission.response.status, 'grounded');
+  assert.equal('reason' in admission, false);
 });
 
-for (const [name, altered] of [
-  ['sem evidência', { ...response, assertions: [{ statement: 'Resumo confirmado.' }] }],
-  ['fonte inválida', { ...response, assertions: [{ ...response.assertions[0], evidence: { ...fact.evidence, source: 'transactions' } }] }],
-  ['período inválido', { ...response, assertions: [{ ...response.assertions[0], evidence: { ...fact.evidence, period: { ...period, timeZone: 'UTC' } } }] }],
-  ['número sem evidência', { ...response, assertions: [{ ...response.assertions[0], statement: 'O saldo confirmado é 999 centavos.' }] }],
-  ['recomendação', { ...response, assertions: [{ ...response.assertions[0], statement: 'Compre agora por 125000 centavos.' }] }],
-  ['identidade', { ...response, answer: 'Contate pessoa@exemplo.com.' }],
+for (const [name, altered, reason] of [
+  ['sem evidência', { ...response, assertions: [{ statement: 'Resumo confirmado.' }] }, 'assertion_shape_invalid'],
+  ['fonte inválida', { ...response, assertions: [{ ...response.assertions[0], evidence: { ...fact.evidence, source: 'transactions' } }] }, 'evidence_source_mismatch'],
+  ['período inválido', { ...response, assertions: [{ ...response.assertions[0], evidence: { ...fact.evidence, period: { ...period, timeZone: 'UTC' } } }] }, 'evidence_period_invalid'],
+  ['número sem evidência', { ...response, assertions: [{ ...response.assertions[0], statement: 'O saldo confirmado é 999 centavos.' }] }, 'assertion_value_ungrounded'],
+  ['recomendação', { ...response, assertions: [{ ...response.assertions[0], statement: 'Compre agora por 125000 centavos.' }] }, 'assertion_text_unsafe'],
+  ['identidade', { ...response, answer: 'Contate pessoa@exemplo.com.' }, 'response_text_unsafe'],
 ]) {
   test(`falha fechada com ${name}`, () => {
-    const result = admitGroundedAssistantResponse({ response: altered, context });
-    assert.equal(result.status, 'safe_unavailable');
-    assert.equal(result.assertions.length, 0);
+    const admission = admitGroundedAssistantResponse({ response: altered, context });
+    assert.equal(admission.finalStatus, 'safe_unavailable');
+    assert.equal(admission.reason, reason);
+    assert.equal(admission.response.assertions.length, 0);
   });
 }
+
+test('classifica ausência legítima e falha de interpretação sem promover resposta', () => {
+  const insufficient = admitGroundedAssistantResponse({
+    response: {
+      schemaVersion: 1,
+      status: 'safe_unavailable',
+      answer: 'Não há dados confirmados suficientes para responder com segurança.',
+      assertions: [],
+      missingData: ['confirmed_financial_evidence'],
+      disclaimer: 'Conteúdo informativo; nenhuma ação financeira foi realizada.',
+    },
+    context,
+  });
+  assert.equal(insufficient.finalStatus, 'safe_unavailable');
+  assert.equal(insufficient.reason, 'provider_reported_insufficient_evidence');
+
+  const invalidJson = admitGroundedAssistantResponse({
+    response: null,
+    context,
+    providerOutputIssue: 'provider_output_invalid_json',
+  });
+  assert.equal(invalidJson.finalStatus, 'safe_unavailable');
+  assert.equal(invalidJson.reason, 'provider_output_invalid_json');
+});
 
 test('monta contexto somente após admissão e sem expor identidade na saída', async () => {
   let reads = 0;

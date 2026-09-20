@@ -28,6 +28,8 @@ export {
 } from './authorized_context_assembler.mjs';
 export {
   ASSISTANT_GROUNDED_RESPONSE_CONTRACT_VERSION,
+  ASSISTANT_RESPONSE_FALLBACK_REASONS,
+  ASSISTANT_RESPONSE_FINAL_STATUSES,
   ASSISTANT_SAFE_INSUFFICIENT_EVIDENCE_RESPONSE,
   admitGroundedAssistantResponse,
   assertGroundedAssistantResponse,
@@ -53,6 +55,8 @@ export {
 export {
   ASSISTANT_VERTEX_GLOBAL_API_ENDPOINT,
   ASSISTANT_VERTEX_LOCATION,
+  ASSISTANT_VERTEX_PROMPT_VERSION,
+  ASSISTANT_VERTEX_RESPONSE_SCHEMA,
   assistantVertexClientConfiguration,
   createVertexRuntimeGateway,
 } from './vertex_runtime_gateway.mjs';

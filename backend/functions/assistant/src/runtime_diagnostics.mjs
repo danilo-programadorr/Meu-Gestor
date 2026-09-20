@@ -5,6 +5,8 @@
 import {
   ASSISTANT_ACTIVATION_FAILURE_CODES,
   ASSISTANT_READER_FAILURE_REASONS,
+  ASSISTANT_RESPONSE_FALLBACK_REASONS,
+  ASSISTANT_RESPONSE_FINAL_STATUSES,
 } from '../shared/index.mjs';
 
 const stages = new Set([
@@ -28,6 +30,8 @@ const stages = new Set([
 const outcomes = new Set(['started', 'passed', 'blocked', 'failed']);
 const reasons = new Set(ASSISTANT_READER_FAILURE_REASONS);
 const activationFailureCodes = new Set(ASSISTANT_ACTIVATION_FAILURE_CODES);
+const responseFallbackReasons = new Set(ASSISTANT_RESPONSE_FALLBACK_REASONS);
+const responseFinalStatuses = new Set(ASSISTANT_RESPONSE_FINAL_STATUSES);
 const readerStages = new Set(['owner_scoped_context', 'usage_reader']);
 const usageDiagnosticStages = new Set([
   'usage_adc_credentials',
@@ -61,6 +65,18 @@ const exactEvent = (event) => {
     return event.outcome === 'passed'
       && usageHttpStages.has(event.stage)
       && validHttpStatus(event.httpStatus);
+  }
+  if (keys === 'finalStatus|outcome|stage') {
+    return event.stage === 'response_validation'
+      && event.outcome === 'passed'
+      && event.finalStatus === 'grounded';
+  }
+  if (keys === 'finalStatus|outcome|reason|stage') {
+    return event.stage === 'response_validation'
+      && event.outcome === 'passed'
+      && event.finalStatus === 'safe_unavailable'
+      && responseFinalStatuses.has(event.finalStatus)
+      && responseFallbackReasons.has(event.reason);
   }
   return keys === 'httpStatus|outcome|reason|stage'
     && event.outcome === 'failed'

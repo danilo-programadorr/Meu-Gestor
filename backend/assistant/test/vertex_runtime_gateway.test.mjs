@@ -4,6 +4,8 @@ import test from 'node:test';
 import {
   ASSISTANT_VERTEX_GLOBAL_API_ENDPOINT,
   ASSISTANT_VERTEX_LOCATION,
+  ASSISTANT_VERTEX_PROMPT_VERSION,
+  ASSISTANT_VERTEX_RESPONSE_SCHEMA,
   assistantVertexClientConfiguration,
   createVertexRuntimeGateway,
 } from '../src/index.mjs';
@@ -88,10 +90,36 @@ test('fake local valida plano, usa Flash e devolve somente JSON estruturado', as
   assert.equal(calls[0].configuration.location, ASSISTANT_VERTEX_LOCATION);
   assert.equal(calls[0].configuration.apiEndpoint, ASSISTANT_VERTEX_GLOBAL_API_ENDPOINT);
   assert.equal(calls[1].modelConfiguration.model, 'gemini-2.5-flash');
+  assert.deepEqual(calls[1].modelConfiguration.generationConfig.responseSchema, ASSISTANT_VERTEX_RESPONSE_SCHEMA);
   assert.equal(calls[2].request.contents[0].role, 'user');
+  const prompt = JSON.parse(calls[2].request.contents[0].parts[0].text);
+  assert.equal(prompt.promptVersion, ASSISTANT_VERTEX_PROMPT_VERSION);
+  assert.deepEqual(prompt.request, providerRequest);
+  assert.ok(prompt.instructions.some((instruction) => instruction.includes('evidência')));
   assert.equal(result.confirmedCostCents, 20);
   assert.equal(result.durationMs, 25);
   assert.equal(result.response.status, 'grounded');
+  assert.equal('providerOutputIssue' in result, false);
+});
+
+test('saída ausente ou não JSON chega à admissão somente por código enumerado', async () => {
+  for (const [candidate, expectedIssue] of [
+    [{ response: { candidates: [] } }, 'provider_output_missing'],
+    [{ response: { candidates: [{ content: { parts: [{ text: 'x'.repeat(20_001) }] } }] } }, 'provider_output_too_large'],
+    [{ response: { candidates: [{ content: { parts: [{ text: 'não-json' }] } }] } }, 'provider_output_invalid_json'],
+  ]) {
+    const gateway = createVertexRuntimeGateway({
+      providerFeatureEnabled: true,
+      killSwitchActive: false,
+      projectIdReader: () => 'synthetic-project',
+      vertexAiFactory: async () => ({
+        getGenerativeModel: () => ({ generateContent: async () => candidate }),
+      }),
+    });
+    const result = await gateway.generate({ execution, maximumCostCents: 20, providerRequest });
+    assert.equal(result.response, null);
+    assert.equal(result.providerOutputIssue, expectedIssue);
+  }
 });
 
 test('configura endpoint explícito apenas para location global', () => {

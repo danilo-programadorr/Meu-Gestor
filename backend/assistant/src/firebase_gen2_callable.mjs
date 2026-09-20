@@ -206,9 +206,25 @@ export function createAssistRemoteV1Callables({
         reportRuntimeStage(diagnostics, stage, 'passed');
         stage = 'response_validation';
         reportRuntimeStage(diagnostics, stage, 'started');
-        const response = admitGroundedAssistantResponse({ response: providerResult.response, context });
-        reportRuntimeStage(diagnostics, stage, 'passed');
-        return response;
+        const admission = admitGroundedAssistantResponse({
+          response: providerResult.response,
+          context,
+          providerOutputIssue: providerResult.providerOutputIssue,
+        });
+        // O diagnóstico conserva somente status e motivo enumerados. O fallback
+        // entregue ao Flutter permanece mínimo e nunca promove ausência de
+        // evidência para uma resposta fundamentada.
+        reportRuntimeStage(
+          diagnostics,
+          stage,
+          'passed',
+          admission.finalStatus === 'grounded'
+            ? { finalStatus: admission.finalStatus }
+            : { finalStatus: admission.finalStatus, reason: admission.reason },
+        );
+        return admission.finalStatus === 'grounded'
+          ? admission.response
+          : ASSISTANT_SAFE_UNAVAILABLE;
       } catch (error) {
         reportRuntimeStage(
           diagnostics,
