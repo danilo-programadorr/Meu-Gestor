@@ -96,6 +96,8 @@ test('fake local valida plano, usa Flash e devolve somente JSON estruturado', as
   assert.equal(prompt.promptVersion, ASSISTANT_VERTEX_PROMPT_VERSION);
   assert.deepEqual(prompt.request, providerRequest);
   assert.ok(prompt.instructions.some((instruction) => instruction.includes('evidência')));
+  assert.ok(prompt.instructions.some((instruction) => instruction.includes('moneyCentsBrl')));
+  assert.ok(prompt.instructions.some((instruction) => instruction.includes('answer')));
   assert.equal(result.confirmedCostCents, 20);
   assert.equal(result.durationMs, 25);
   assert.equal(result.response.status, 'grounded');

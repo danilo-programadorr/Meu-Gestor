@@ -1062,6 +1062,19 @@ Situação: corrigido e validado localmente antes do checkpoint development.
   parser Flutter para resposta válida, ausência legítima de evidência e saída
   inválida do modelo, sem inferência externa.
 
+## 71. ASSIST-GROUNDED-NUMERIC-1 — grandezas tipadas e renderização canônica
+
+- A admissão compara números pela grandeza declarada no fato confirmado:
+  dinheiro usa centavos inteiros BRL, contagens usam inteiros, taxas usam
+  pontos-base e datas usam data civil ou instante UTC exato. Não há tolerância
+  aproximada nem conversão por ponto flutuante.
+- Formatações brasileiras equivalentes são aceitas, mas valor divergente,
+  sinal trocado, unidade incompatível, número extra e evidência não numérica
+  continuam produzindo fallback com motivos sanitizados distintos.
+- Valores financeiros admitidos no texto principal e nas afirmações são
+  renderizados novamente pelo servidor a partir dos centavos validados. O
+  contrato Flutter permanece inalterado e não recebe conteúdo rejeitado.
+
 ## 68. ASSIST-USAGE-COMMIT-FIX-1 — resource name canônico no commit
 
 - `documents:commit` preserva o identificador de `beginTransaction` e um

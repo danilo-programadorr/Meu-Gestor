@@ -98,11 +98,14 @@ test('composição real admite pergunta comum, hoje parcial, uso não zero e res
   const providerGateway = {
     async generate({ providerRequest }) {
       providerContext = providerRequest.context;
-      const evidence = providerRequest.context.facts[0].evidence;
+      const moneyFact = providerRequest.context.facts.find(
+        (fact) => fact.source === 'accounts' && fact.kind === 'moneyCentsBrl',
+      );
+      const evidence = moneyFact.evidence;
       return {
         response: {
-          schemaVersion: 1, status: 'grounded', answer: 'Resumo confirmado.',
-          assertions: [{ statement: 'Há dados confirmados no período.', evidence }], missingData: [],
+          schemaVersion: 1, status: 'grounded', answer: 'O saldo inicial é R$ 1250,0.',
+          assertions: [{ statement: 'O saldo inicial é 125000 centavos.', evidence }], missingData: [],
           disclaimer: 'Conteúdo informativo; nenhuma ação financeira foi realizada.',
         },
         durationMs: 25,
@@ -137,6 +140,8 @@ test('composição real admite pergunta comum, hoje parcial, uso não zero e res
   }
 
   assert.equal(result.status, 'grounded');
+  assert.equal(result.answer, 'O saldo inicial é R$ 1.250,00.');
+  assert.equal(result.assertions[0].statement, 'O saldo inicial é R$ 1.250,00.');
   assert.equal(providerContext.civilPeriod.startDate, '2026-09-13');
   assert.equal(providerContext.periodComplete, false);
   assert.equal(providerContext.availableDataWindow.endExclusive, now.toISOString());

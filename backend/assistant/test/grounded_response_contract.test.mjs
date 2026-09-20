@@ -22,7 +22,7 @@ const context = Object.freeze({
 });
 const response = Object.freeze({
   schemaVersion: 1, status: 'grounded', answer: 'Resumo confirmado.',
-  assertions: [{ statement: 'O saldo confirmado é 125000 centavos.', evidence: fact.evidence }],
+  assertions: [{ statement: 'O saldo confirmado é R$ 1.250,00.', evidence: fact.evidence }],
   missingData: [], disclaimer: 'Conteúdo informativo; nenhuma ação financeira foi realizada.',
 });
 
@@ -37,8 +37,8 @@ for (const [name, altered, reason] of [
   ['sem evidência', { ...response, assertions: [{ statement: 'Resumo confirmado.' }] }, 'assertion_shape_invalid'],
   ['fonte inválida', { ...response, assertions: [{ ...response.assertions[0], evidence: { ...fact.evidence, source: 'transactions' } }] }, 'evidence_source_mismatch'],
   ['período inválido', { ...response, assertions: [{ ...response.assertions[0], evidence: { ...fact.evidence, period: { ...period, timeZone: 'UTC' } } }] }, 'evidence_period_invalid'],
-  ['número sem evidência', { ...response, assertions: [{ ...response.assertions[0], statement: 'O saldo confirmado é 999 centavos.' }] }, 'assertion_value_ungrounded'],
-  ['recomendação', { ...response, assertions: [{ ...response.assertions[0], statement: 'Compre agora por 125000 centavos.' }] }, 'assertion_text_unsafe'],
+  ['número divergente', { ...response, assertions: [{ ...response.assertions[0], statement: 'O saldo confirmado é R$ 9,99.' }] }, 'assertion_numeric_value_mismatch'],
+  ['recomendação', { ...response, assertions: [{ ...response.assertions[0], statement: 'Compre agora por R$ 1.250,00.' }] }, 'assertion_text_unsafe'],
   ['identidade', { ...response, answer: 'Contate pessoa@exemplo.com.' }, 'response_text_unsafe'],
 ]) {
   test(`falha fechada com ${name}`, () => {
@@ -48,6 +48,103 @@ for (const [name, altered, reason] of [
     assert.equal(admission.response.assertions.length, 0);
   });
 }
+
+const admissionForFact = ({
+  kind,
+  value,
+  statement,
+  answer = 'Resumo confirmado.',
+  disclaimer = 'Conteúdo informativo; nenhuma ação financeira foi realizada.',
+}) => {
+  const typedFact = Object.freeze({ ...fact, kind, value });
+  return admitGroundedAssistantResponse({
+    context: { ...context, facts: [typedFact] },
+    response: {
+      ...response,
+      answer,
+      disclaimer,
+      assertions: [{ statement, evidence: typedFact.evidence }],
+    },
+  });
+};
+
+for (const [name, input, expectedStatement] of [
+  ['BRL com milhar e centavos', { kind: 'moneyCentsBrl', value: 125000, statement: 'Saldo de R$ 1.250,00.' }, 'Saldo de R$ 1.250,00.'],
+  ['BRL decimal equivalente', { kind: 'moneyCentsBrl', value: 125000, statement: 'Saldo de R$ 1250,0.' }, 'Saldo de R$ 1.250,00.'],
+  ['BRL negativo', { kind: 'moneyCentsBrl', value: -4500, statement: 'Resultado de -45 reais.' }, 'Resultado de -R$ 45,00.'],
+  ['contagem inteira', { kind: 'integer', value: 12, statement: 'Há 12 contas confirmadas.' }, 'Há 12 contas confirmadas.'],
+  ['pontos-base como percentual', { kind: 'basisPoints', value: 150, statement: 'A taxa é 1,50%.' }, 'A taxa é 1,50%.'],
+  ['pontos-base negativos', { kind: 'basisPoints', value: -25, statement: 'A variação é -25 pontos-base.' }, 'A variação é -25 pontos-base.'],
+  ['data civil brasileira', { kind: 'civilDate', value: '2026-09-20', statement: 'A data confirmada é 20/09/2026.' }, 'A data confirmada é 20/09/2026.'],
+  ['instante como data civil de São Paulo', { kind: 'utcInstant', value: '2026-09-20T03:00:00.000Z', statement: 'O vencimento é 20/09/2026.' }, 'O vencimento é 20/09/2026.'],
+]) {
+  test(`admite equivalência semântica exata para ${name}`, () => {
+    const admission = admissionForFact(input);
+    assert.equal(admission.finalStatus, 'grounded');
+    assert.equal(admission.response.assertions[0].statement, expectedStatement);
+  });
+}
+
+for (const [name, input, reason] of [
+  ['valor financeiro diferente', { kind: 'moneyCentsBrl', value: 125000, statement: 'Saldo de R$ 1.249,99.' }, 'assertion_numeric_value_mismatch'],
+  ['sinal financeiro trocado', { kind: 'moneyCentsBrl', value: -4500, statement: 'Resultado de R$ 45,00.' }, 'assertion_numeric_value_mismatch'],
+  ['contagem extra em evidência monetária', { kind: 'moneyCentsBrl', value: 125000, statement: 'Saldo de R$ 1.250,00 em 2 contas.' }, 'assertion_numeric_value_mismatch'],
+  ['notação numérica sem unidade compatível', { kind: 'integer', value: 1, statement: 'Há 1e1 item confirmado.' }, 'assertion_numeric_value_mismatch'],
+  ['percentual com precisão incompatível', { kind: 'basisPoints', value: 150, statement: 'A taxa é 1,499%.' }, 'assertion_numeric_value_mismatch'],
+  ['data diferente', { kind: 'civilDate', value: '2026-09-20', statement: 'A data confirmada é 21/09/2026.' }, 'assertion_numeric_value_mismatch'],
+  ['número ligado a texto não numérico', { kind: 'safeLabel', value: 'Conta principal', statement: 'Há 2 itens confirmados.' }, 'assertion_evidence_non_numeric'],
+]) {
+  test(`rejeita ${name}`, () => {
+    const admission = admissionForFact(input);
+    assert.equal(admission.finalStatus, 'safe_unavailable');
+    assert.equal(admission.reason, reason);
+  });
+}
+
+test('valida e renderiza conjuntamente answer e afirmações a partir do fato financeiro', () => {
+  const admission = admissionForFact({
+    kind: 'moneyCentsBrl',
+    value: 125000,
+    statement: 'Saldo de 125000 centavos.',
+    answer: 'O saldo confirmado é R$ 1250,0.',
+  });
+  assert.equal(admission.finalStatus, 'grounded');
+  assert.equal(admission.response.answer, 'O saldo confirmado é R$ 1.250,00.');
+  assert.equal(admission.response.assertions[0].statement, 'Saldo de R$ 1.250,00.');
+});
+
+test('rejeita número inventado no answer mesmo quando a afirmação está fundamentada', () => {
+  const admission = admissionForFact({
+    kind: 'moneyCentsBrl',
+    value: 125000,
+    statement: 'Saldo de R$ 1.250,00.',
+    answer: 'O saldo confirmado é R$ 1.300,00.',
+  });
+  assert.equal(admission.finalStatus, 'safe_unavailable');
+  assert.equal(admission.reason, 'answer_numeric_value_mismatch');
+});
+
+test('distingue answer numérico sem nenhuma evidência de grandeza comparável', () => {
+  const admission = admissionForFact({
+    kind: 'safeLabel',
+    value: 'Conta principal',
+    statement: 'A conta principal está confirmada.',
+    answer: 'Há 2 itens confirmados.',
+  });
+  assert.equal(admission.finalStatus, 'safe_unavailable');
+  assert.equal(admission.reason, 'answer_evidence_non_numeric');
+});
+
+test('rejeita grandeza inventada no disclaimer visível', () => {
+  const admission = admissionForFact({
+    kind: 'moneyCentsBrl',
+    value: 125000,
+    statement: 'Saldo de R$ 1.250,00.',
+    disclaimer: 'Conteúdo informativo com referência de R$ 1.300,00.',
+  });
+  assert.equal(admission.finalStatus, 'safe_unavailable');
+  assert.equal(admission.reason, 'disclaimer_numeric_value_mismatch');
+});
 
 test('classifica ausência legítima e falha de interpretação sem promover resposta', () => {
   const insufficient = admitGroundedAssistantResponse({

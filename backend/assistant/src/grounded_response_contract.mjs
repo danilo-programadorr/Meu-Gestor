@@ -3,6 +3,7 @@
  * aliases, fontes e períodos confirmados do contexto efêmero.
  */
 import { deny } from './errors.mjs';
+import { validateAndCanonicalizeGroundedText } from './grounded_numeric_values.mjs';
 import { assertConfirmedContext } from './policy.mjs';
 import { validateCivilPeriod } from './sao_paulo_civil_time.mjs';
 
@@ -36,7 +37,12 @@ export const ASSISTANT_RESPONSE_FALLBACK_REASONS = Object.freeze([
   'evidence_alias_unknown',
   'evidence_source_mismatch',
   'evidence_period_mismatch',
-  'assertion_value_ungrounded',
+  'assertion_evidence_non_numeric',
+  'assertion_numeric_value_mismatch',
+  'answer_evidence_non_numeric',
+  'answer_numeric_value_mismatch',
+  'disclaimer_evidence_non_numeric',
+  'disclaimer_numeric_value_mismatch',
 ]);
 const fallbackReasons = new Set(ASSISTANT_RESPONSE_FALLBACK_REASONS);
 
@@ -61,13 +67,6 @@ const unsafeText = (value) => typeof value !== 'string'
   || /(?<!\d)(?:\d[ .-]?){11,19}(?!\d)/.test(value)
   || /(?:bearer\s+|api[_ -]?key|private[_ -]?key|password|senha|token\s*[:=])/i.test(value)
   || /\b(compre|compra|venda|vender|alocar|alocação|pague|receba|cancele|edite|transfira|agende)\b/i.test(value);
-
-const assertionNumbersAreGrounded = (statement, fact) => {
-  const numbers = statement.match(/\d+(?:[.,]\d+)?/g) ?? [];
-  if (numbers.length === 0) return true;
-  if (typeof fact.value !== 'number') return false;
-  return numbers.every((number) => String(fact.value) === number || String(fact.value) === number.replace(',', '.'));
-};
 
 const samePeriod = (left, right) => JSON.stringify(left) === JSON.stringify(right);
 const safeUnavailable = (reason) => {
@@ -119,6 +118,8 @@ export const admitGroundedAssistantResponse = ({ response, context, providerOutp
 
   try {
     const facts = new Map(context.facts.map((fact) => [fact.evidenceId, fact]));
+    const admittedFacts = [];
+    const admittedAssertions = [];
     for (const assertion of response.assertions) {
       if (!exactKeys(assertion, ['statement', 'evidence'])) {
         return safeUnavailable('assertion_shape_invalid');
@@ -141,11 +142,48 @@ export const admitGroundedAssistantResponse = ({ response, context, providerOutp
       if (!samePeriod(assertion.evidence.period, fact.civilPeriod)) {
         return safeUnavailable('evidence_period_mismatch');
       }
-      if (!assertionNumbersAreGrounded(assertion.statement, fact)) {
-        return safeUnavailable('assertion_value_ungrounded');
+      const statementAdmission = validateAndCanonicalizeGroundedText({
+        text: assertion.statement,
+        facts: [fact],
+      });
+      if (statementAdmission.outcome === 'evidence_non_numeric') {
+        return safeUnavailable('assertion_evidence_non_numeric');
       }
+      if (statementAdmission.outcome === 'value_mismatch') {
+        return safeUnavailable('assertion_numeric_value_mismatch');
+      }
+      admittedFacts.push(fact);
+      admittedAssertions.push(Object.freeze({
+        ...assertion,
+        statement: statementAdmission.text,
+      }));
     }
-    return grounded(response);
+    const answerAdmission = validateAndCanonicalizeGroundedText({
+      text: response.answer,
+      facts: admittedFacts,
+    });
+    if (answerAdmission.outcome === 'evidence_non_numeric') {
+      return safeUnavailable('answer_evidence_non_numeric');
+    }
+    if (answerAdmission.outcome === 'value_mismatch') {
+      return safeUnavailable('answer_numeric_value_mismatch');
+    }
+    const disclaimerAdmission = validateAndCanonicalizeGroundedText({
+      text: response.disclaimer,
+      facts: admittedFacts,
+    });
+    if (disclaimerAdmission.outcome === 'evidence_non_numeric') {
+      return safeUnavailable('disclaimer_evidence_non_numeric');
+    }
+    if (disclaimerAdmission.outcome === 'value_mismatch') {
+      return safeUnavailable('disclaimer_numeric_value_mismatch');
+    }
+    return grounded({
+      ...response,
+      answer: answerAdmission.text,
+      assertions: admittedAssertions,
+      disclaimer: disclaimerAdmission.text,
+    });
   } catch {
     return safeUnavailable('response_shape_invalid');
   }

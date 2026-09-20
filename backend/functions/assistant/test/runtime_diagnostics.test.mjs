@@ -111,6 +111,18 @@ test('diagnóstico final distingue grounded e fallback por motivo fechado', () =
     finalStatus: 'safe_unavailable',
     reason: 'provider_reported_insufficient_evidence',
   });
+  diagnostics.report({
+    stage: 'response_validation',
+    outcome: 'passed',
+    finalStatus: 'safe_unavailable',
+    reason: 'assertion_evidence_non_numeric',
+  });
+  diagnostics.report({
+    stage: 'response_validation',
+    outcome: 'passed',
+    finalStatus: 'safe_unavailable',
+    reason: 'assertion_numeric_value_mismatch',
+  });
   assert.deepEqual(emitted.map(JSON.parse), [
     {
       event: 'assistant_runtime_stage',
@@ -125,8 +137,22 @@ test('diagnóstico final distingue grounded e fallback por motivo fechado', () =
       finalStatus: 'safe_unavailable',
       reason: 'provider_reported_insufficient_evidence',
     },
+    {
+      event: 'assistant_runtime_stage',
+      stage: 'response_validation',
+      outcome: 'passed',
+      finalStatus: 'safe_unavailable',
+      reason: 'assertion_evidence_non_numeric',
+    },
+    {
+      event: 'assistant_runtime_stage',
+      stage: 'response_validation',
+      outcome: 'passed',
+      finalStatus: 'safe_unavailable',
+      reason: 'assertion_numeric_value_mismatch',
+    },
   ]);
-  assert.doesNotMatch(emitted.join(''), /message|stack|bearer|@|answer|assertion/iu);
+  assert.doesNotMatch(emitted.join(''), /message|stack|bearer|@|responseText|statement|evidenceValue/iu);
 });
 
 test('diagnóstico sanitizado rejeita campos ou valores fora do contrato', () => {
