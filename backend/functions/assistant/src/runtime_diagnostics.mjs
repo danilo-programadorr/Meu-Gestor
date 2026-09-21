@@ -7,6 +7,7 @@ import {
   ASSISTANT_READER_FAILURE_REASONS,
   ASSISTANT_RESPONSE_FALLBACK_REASONS,
   ASSISTANT_RESPONSE_FINAL_STATUSES,
+  ASSISTANT_VERTEX_FINISH_REASONS,
 } from '../shared/index.mjs';
 
 const stages = new Set([
@@ -32,6 +33,7 @@ const reasons = new Set(ASSISTANT_READER_FAILURE_REASONS);
 const activationFailureCodes = new Set(ASSISTANT_ACTIVATION_FAILURE_CODES);
 const responseFallbackReasons = new Set(ASSISTANT_RESPONSE_FALLBACK_REASONS);
 const responseFinalStatuses = new Set(ASSISTANT_RESPONSE_FINAL_STATUSES);
+const vertexFinishReasons = new Set(ASSISTANT_VERTEX_FINISH_REASONS);
 const readerStages = new Set(['owner_scoped_context', 'usage_reader']);
 const usageDiagnosticStages = new Set([
   'usage_adc_credentials',
@@ -70,6 +72,14 @@ const exactEvent = (event) => {
     return event.stage === 'response_validation'
       && event.outcome === 'passed'
       && event.finalStatus === 'grounded';
+  }
+  if (keys === 'candidateCount|finishReason|nonTextPartCount|outcome|providerBlocked|stage|textPartCount') {
+    return event.stage === 'vertex_model'
+      && event.outcome === 'passed'
+      && vertexFinishReasons.has(event.finishReason)
+      && [event.candidateCount, event.textPartCount, event.nonTextPartCount]
+        .every((value) => Number.isSafeInteger(value) && value >= 0 && value <= 100)
+      && typeof event.providerBlocked === 'boolean';
   }
   if (keys === 'finalStatus|outcome|reason|stage') {
     return event.stage === 'response_validation'

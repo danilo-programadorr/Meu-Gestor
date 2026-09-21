@@ -11,6 +11,7 @@ import {
   InMemoryAssistantCostLedgerStore,
   createAssistRemoteV1Callables,
   createAssistantOwnerScope,
+  createVertexRuntimeGateway,
 } from '../src/index.mjs';
 
 const fixturePath = new URL('../../../test/fixtures/assistant_server_flutter_contract.json', import.meta.url);
@@ -68,7 +69,7 @@ const authorization = Object.freeze({
 
 // Cada caso começa com uso não zero e usa o ledger real para reservar e
 // confirmar a mesma quota que protege a composição implantada.
-const invokeCase = async (contractCase) => {
+const invokeCase = async (contractCase, providerGateway = undefined) => {
   const store = new InMemoryAssistantCostLedgerStore({
     daily: {}, monthly: {}, periods: {}, records: {},
     usage: {
@@ -84,7 +85,7 @@ const invokeCase = async (contractCase) => {
     contextReader: async () => context,
     usageReader: async () => ledger.readUsage({ ownerScope }),
     ledger,
-    providerGateway: { generate: async () => structuredClone(contractCase.providerResult) },
+    providerGateway: providerGateway ?? { generate: async () => structuredClone(contractCase.providerResult) },
     runtimeControlsReader: () => ({ killSwitchActive: false, providerFeatureEnabled: true }),
     runtimeDiagnostics: { report: (event) => events.push(event) },
   }).assistRemoteV1;
@@ -114,3 +115,55 @@ for (const contractCase of fixture.cases) {
     assert.equal(Object.values(snapshot.records)[0].state, 'confirmed');
   });
 }
+
+// Percorre o envelope real do SDK, a extração, a admissão e a resposta pública
+// consumida pelo Flutter, sem rede ou conteúdo financeiro real.
+test('SDK unary completo chega grounded ao contrato Flutter', async () => {
+  const groundedCase = fixture.cases.find((item) => item.name === 'grounded');
+  const gateway = createVertexRuntimeGateway({
+    providerFeatureEnabled: true,
+    killSwitchActive: false,
+    projectIdReader: () => 'synthetic-project',
+    clock: (() => { let value = 100; return () => (value += 25); })(),
+    vertexAiFactory: async () => ({
+      getGenerativeModel: () => ({
+        generateContent: async () => ({
+          response: {
+            candidates: [{
+              finishReason: 'STOP',
+              content: { parts: [{ text: JSON.stringify(groundedCase.providerResult.response) }] },
+            }],
+          },
+        }),
+      }),
+    }),
+  });
+  const { response, events } = await invokeCase(groundedCase, gateway);
+  assert.deepEqual(response, groundedCase.expectedResponse);
+  assert.equal(events.at(-1).finalStatus, 'grounded');
+});
+
+test('SDK truncado por tokens permanece indisponível no contrato Flutter', async () => {
+  const fallbackCase = fixture.cases.find((item) => item.name === 'invalid_model_output');
+  const gateway = createVertexRuntimeGateway({
+    providerFeatureEnabled: true,
+    killSwitchActive: false,
+    projectIdReader: () => 'synthetic-project',
+    vertexAiFactory: async () => ({
+      getGenerativeModel: () => ({
+        generateContent: async () => ({
+          response: {
+            candidates: [{
+              finishReason: 'MAX_TOKENS',
+              content: { parts: [{ text: '{"schemaVersion":1' }] },
+            }],
+          },
+        }),
+      }),
+    }),
+  });
+  const { response, events } = await invokeCase(fallbackCase, gateway);
+  assert.deepEqual(response, fallbackCase.expectedResponse);
+  assert.equal(events.at(-1).finalStatus, 'safe_unavailable');
+  assert.equal(events.at(-1).reason, 'provider_output_max_tokens');
+});

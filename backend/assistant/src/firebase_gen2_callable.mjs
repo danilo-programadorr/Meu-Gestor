@@ -195,7 +195,9 @@ export function createAssistRemoteV1Callables({
             context,
           }),
         });
-        reportRuntimeStage(diagnostics, stage, 'passed');
+        // O marcador conserva somente forma e término enumerados da resposta;
+        // texto, contexto e mensagens do provedor nunca entram no diagnóstico.
+        reportRuntimeStage(diagnostics, stage, 'passed', providerResult.providerDiagnostics);
         stage = 'ledger_confirm';
         reportRuntimeStage(diagnostics, stage, 'started');
         await ledger.confirm({

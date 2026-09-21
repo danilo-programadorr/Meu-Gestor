@@ -9,6 +9,26 @@ export const ASSISTANT_VERTEX_LOCATION = 'global';
 export const ASSISTANT_VERTEX_GLOBAL_API_ENDPOINT = 'aiplatform.googleapis.com';
 export const ASSISTANT_VERTEX_PROMPT_VERSION = 'assist-grounded-prompt-v3';
 
+// Mantém somente motivos de término documentados e seguros para diagnóstico;
+// nenhum conteúdo produzido pelo modelo atravessa esta fronteira.
+export const ASSISTANT_VERTEX_FINISH_REASONS = Object.freeze([
+  'ABSENT',
+  'UNRECOGNIZED',
+  'FINISH_REASON_UNSPECIFIED',
+  'STOP',
+  'MAX_TOKENS',
+  'SAFETY',
+  'RECITATION',
+  'OTHER',
+  'BLOCKLIST',
+  'PROHIBITED_CONTENT',
+  'SPII',
+]);
+const vertexFinishReasons = new Set(ASSISTANT_VERTEX_FINISH_REASONS);
+const blockedFinishReasons = new Set([
+  'SAFETY', 'RECITATION', 'BLOCKLIST', 'PROHIBITED_CONTENT', 'SPII',
+]);
+
 // O schema limita o provedor aos cinco campos sob sua responsabilidade. O
 // servidor anexa o disclaimer canônico somente após a admissão autoritativa.
 export const ASSISTANT_VERTEX_RESPONSE_SCHEMA = Object.freeze({
@@ -95,21 +115,56 @@ const defaultVertexAiFactory = async ({ projectId, location, apiEndpoint }) => {
 
 const defaultProjectIdReader = () => process.env.GCLOUD_PROJECT;
 
+// Interpreta exclusivamente o primeiro candidato da resposta unary completa.
+// Partes textuais desse candidato podem ser fragmentadas pelo SDK, mas jamais
+// são combinadas com outro candidato ou com uma resposta de streaming parcial.
 const extractJsonResponse = (result) => {
-  const parts = result?.response?.candidates?.[0]?.content?.parts;
-  const text = Array.isArray(parts)
-    ? parts.map((part) => part?.text).filter((part) => typeof part === 'string').join('')
-    : null;
+  const response = result?.response;
+  const candidates = Array.isArray(response?.candidates) ? response.candidates : [];
+  const candidate = candidates[0] ?? null;
+  const rawFinishReason = candidate?.finishReason;
+  const finishReason = rawFinishReason === undefined
+    ? 'ABSENT'
+    : (typeof rawFinishReason === 'string' && vertexFinishReasons.has(rawFinishReason)
+      ? rawFinishReason
+      : 'UNRECOGNIZED');
+  const parts = Array.isArray(candidate?.content?.parts) ? candidate.content.parts : [];
+  const textParts = parts.filter((part) => typeof part?.text === 'string').map((part) => part.text);
+  const providerDiagnostics = Object.freeze({
+    finishReason,
+    candidateCount: candidates.length,
+    textPartCount: textParts.length,
+    nonTextPartCount: parts.length - textParts.length,
+    providerBlocked: typeof response?.promptFeedback?.blockReason === 'string'
+      || blockedFinishReasons.has(finishReason),
+  });
+  if (providerDiagnostics.providerBlocked) {
+    return Object.freeze({
+      response: null, providerOutputIssue: 'provider_output_blocked', providerDiagnostics,
+    });
+  }
+  if (finishReason === 'MAX_TOKENS') {
+    return Object.freeze({
+      response: null, providerOutputIssue: 'provider_output_max_tokens', providerDiagnostics,
+    });
+  }
+  const text = textParts.length > 0 ? textParts.join('') : null;
   if (typeof text !== 'string' || text.length < 2) {
-    return Object.freeze({ response: null, providerOutputIssue: 'provider_output_missing' });
+    return Object.freeze({
+      response: null, providerOutputIssue: 'provider_output_missing', providerDiagnostics,
+    });
   }
   if (text.length > 20_000) {
-    return Object.freeze({ response: null, providerOutputIssue: 'provider_output_too_large' });
+    return Object.freeze({
+      response: null, providerOutputIssue: 'provider_output_too_large', providerDiagnostics,
+    });
   }
   try {
-    return Object.freeze({ response: JSON.parse(text) });
+    return Object.freeze({ response: JSON.parse(text), providerDiagnostics });
   } catch {
-    return Object.freeze({ response: null, providerOutputIssue: 'provider_output_invalid_json' });
+    return Object.freeze({
+      response: null, providerOutputIssue: 'provider_output_invalid_json', providerDiagnostics,
+    });
   }
 };
 

@@ -155,6 +155,31 @@ test('diagnóstico final distingue grounded e fallback por motivo fechado', () =
   assert.doesNotMatch(emitted.join(''), /message|stack|bearer|@|responseText|statement|evidenceValue/iu);
 });
 
+test('diagnóstico Vertex preserva apenas término e estrutura sanitizados', () => {
+  const emitted = [];
+  const diagnostics = createSanitizedAssistantRuntimeDiagnostics({ emit: (line) => emitted.push(line) });
+  diagnostics.report({
+    stage: 'vertex_model',
+    outcome: 'passed',
+    finishReason: 'MAX_TOKENS',
+    candidateCount: 1,
+    textPartCount: 1,
+    nonTextPartCount: 0,
+    providerBlocked: false,
+  });
+  assert.deepEqual(JSON.parse(emitted[0]), {
+    event: 'assistant_runtime_stage',
+    stage: 'vertex_model',
+    outcome: 'passed',
+    finishReason: 'MAX_TOKENS',
+    candidateCount: 1,
+    textPartCount: 1,
+    nonTextPartCount: 0,
+    providerBlocked: false,
+  });
+  assert.doesNotMatch(emitted[0], /message|stack|bearer|@|responseText|statement/iu);
+});
+
 test('diagnóstico sanitizado rejeita campos ou valores fora do contrato', () => {
   const diagnostics = createSanitizedAssistantRuntimeDiagnostics({ emit: () => undefined });
   assert.throws(

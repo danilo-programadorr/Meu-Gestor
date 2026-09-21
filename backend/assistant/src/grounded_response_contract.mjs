@@ -23,6 +23,8 @@ export const ASSISTANT_CANONICAL_DISCLAIMER =
 // financeiro ou detalhe bruto de exceção.
 export const ASSISTANT_RESPONSE_FALLBACK_REASONS = Object.freeze([
   'provider_output_missing',
+  'provider_output_max_tokens',
+  'provider_output_blocked',
   'provider_output_too_large',
   'provider_output_invalid_json',
   'provider_reported_insufficient_evidence',

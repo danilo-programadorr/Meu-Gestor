@@ -90,10 +90,15 @@ test('fake local valida plano, usa Flash e devolve somente JSON estruturado', as
   assert.equal(calls[0].configuration.location, ASSISTANT_VERTEX_LOCATION);
   assert.equal(calls[0].configuration.apiEndpoint, ASSISTANT_VERTEX_GLOBAL_API_ENDPOINT);
   assert.equal(calls[1].modelConfiguration.model, 'gemini-2.5-flash');
+  assert.equal(calls[1].modelConfiguration.generationConfig.responseMimeType, 'application/json');
   assert.deepEqual(calls[1].modelConfiguration.generationConfig.responseSchema, ASSISTANT_VERTEX_RESPONSE_SCHEMA);
+  assert.deepEqual(Object.keys(ASSISTANT_VERTEX_RESPONSE_SCHEMA.properties).sort(), [
+    'answer', 'assertions', 'missingData', 'schemaVersion', 'status',
+  ]);
   assert.equal(ASSISTANT_VERTEX_RESPONSE_SCHEMA.required.includes('disclaimer'), false);
   assert.equal('disclaimer' in ASSISTANT_VERTEX_RESPONSE_SCHEMA.properties, false);
   assert.equal(calls[2].request.contents[0].role, 'user');
+  assert.equal('generationConfig' in calls[2].request, false);
   const prompt = JSON.parse(calls[2].request.contents[0].parts[0].text);
   assert.equal(prompt.promptVersion, ASSISTANT_VERTEX_PROMPT_VERSION);
   assert.deepEqual(prompt.request, providerRequest);
@@ -104,6 +109,13 @@ test('fake local valida plano, usa Flash e devolve somente JSON estruturado', as
   assert.equal(result.confirmedCostCents, 20);
   assert.equal(result.durationMs, 25);
   assert.equal(result.response.status, 'grounded');
+  assert.deepEqual(result.providerDiagnostics, {
+    finishReason: 'ABSENT',
+    candidateCount: 1,
+    textPartCount: 1,
+    nonTextPartCount: 0,
+    providerBlocked: false,
+  });
   assert.equal('providerOutputIssue' in result, false);
 });
 
@@ -125,6 +137,71 @@ test('saída ausente ou não JSON chega à admissão somente por código enumera
     assert.equal(result.response, null);
     assert.equal(result.providerOutputIssue, expectedIssue);
   }
+});
+
+test('extração distingue truncamento, bloqueio e JSON inválido sem aceitar resposta parcial', async () => {
+  const cases = [
+    [
+      { response: { candidates: [{ finishReason: 'MAX_TOKENS', content: { parts: [{ text: '{"schemaVersion":1}' }] } }] } },
+      'provider_output_max_tokens',
+      'MAX_TOKENS',
+    ],
+    [
+      { response: { candidates: [{ finishReason: 'SAFETY', content: { parts: [] } }] } },
+      'provider_output_blocked',
+      'SAFETY',
+    ],
+    [
+      { response: { promptFeedback: { blockReason: 'SAFETY' }, candidates: [] } },
+      'provider_output_blocked',
+      'ABSENT',
+    ],
+    [
+      { response: { candidates: [{ finishReason: 'STOP', content: { parts: [{ text: 'não-json' }] } }] } },
+      'provider_output_invalid_json',
+      'STOP',
+    ],
+  ];
+  for (const [sdkResult, expectedIssue, expectedFinishReason] of cases) {
+    const gateway = createVertexRuntimeGateway({
+      providerFeatureEnabled: true,
+      killSwitchActive: false,
+      projectIdReader: () => 'synthetic-project',
+      vertexAiFactory: async () => ({
+        getGenerativeModel: () => ({ generateContent: async () => sdkResult }),
+      }),
+    });
+    const result = await gateway.generate({ execution, maximumCostCents: 20, providerRequest });
+    assert.equal(result.response, null);
+    assert.equal(result.providerOutputIssue, expectedIssue);
+    assert.equal(result.providerDiagnostics.finishReason, expectedFinishReason);
+  }
+});
+
+test('extração monta somente partes textuais do primeiro candidato unary', async () => {
+  const firstCandidate = '{"schemaVersion":1,"status":"safe_unavailable","answer":"Sem dados',
+    secondPart = ' confirmados.","assertions":[],"missingData":["confirmed_financial_evidence"]}';
+  const gateway = createVertexRuntimeGateway({
+    providerFeatureEnabled: true,
+    killSwitchActive: false,
+    projectIdReader: () => 'synthetic-project',
+    vertexAiFactory: async () => ({
+      getGenerativeModel: () => ({
+        generateContent: async () => ({
+          response: {
+            candidates: [
+              { finishReason: 'STOP', content: { parts: [{ text: firstCandidate }, { text: secondPart }] } },
+              { finishReason: 'STOP', content: { parts: [{ text: 'não deve ser concatenado' }] } },
+            ],
+          },
+        }),
+      }),
+    }),
+  });
+  const result = await gateway.generate({ execution, maximumCostCents: 20, providerRequest });
+  assert.equal(result.response.status, 'safe_unavailable');
+  assert.equal(result.providerDiagnostics.candidateCount, 2);
+  assert.equal(result.providerDiagnostics.textPartCount, 2);
 });
 
 test('configura endpoint explícito apenas para location global', () => {
