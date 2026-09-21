@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  ASSISTANT_CANONICAL_DISCLAIMER,
   admitGroundedAssistantResponse,
   AssistantAuthorizedContextAssembler,
   assessDevelopmentAssistantActivationReadiness,
@@ -23,13 +24,14 @@ const context = Object.freeze({
 const response = Object.freeze({
   schemaVersion: 1, status: 'grounded', answer: 'Resumo confirmado.',
   assertions: [{ statement: 'O saldo confirmado é R$ 1.250,00.', evidence: fact.evidence }],
-  missingData: [], disclaimer: 'Conteúdo informativo; nenhuma ação financeira foi realizada.',
+  missingData: [],
 });
 
 test('admite resposta fundamentada somente por alias, fonte e período confirmados', () => {
   const admission = admitGroundedAssistantResponse({ response, context });
   assert.equal(admission.finalStatus, 'grounded');
   assert.equal(admission.response.status, 'grounded');
+  assert.equal(admission.response.disclaimer, ASSISTANT_CANONICAL_DISCLAIMER);
   assert.equal('reason' in admission, false);
 });
 
@@ -49,12 +51,36 @@ for (const [name, altered, reason] of [
   });
 }
 
+// Estes casos percorrem cada família restante da admissão com entradas
+// sintéticas e preservam o primeiro motivo fail-closed observável.
+for (const [name, altered, reason] of [
+  ['campo extra do provedor', { ...response, disclaimer: 'Texto livre do modelo.' }, 'response_shape_invalid'],
+  ['campo obrigatório ausente', (({ answer: _answer, ...rest }) => rest)(response), 'response_shape_invalid'],
+  ['versão inválida', { ...response, schemaVersion: 2 }, 'response_schema_version_invalid'],
+  ['status inválido', { ...response, status: 'partial' }, 'response_status_invalid'],
+  ['answer inseguro', { ...response, answer: 'x' }, 'response_text_unsafe'],
+  ['missingData inválido', { ...response, missingData: ['Campo inválido'] }, 'missing_data_invalid'],
+  ['assertions não lista', { ...response, assertions: null }, 'assertions_invalid'],
+  ['grounded sem assertions', { ...response, assertions: [] }, 'assertions_missing'],
+  ['assertion com campo extra', { ...response, assertions: [{ ...response.assertions[0], extra: true }] }, 'assertion_shape_invalid'],
+  ['evidência sem fonte', { ...response, assertions: [{ ...response.assertions[0], evidence: { alias: fact.evidence.alias, period } }] }, 'evidence_shape_invalid'],
+  ['alias desconhecido', { ...response, assertions: [{ ...response.assertions[0], evidence: { ...fact.evidence, alias: 'ev_unknown_001' } }] }, 'evidence_alias_unknown'],
+  ['período divergente', { ...response, assertions: [{ ...response.assertions[0], evidence: { ...fact.evidence, period: { ...period, startDate: '2026-08-31' } } }] }, 'evidence_period_mismatch'],
+  ['fallback malformado', { ...response, status: 'safe_unavailable', assertions: [], missingData: [] }, 'safe_unavailable_contract_invalid'],
+]) {
+  test(`classifica ${name}`, () => {
+    const admission = admitGroundedAssistantResponse({ response: altered, context });
+    assert.equal(admission.finalStatus, 'safe_unavailable');
+    assert.equal(admission.reason, reason);
+    assert.equal(admission.response.disclaimer, ASSISTANT_CANONICAL_DISCLAIMER);
+  });
+}
+
 const admissionForFact = ({
   kind,
   value,
   statement,
   answer = 'Resumo confirmado.',
-  disclaimer = 'Conteúdo informativo; nenhuma ação financeira foi realizada.',
 }) => {
   const typedFact = Object.freeze({ ...fact, kind, value });
   return admitGroundedAssistantResponse({
@@ -62,7 +88,6 @@ const admissionForFact = ({
     response: {
       ...response,
       answer,
-      disclaimer,
       assertions: [{ statement, evidence: typedFact.evidence }],
     },
   });
@@ -135,15 +160,18 @@ test('distingue answer numérico sem nenhuma evidência de grandeza comparável'
   assert.equal(admission.reason, 'answer_evidence_non_numeric');
 });
 
-test('rejeita grandeza inventada no disclaimer visível', () => {
-  const admission = admissionForFact({
-    kind: 'moneyCentsBrl',
-    value: 125000,
-    statement: 'Saldo de R$ 1.250,00.',
-    disclaimer: 'Conteúdo informativo com referência de R$ 1.300,00.',
+test('não exibe conteúdo livre enviado pelo modelo como disclaimer', () => {
+  const admission = admitGroundedAssistantResponse({
+    context,
+    response: {
+      ...response,
+      disclaimer: 'Texto livre do modelo com R$ 1.300,00.',
+    },
   });
   assert.equal(admission.finalStatus, 'safe_unavailable');
-  assert.equal(admission.reason, 'disclaimer_numeric_value_mismatch');
+  assert.equal(admission.reason, 'response_shape_invalid');
+  assert.equal(admission.response.disclaimer, ASSISTANT_CANONICAL_DISCLAIMER);
+  assert.doesNotMatch(admission.response.disclaimer, /1\.300|Texto livre/u);
 });
 
 test('classifica ausência legítima e falha de interpretação sem promover resposta', () => {
@@ -154,7 +182,6 @@ test('classifica ausência legítima e falha de interpretação sem promover res
       answer: 'Não há dados confirmados suficientes para responder com segurança.',
       assertions: [],
       missingData: ['confirmed_financial_evidence'],
-      disclaimer: 'Conteúdo informativo; nenhuma ação financeira foi realizada.',
     },
     context,
   });

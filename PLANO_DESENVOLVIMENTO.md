@@ -1075,6 +1075,17 @@ Situação: corrigido e validado localmente antes do checkpoint development.
   renderizados novamente pelo servidor a partir dos centavos validados. O
   contrato Flutter permanece inalterado e não recebe conteúdo rejeitado.
 
+## 72. ASSIST-SERVER-DISCLAIMER-1 — disclaimer canônico server-side
+
+- O provedor gera somente versão, status, resposta, afirmações e dados
+  ausentes. Qualquer campo `disclaimer` vindo do modelo invalida a forma e
+  produz indisponibilidade segura; conteúdo livre do modelo nunca é exibido.
+- Após validar integralmente answer, assertions, valores, sinais, unidades,
+  fontes, períodos e evidências, o servidor anexa um texto canônico sem
+  números. O envelope grounded consumido pelo Flutter permanece compatível.
+- Resposta sem evidências, grandeza inventada ou saída inválida continua
+  bloqueada. A mudança não altera modelo, quota, IAM, Rules ou dados.
+
 ## 68. ASSIST-USAGE-COMMIT-FIX-1 — resource name canônico no commit
 
 - `documents:commit` preserva o identificador de `beginTransaction` e um

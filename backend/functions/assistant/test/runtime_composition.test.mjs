@@ -106,7 +106,6 @@ test('composição real admite pergunta comum, hoje parcial, uso não zero e res
         response: {
           schemaVersion: 1, status: 'grounded', answer: 'O saldo inicial é R$ 1250,0.',
           assertions: [{ statement: 'O saldo inicial é 125000 centavos.', evidence }], missingData: [],
-          disclaimer: 'Conteúdo informativo; nenhuma ação financeira foi realizada.',
         },
         durationMs: 25,
         confirmedCostCents: 7,
@@ -142,6 +141,7 @@ test('composição real admite pergunta comum, hoje parcial, uso não zero e res
   assert.equal(result.status, 'grounded');
   assert.equal(result.answer, 'O saldo inicial é R$ 1.250,00.');
   assert.equal(result.assertions[0].statement, 'O saldo inicial é R$ 1.250,00.');
+  assert.equal(result.disclaimer, 'Conteúdo informativo; nenhuma ação financeira foi realizada.');
   assert.equal(providerContext.civilPeriod.startDate, '2026-09-13');
   assert.equal(providerContext.periodComplete, false);
   assert.equal(providerContext.availableDataWindow.endExclusive, now.toISOString());

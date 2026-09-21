@@ -22,8 +22,7 @@
               }
             }
           ],
-          "missingData": [],
-          "disclaimer": "Conteúdo informativo; nenhuma ação financeira foi realizada."
+          "missingData": []
         },
         "durationMs": 25,
         "confirmedCostCents": 7
@@ -63,8 +62,7 @@
           "assertions": [],
           "missingData": [
             "confirmed_financial_evidence"
-          ],
-          "disclaimer": "Conteúdo informativo; nenhuma ação financeira foi realizada."
+          ]
         },
         "durationMs": 25,
         "confirmedCostCents": 7
@@ -91,6 +89,41 @@
       },
       "expectedFinalStatus": "safe_unavailable",
       "expectedReason": "provider_output_invalid_json",
+      "expectedFlutterGrounded": false
+    },
+    {
+      "name": "provider_disclaimer_rejected",
+      "providerResult": {
+        "response": {
+          "schemaVersion": 1,
+          "status": "grounded",
+          "answer": "O saldo confirmado é R$ 750,00.",
+          "assertions": [
+            {
+              "statement": "O saldo confirmado é R$ 750,00.",
+              "evidence": {
+                "alias": "saldo_confirmado",
+                "source": "dashboardSummary",
+                "period": {
+                  "timeZone": "America/Sao_Paulo",
+                  "startDate": "2026-09-01",
+                  "endDateExclusive": "2026-09-02"
+                }
+              }
+            }
+          ],
+          "missingData": [],
+          "disclaimer": "Texto livre produzido pelo modelo."
+        },
+        "durationMs": 25,
+        "confirmedCostCents": 7
+      },
+      "expectedResponse": {
+        "status": "safe_unavailable",
+        "contractVersion": "assist-remote-v1"
+      },
+      "expectedFinalStatus": "safe_unavailable",
+      "expectedReason": "response_shape_invalid",
       "expectedFlutterGrounded": false
     }
   ]

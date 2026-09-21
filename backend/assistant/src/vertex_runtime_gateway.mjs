@@ -7,13 +7,13 @@ import { deny } from './errors.mjs';
 
 export const ASSISTANT_VERTEX_LOCATION = 'global';
 export const ASSISTANT_VERTEX_GLOBAL_API_ENDPOINT = 'aiplatform.googleapis.com';
-export const ASSISTANT_VERTEX_PROMPT_VERSION = 'assist-grounded-prompt-v2';
+export const ASSISTANT_VERTEX_PROMPT_VERSION = 'assist-grounded-prompt-v3';
 
-// O schema solicitado ao modelo espelha o contrato admitido, mas a validação
-// local continua autoritativa e vincula cada afirmação ao contexto confirmado.
+// O schema limita o provedor aos cinco campos sob sua responsabilidade. O
+// servidor anexa o disclaimer canônico somente após a admissão autoritativa.
 export const ASSISTANT_VERTEX_RESPONSE_SCHEMA = Object.freeze({
   type: 'OBJECT',
-  required: ['schemaVersion', 'status', 'answer', 'assertions', 'missingData', 'disclaimer'],
+  required: ['schemaVersion', 'status', 'answer', 'assertions', 'missingData'],
   properties: {
     schemaVersion: { type: 'INTEGER', description: 'Use exatamente 1.' },
     status: { type: 'STRING', enum: ['grounded', 'safe_unavailable'] },
@@ -46,7 +46,6 @@ export const ASSISTANT_VERTEX_RESPONSE_SCHEMA = Object.freeze({
       },
     },
     missingData: { type: 'ARRAY', items: { type: 'STRING' } },
-    disclaimer: { type: 'STRING' },
   },
 });
 
@@ -125,6 +124,7 @@ const createPrompt = (providerRequest) => {
       'Para moneyCentsBrl, converta centavos inteiros para BRL no formato R$ 1.234,56, preservando o sinal.',
       'O answer só pode repetir grandezas presentes nas assertions e será revalidado no servidor.',
       'Sem evidência suficiente, use status safe_unavailable, assertions vazio e missingData não vazio.',
+      'Não gere disclaimer; o servidor é o único responsável por anexar o texto canônico.',
       'Não recomende nem execute ações financeiras.',
     ],
     request: providerRequest,

@@ -14,6 +14,11 @@ export const ASSISTANT_RESPONSE_FINAL_STATUSES = Object.freeze([
   'safe_unavailable',
 ]);
 
+// O disclaimer pertence exclusivamente ao servidor e nunca é aceito da saída
+// do provedor. O texto deliberadamente não contém grandezas ou números.
+export const ASSISTANT_CANONICAL_DISCLAIMER =
+  'Conteúdo informativo; nenhuma ação financeira foi realizada.';
+
 // Motivos fechados da admissão; nenhum deles contém texto do modelo, contexto
 // financeiro ou detalhe bruto de exceção.
 export const ASSISTANT_RESPONSE_FALLBACK_REASONS = Object.freeze([
@@ -41,8 +46,6 @@ export const ASSISTANT_RESPONSE_FALLBACK_REASONS = Object.freeze([
   'assertion_numeric_value_mismatch',
   'answer_evidence_non_numeric',
   'answer_numeric_value_mismatch',
-  'disclaimer_evidence_non_numeric',
-  'disclaimer_numeric_value_mismatch',
 ]);
 const fallbackReasons = new Set(ASSISTANT_RESPONSE_FALLBACK_REASONS);
 
@@ -52,7 +55,7 @@ export const ASSISTANT_SAFE_INSUFFICIENT_EVIDENCE_RESPONSE = Object.freeze({
   answer: 'Não há dados confirmados suficientes para responder com segurança neste momento.',
   assertions: [],
   missingData: ['confirmed_financial_evidence'],
-  disclaimer: 'Conteúdo informativo; nenhuma ação financeira foi realizada.',
+  disclaimer: ASSISTANT_CANONICAL_DISCLAIMER,
 });
 
 const exactKeys = (value, keys) => value !== null
@@ -94,14 +97,14 @@ export const admitGroundedAssistantResponse = ({ response, context, providerOutp
     return safeUnavailable('context_invalid');
   }
   if (providerOutputIssue !== undefined) return safeUnavailable(providerOutputIssue);
-  if (!exactKeys(response, ['schemaVersion', 'status', 'answer', 'assertions', 'missingData', 'disclaimer'])) {
+  if (!exactKeys(response, ['schemaVersion', 'status', 'answer', 'assertions', 'missingData'])) {
     return safeUnavailable('response_shape_invalid');
   }
   if (response.schemaVersion !== 1) return safeUnavailable('response_schema_version_invalid');
   if (!['grounded', 'safe_unavailable'].includes(response.status)) {
     return safeUnavailable('response_status_invalid');
   }
-  if (unsafeText(response.answer) || unsafeText(response.disclaimer)) {
+  if (unsafeText(response.answer)) {
     return safeUnavailable('response_text_unsafe');
   }
   if (!Array.isArray(response.missingData)
@@ -168,21 +171,11 @@ export const admitGroundedAssistantResponse = ({ response, context, providerOutp
     if (answerAdmission.outcome === 'value_mismatch') {
       return safeUnavailable('answer_numeric_value_mismatch');
     }
-    const disclaimerAdmission = validateAndCanonicalizeGroundedText({
-      text: response.disclaimer,
-      facts: admittedFacts,
-    });
-    if (disclaimerAdmission.outcome === 'evidence_non_numeric') {
-      return safeUnavailable('disclaimer_evidence_non_numeric');
-    }
-    if (disclaimerAdmission.outcome === 'value_mismatch') {
-      return safeUnavailable('disclaimer_numeric_value_mismatch');
-    }
     return grounded({
       ...response,
       answer: answerAdmission.text,
       assertions: admittedAssertions,
-      disclaimer: disclaimerAdmission.text,
+      disclaimer: ASSISTANT_CANONICAL_DISCLAIMER,
     });
   } catch {
     return safeUnavailable('response_shape_invalid');

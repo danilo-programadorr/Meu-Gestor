@@ -74,7 +74,7 @@ test('fake local valida plano, usa Flash e devolve somente JSON estruturado', as
                 response: Object.freeze({
                   candidates: [Object.freeze({
                     content: Object.freeze({
-                      parts: [Object.freeze({ text: '{"schemaVersion":1,"status":"grounded","answer":"Resumo confirmado.","assertions":[],"missingData":[],"disclaimer":"Conteúdo informativo."}' })],
+                      parts: [Object.freeze({ text: '{"schemaVersion":1,"status":"grounded","answer":"Resumo confirmado.","assertions":[],"missingData":[]}' })],
                     }),
                   })],
                 }),
@@ -91,6 +91,8 @@ test('fake local valida plano, usa Flash e devolve somente JSON estruturado', as
   assert.equal(calls[0].configuration.apiEndpoint, ASSISTANT_VERTEX_GLOBAL_API_ENDPOINT);
   assert.equal(calls[1].modelConfiguration.model, 'gemini-2.5-flash');
   assert.deepEqual(calls[1].modelConfiguration.generationConfig.responseSchema, ASSISTANT_VERTEX_RESPONSE_SCHEMA);
+  assert.equal(ASSISTANT_VERTEX_RESPONSE_SCHEMA.required.includes('disclaimer'), false);
+  assert.equal('disclaimer' in ASSISTANT_VERTEX_RESPONSE_SCHEMA.properties, false);
   assert.equal(calls[2].request.contents[0].role, 'user');
   const prompt = JSON.parse(calls[2].request.contents[0].parts[0].text);
   assert.equal(prompt.promptVersion, ASSISTANT_VERTEX_PROMPT_VERSION);
@@ -98,6 +100,7 @@ test('fake local valida plano, usa Flash e devolve somente JSON estruturado', as
   assert.ok(prompt.instructions.some((instruction) => instruction.includes('evidência')));
   assert.ok(prompt.instructions.some((instruction) => instruction.includes('moneyCentsBrl')));
   assert.ok(prompt.instructions.some((instruction) => instruction.includes('answer')));
+  assert.ok(prompt.instructions.some((instruction) => instruction.includes('Não gere disclaimer')));
   assert.equal(result.confirmedCostCents, 20);
   assert.equal(result.durationMs, 25);
   assert.equal(result.response.status, 'grounded');

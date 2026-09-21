@@ -27,6 +27,7 @@ export {
   AssistantAuthorizedContextAssembler,
 } from './authorized_context_assembler.mjs';
 export {
+  ASSISTANT_CANONICAL_DISCLAIMER,
   ASSISTANT_GROUNDED_RESPONSE_CONTRACT_VERSION,
   ASSISTANT_RESPONSE_FALLBACK_REASONS,
   ASSISTANT_RESPONSE_FINAL_STATUSES,

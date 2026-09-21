@@ -146,6 +146,8 @@ void main() {
               )
               as Map<String, Object?>;
       final List<Object?> cases = fixture['cases']! as List<Object?>;
+      const String canonicalDisclaimer =
+          'Conteúdo informativo; nenhuma ação financeira foi realizada.';
 
       for (final Object? value in cases) {
         final Map<String, Object?> contractCase =
@@ -159,6 +161,16 @@ void main() {
           contractCase['expectedFlutterGrounded'],
           reason: contractCase['name']! as String,
         );
+        if (contractCase['name'] == 'grounded') {
+          expect(response.groundedResponse?.disclaimer, canonicalDisclaimer);
+        }
+        if (contractCase['name'] == 'provider_disclaimer_rejected') {
+          expect(response.isGrounded, isFalse);
+          expect(
+            jsonEncode(contractCase['expectedResponse']),
+            isNot(contains('Texto livre')),
+          );
+        }
       }
     },
   );
