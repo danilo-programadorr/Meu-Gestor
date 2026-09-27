@@ -120,11 +120,37 @@ for (const contractCase of fixture.cases) {
 // consumida pelo Flutter, sem rede ou conteúdo financeiro real.
 test('SDK unary completo chega grounded ao contrato Flutter', async () => {
   const groundedCase = fixture.cases.find((item) => item.name === 'grounded');
+  const providerEnvelope = structuredClone(groundedCase.providerResult.response);
+  delete providerEnvelope.answer;
   const gateway = createVertexRuntimeGateway({
     providerFeatureEnabled: true,
     killSwitchActive: false,
     projectIdReader: () => 'synthetic-project',
     clock: (() => { let value = 100; return () => (value += 25); })(),
+    vertexAiFactory: async () => ({
+      getGenerativeModel: () => ({
+        generateContent: async () => ({
+          response: {
+            candidates: [{
+              finishReason: 'STOP',
+              content: { parts: [{ text: JSON.stringify(providerEnvelope) }] },
+            }],
+          },
+        }),
+      }),
+    }),
+  });
+  const { response, events } = await invokeCase(groundedCase, gateway);
+  assert.deepEqual(response, groundedCase.expectedResponse);
+  assert.equal(events.at(-1).finalStatus, 'grounded');
+});
+
+test('SDK não aceita answer livre do provedor fora do schema autoritativo', async () => {
+  const groundedCase = fixture.cases.find((item) => item.name === 'grounded');
+  const gateway = createVertexRuntimeGateway({
+    providerFeatureEnabled: true,
+    killSwitchActive: false,
+    projectIdReader: () => 'synthetic-project',
     vertexAiFactory: async () => ({
       getGenerativeModel: () => ({
         generateContent: async () => ({
@@ -139,8 +165,8 @@ test('SDK unary completo chega grounded ao contrato Flutter', async () => {
     }),
   });
   const { response, events } = await invokeCase(groundedCase, gateway);
-  assert.deepEqual(response, groundedCase.expectedResponse);
-  assert.equal(events.at(-1).finalStatus, 'grounded');
+  assert.equal(response.status, 'safe_unavailable');
+  assert.equal(events.at(-1).reason, 'provider_output_schema_invalid');
 });
 
 test('SDK truncado por tokens permanece indisponível no contrato Flutter', async () => {

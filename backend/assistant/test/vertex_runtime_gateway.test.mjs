@@ -80,7 +80,7 @@ test('fake local valida plano, usa Flash e devolve somente JSON estruturado', as
                 response: Object.freeze({
                   candidates: [Object.freeze({
                     content: Object.freeze({
-                      parts: [Object.freeze({ text: '{"schemaVersion":1,"status":"grounded","answer":"Resumo confirmado.","assertions":[],"missingData":[]}' })],
+                      parts: [Object.freeze({ text: '{"schemaVersion":1,"status":"grounded","assertions":[{"statement":"Resumo confirmado.","evidence":{"alias":"ev_accounts_001","source":"accounts","period":{"timeZone":"America/Sao_Paulo","startDate":"2026-09-01","endDateExclusive":"2026-10-01"}}}],"missingData":[]}' })],
                     }),
                   })],
                 }),
@@ -103,7 +103,7 @@ test('fake local valida plano, usa Flash e devolve somente JSON estruturado', as
   assert.equal(calls[1].modelConfiguration.generationConfig.responseMimeType, 'application/json');
   assert.deepEqual(calls[1].modelConfiguration.generationConfig.responseSchema, ASSISTANT_VERTEX_RESPONSE_SCHEMA);
   assert.deepEqual(Object.keys(ASSISTANT_VERTEX_RESPONSE_SCHEMA.properties).sort(), [
-    'answer', 'assertions', 'missingData', 'schemaVersion', 'status',
+    'assertions', 'missingData', 'schemaVersion', 'status',
   ]);
   assert.equal(ASSISTANT_VERTEX_RESPONSE_SCHEMA.required.includes('disclaimer'), false);
   assert.equal('disclaimer' in ASSISTANT_VERTEX_RESPONSE_SCHEMA.properties, false);
@@ -114,11 +114,12 @@ test('fake local valida plano, usa Flash e devolve somente JSON estruturado', as
   assert.deepEqual(prompt.request, providerRequest);
   assert.ok(prompt.instructions.some((instruction) => instruction.includes('evidência')));
   assert.ok(prompt.instructions.some((instruction) => instruction.includes('moneyCentsBrl')));
-  assert.ok(prompt.instructions.some((instruction) => instruction.includes('answer')));
+  assert.ok(prompt.instructions.some((instruction) => instruction.includes('Não gere answer')));
   assert.ok(prompt.instructions.some((instruction) => instruction.includes('Não gere disclaimer')));
   assert.equal(result.confirmedCostCents, 20);
   assert.equal(result.durationMs, 25);
   assert.equal(result.response.status, 'grounded');
+  assert.equal(result.response.answer, 'Resumo confirmado.');
   assert.deepEqual(result.providerDiagnostics, {
     finishReason: 'ABSENT',
     candidateCount: 1,
@@ -163,7 +164,7 @@ test('Pro usa o mínimo de thinking sem ampliar o limite total de saída', async
             response: {
               candidates: [{
                 finishReason: 'STOP',
-                content: { parts: [{ text: '{"schemaVersion":1,"status":"safe_unavailable","answer":"Sem dados confirmados.","assertions":[],"missingData":["confirmed_financial_evidence"]}' }] },
+                content: { parts: [{ text: '{"schemaVersion":1,"status":"safe_unavailable","assertions":[],"missingData":["confirmed_financial_evidence"]}' }] },
               }],
             },
           }),
@@ -219,8 +220,8 @@ test('extração distingue truncamento, bloqueio e JSON inválido sem aceitar re
 });
 
 test('extração monta somente partes textuais do primeiro candidato unary', async () => {
-  const firstCandidate = '{"schemaVersion":1,"status":"safe_unavailable","answer":"Sem dados',
-    secondPart = ' confirmados.","assertions":[],"missingData":["confirmed_financial_evidence"]}';
+  const firstCandidate = '{"schemaVersion":1,"status":"safe_unavailable","assertions":[],',
+    secondPart = '"missingData":["confirmed_financial_evidence"]}';
   const gateway = createVertexRuntimeGateway({
     providerFeatureEnabled: true,
     killSwitchActive: false,

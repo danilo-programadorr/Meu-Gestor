@@ -7,7 +7,7 @@ import { deny } from './errors.mjs';
 
 export const ASSISTANT_VERTEX_LOCATION = 'global';
 export const ASSISTANT_VERTEX_GLOBAL_API_ENDPOINT = 'aiplatform.googleapis.com';
-export const ASSISTANT_VERTEX_PROMPT_VERSION = 'assist-grounded-prompt-v3';
+export const ASSISTANT_VERTEX_PROMPT_VERSION = 'assist-grounded-prompt-v4';
 
 // Mantém somente motivos de término documentados e seguros para diagnóstico;
 // nenhum conteúdo produzido pelo modelo atravessa esta fronteira.
@@ -29,15 +29,14 @@ const blockedFinishReasons = new Set([
   'SAFETY', 'RECITATION', 'BLOCKLIST', 'PROHIBITED_CONTENT', 'SPII',
 ]);
 
-// O schema limita o provedor aos cinco campos sob sua responsabilidade. O
+// O schema limita o provedor aos quatro campos sob sua responsabilidade. O
 // servidor anexa o disclaimer canônico somente após a admissão autoritativa.
 export const ASSISTANT_VERTEX_RESPONSE_SCHEMA = Object.freeze({
   type: 'OBJECT',
-  required: ['schemaVersion', 'status', 'answer', 'assertions', 'missingData'],
+  required: ['schemaVersion', 'status', 'assertions', 'missingData'],
   properties: {
     schemaVersion: { type: 'INTEGER', description: 'Use exatamente 1.' },
     status: { type: 'STRING', enum: ['grounded', 'safe_unavailable'] },
-    answer: { type: 'STRING' },
     assertions: {
       type: 'ARRAY',
       items: {
@@ -115,6 +114,19 @@ const defaultVertexAiFactory = async ({ projectId, location, apiEndpoint }) => {
 
 const defaultProjectIdReader = () => process.env.GCLOUD_PROJECT;
 
+// O provedor seleciona afirmações e referências; somente o servidor constrói
+// o answer público, eliminando sínteses numéricas livres sem relaxar evidências.
+const composeServerAnswer = (response) => {
+  if (!exactKeys(response, ['schemaVersion', 'status', 'assertions', 'missingData'])) return null;
+  const statements = Array.isArray(response.assertions)
+    ? response.assertions.map((assertion) => assertion?.statement).filter((value) => typeof value === 'string')
+    : [];
+  const answer = response.status === 'grounded' && statements.length === response.assertions.length
+    ? statements.join(' ')
+    : 'Não há dados confirmados suficientes para responder com segurança neste momento.';
+  return Object.freeze({ ...response, answer });
+};
+
 // Interpreta exclusivamente o primeiro candidato da resposta unary completa.
 // Partes textuais desse candidato podem ser fragmentadas pelo SDK, mas jamais
 // são combinadas com outro candidato ou com uma resposta de streaming parcial.
@@ -160,7 +172,10 @@ const extractJsonResponse = (result) => {
     });
   }
   try {
-    return Object.freeze({ response: JSON.parse(text), providerDiagnostics });
+    const response = composeServerAnswer(JSON.parse(text));
+    return response === null
+      ? Object.freeze({ response: null, providerOutputIssue: 'provider_output_schema_invalid', providerDiagnostics })
+      : Object.freeze({ response, providerDiagnostics });
   } catch {
     return Object.freeze({
       response: null, providerOutputIssue: 'provider_output_invalid_json', providerDiagnostics,
@@ -177,7 +192,7 @@ const createPrompt = (providerRequest) => {
       'Cada afirmação deve copiar exatamente alias, source e period de uma evidência do contexto.',
       'Cada número deve usar o tipo e a unidade do fato referenciado; não misture dinheiro, contagem, percentual ou data na mesma evidência.',
       'Para moneyCentsBrl, converta centavos inteiros para BRL no formato R$ 1.234,56, preservando o sinal.',
-      'O answer só pode repetir grandezas presentes nas assertions e será revalidado no servidor.',
+      'Não gere answer; o servidor compõe a resposta pública somente das assertions validadas.',
       'Sem evidência suficiente, use status safe_unavailable, assertions vazio e missingData não vazio.',
       'Não gere disclaimer; o servidor é o único responsável por anexar o texto canônico.',
       'Não recomende nem execute ações financeiras.',

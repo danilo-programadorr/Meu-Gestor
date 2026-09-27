@@ -27,6 +27,7 @@ export const ASSISTANT_RESPONSE_FALLBACK_REASONS = Object.freeze([
   'provider_output_blocked',
   'provider_output_too_large',
   'provider_output_invalid_json',
+  'provider_output_schema_invalid',
   'provider_reported_insufficient_evidence',
   'context_invalid',
   'response_shape_invalid',

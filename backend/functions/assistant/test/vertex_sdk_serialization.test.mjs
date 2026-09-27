@@ -50,7 +50,7 @@ test('SDK serializa MIME e schema do modelo quando a chamada não os sobrescreve
     includeThoughts: false,
   });
   assert.deepEqual(Object.keys(capturedBody.generationConfig.responseSchema.properties).sort(), [
-    'answer', 'assertions', 'missingData', 'schemaVersion', 'status',
+    'assertions', 'missingData', 'schemaVersion', 'status',
   ]);
   assert.equal('disclaimer' in capturedBody.generationConfig.responseSchema.properties, false);
 });
