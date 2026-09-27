@@ -234,11 +234,13 @@ export const createVertexRuntimeGateway = ({
         generationConfig: Object.freeze({
           temperature: 0,
           maxOutputTokens: execution.tier === 'flash' ? 800 : 1_500,
-          // Gemini 2.5 Flash permite desativar thinking. Isso preserva os 800
-          // tokens para o JSON final, sem ampliar custo, quota ou saída.
-          ...(execution.tier === 'flash'
-            ? { thinkingConfig: Object.freeze({ thinkingBudget: 0, includeThoughts: false }) }
-            : {}),
+          // Flash permite desativar thinking; Pro exige ao menos 128 tokens.
+          // Ambos reservam o restante do limite vigente para o JSON final,
+          // sem ampliar custo, quota ou saída.
+          thinkingConfig: Object.freeze({
+            thinkingBudget: execution.tier === 'flash' ? 0 : 128,
+            includeThoughts: false,
+          }),
           responseMimeType: 'application/json',
           responseSchema: ASSISTANT_VERTEX_RESPONSE_SCHEMA,
         }),

@@ -17,6 +17,12 @@ const execution = Object.freeze({
   providerModel: 'gemini-2.5-flash',
   fallback: 'safe_unavailable',
 });
+const proExecution = Object.freeze({
+  enabled: true,
+  tier: 'pro',
+  providerModel: 'gemini-2.5-pro',
+  fallback: 'safe_unavailable',
+});
 
 const providerRequest = Object.freeze({
   contractVersion: 'assist-remote-v1',
@@ -141,6 +147,36 @@ test('saída ausente ou não JSON chega à admissão somente por código enumera
     assert.equal(result.response, null);
     assert.equal(result.providerOutputIssue, expectedIssue);
   }
+});
+
+test('Pro usa o mínimo de thinking sem ampliar o limite total de saída', async () => {
+  let generationConfig;
+  const gateway = createVertexRuntimeGateway({
+    providerFeatureEnabled: true,
+    killSwitchActive: false,
+    projectIdReader: () => 'synthetic-project',
+    vertexAiFactory: async () => ({
+      getGenerativeModel: (configuration) => {
+        generationConfig = configuration.generationConfig;
+        return {
+          generateContent: async () => ({
+            response: {
+              candidates: [{
+                finishReason: 'STOP',
+                content: { parts: [{ text: '{"schemaVersion":1,"status":"safe_unavailable","answer":"Sem dados confirmados.","assertions":[],"missingData":["confirmed_financial_evidence"]}' }] },
+              }],
+            },
+          }),
+        };
+      },
+    }),
+  });
+  await gateway.generate({ execution: proExecution, maximumCostCents: 100, providerRequest });
+  assert.equal(generationConfig.maxOutputTokens, 1_500);
+  assert.deepEqual(generationConfig.thinkingConfig, {
+    thinkingBudget: 128,
+    includeThoughts: false,
+  });
 });
 
 test('extração distingue truncamento, bloqueio e JSON inválido sem aceitar resposta parcial', async () => {
