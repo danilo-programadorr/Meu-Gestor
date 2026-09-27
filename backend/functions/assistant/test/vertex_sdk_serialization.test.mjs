@@ -29,6 +29,7 @@ test('SDK serializa MIME e schema do modelo quando a chamada não os sobrescreve
   const generationConfig = {
     temperature: 0,
     maxOutputTokens: 800,
+    thinkingConfig: { thinkingBudget: 0, includeThoughts: false },
     responseMimeType: 'application/json',
     responseSchema: ASSISTANT_VERTEX_RESPONSE_SCHEMA,
   };
@@ -44,6 +45,10 @@ test('SDK serializa MIME e schema do modelo quando a chamada não os sobrescreve
   assert.match(capturedUrl, /^https:\/\/aiplatform\.googleapis\.com\/v1\//u);
   assert.deepEqual(capturedBody.generationConfig, generationConfig);
   assert.equal(capturedBody.generationConfig.responseMimeType, 'application/json');
+  assert.deepEqual(capturedBody.generationConfig.thinkingConfig, {
+    thinkingBudget: 0,
+    includeThoughts: false,
+  });
   assert.deepEqual(Object.keys(capturedBody.generationConfig.responseSchema.properties).sort(), [
     'answer', 'assertions', 'missingData', 'schemaVersion', 'status',
   ]);

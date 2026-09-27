@@ -90,6 +90,10 @@ test('fake local valida plano, usa Flash e devolve somente JSON estruturado', as
   assert.equal(calls[0].configuration.location, ASSISTANT_VERTEX_LOCATION);
   assert.equal(calls[0].configuration.apiEndpoint, ASSISTANT_VERTEX_GLOBAL_API_ENDPOINT);
   assert.equal(calls[1].modelConfiguration.model, 'gemini-2.5-flash');
+  assert.deepEqual(calls[1].modelConfiguration.generationConfig.thinkingConfig, {
+    thinkingBudget: 0,
+    includeThoughts: false,
+  });
   assert.equal(calls[1].modelConfiguration.generationConfig.responseMimeType, 'application/json');
   assert.deepEqual(calls[1].modelConfiguration.generationConfig.responseSchema, ASSISTANT_VERTEX_RESPONSE_SCHEMA);
   assert.deepEqual(Object.keys(ASSISTANT_VERTEX_RESPONSE_SCHEMA.properties).sort(), [
