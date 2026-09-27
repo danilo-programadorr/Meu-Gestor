@@ -32,8 +32,10 @@ $createdTemporaryEnvironmentFiles = [System.Collections.Generic.List[string]]::n
 $reportPath = Join-Path $repositoryRoot '.codex-tmp\assistant-rollout-development-result.json'
 $expectedRegion = 'southamerica-east1'
 $expectedLedgerDatabase = 'assistant-controls-dev'
-$dailyLimitCents = 500
-$monthlyLimitCents = 4500
+$dailyLimitCents = 3200
+$monthlyLimitCents = 32000
+$usageCostUnitsPerWindow = 256
+$proCallsPerWindow = 32
 
 # Responsabilidade: evita que parâmetros, mensagens de ferramentas ou relatórios
 # possam direcionar por engano uma ação manual à produção.
@@ -89,7 +91,11 @@ function New-TemporaryEnvironmentFiles {
   $createdTemporaryEnvironmentFiles.Add($temporaryEnvironmentFile)
   [System.IO.File]::WriteAllLines($temporaryProjectEnvironmentFile, @(
     "ASSISTANT_REAL_PROVIDER_ENABLED=$providerValue",
-    "ASSISTANT_KILL_SWITCH_DISABLED=$killSwitchValue"
+    "ASSISTANT_KILL_SWITCH_DISABLED=$killSwitchValue",
+    "ASSISTANT_DAILY_COST_LIMIT_CENTS=$dailyLimitCents",
+    "ASSISTANT_MONTHLY_OPERATIONAL_LIMIT_CENTS=$monthlyLimitCents",
+    "ASSISTANT_USAGE_COST_UNITS_PER_WINDOW=$usageCostUnitsPerWindow",
+    "ASSISTANT_PRO_CALLS_PER_WINDOW=$proCallsPerWindow"
   ))
   $createdTemporaryEnvironmentFiles.Add($temporaryProjectEnvironmentFile)
 }
@@ -116,7 +122,10 @@ function Assert-LocalSafeCircuit {
     throw 'AÇÃO SUA: o circuito seguro local não está fail-closed.'
   }
   if (-not $ledger.Contains('dailyLimitCents: 500') -or -not $ledger.Contains('monthlyOperationalLimitCents: 4_500')) {
-    throw 'AÇÃO SUA: o ledger local não corresponde aos limites development aprovados.'
+    throw 'AÇÃO SUA: o ledger local não preserva os padrões conservadores.'
+  }
+  foreach ($parameter in @('ASSISTANT_DAILY_COST_LIMIT_CENTS', 'ASSISTANT_MONTHLY_OPERATIONAL_LIMIT_CENTS', 'ASSISTANT_USAGE_COST_UNITS_PER_WINDOW', 'ASSISTANT_PRO_CALLS_PER_WINDOW')) {
+    if (-not $options.Contains($parameter)) { throw 'AÇÃO SUA: o artefato local não contém os limites development parametrizados.' }
   }
   Write-Host 'Circuito local confirmado: App Check, limites Gen 2, kill switch e provedor permanecem fechados.'
 }
@@ -175,6 +184,10 @@ function Assert-RemoteActivationConfiguration {
   else {
     if ([string]$environment.ASSISTANT_REAL_PROVIDER_ENABLED -ne 'true') { $differences.Add('ASSISTANT_REAL_PROVIDER_ENABLED') }
     if ([string]$environment.ASSISTANT_KILL_SWITCH_DISABLED -ne 'true') { $differences.Add('ASSISTANT_KILL_SWITCH_DISABLED') }
+    if ([string]$environment.ASSISTANT_DAILY_COST_LIMIT_CENTS -ne [string]$dailyLimitCents) { $differences.Add('ASSISTANT_DAILY_COST_LIMIT_CENTS') }
+    if ([string]$environment.ASSISTANT_MONTHLY_OPERATIONAL_LIMIT_CENTS -ne [string]$monthlyLimitCents) { $differences.Add('ASSISTANT_MONTHLY_OPERATIONAL_LIMIT_CENTS') }
+    if ([string]$environment.ASSISTANT_USAGE_COST_UNITS_PER_WINDOW -ne [string]$usageCostUnitsPerWindow) { $differences.Add('ASSISTANT_USAGE_COST_UNITS_PER_WINDOW') }
+    if ([string]$environment.ASSISTANT_PRO_CALLS_PER_WINDOW -ne [string]$proCallsPerWindow) { $differences.Add('ASSISTANT_PRO_CALLS_PER_WINDOW') }
   }
   if ($differences.Count -ne 0) {
     throw "AÇÃO SUA: a ativação remota não pôde ser confirmada em: $($differences -join ', ')."
@@ -199,7 +212,7 @@ function Write-AggregateReport {
   New-Item -ItemType Directory -Force -Path $directory | Out-Null
   & git -C $repositoryRoot check-ignore -q -- '.codex-tmp/assistant-rollout-development-result.json'
   if ($LASTEXITCODE -ne 0) { throw 'Relatório temporário não está ignorado pelo Git.' }
-  $report = [ordered]@{ phase = $Phase; result = $Result; completedAt = [DateTime]::UtcNow.ToString('o'); dailyLimitCents = $dailyLimitCents; monthlyLimitCents = $monthlyLimitCents } | ConvertTo-Json
+  $report = [ordered]@{ phase = $Phase; result = $Result; completedAt = [DateTime]::UtcNow.ToString('o'); dailyLimitCents = $dailyLimitCents; monthlyLimitCents = $monthlyLimitCents; usageCostUnitsPerWindow = $usageCostUnitsPerWindow; proCallsPerWindow = $proCallsPerWindow } | ConvertTo-Json
   Set-Content -LiteralPath $reportPath -Value $report -Encoding utf8 -NoNewline
 }
 

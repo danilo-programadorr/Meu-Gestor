@@ -12,6 +12,7 @@ const files = [
   'src/function_options.mjs',
   'src/fail_closed_dependencies.mjs',
   'src/runtime_ledger.mjs',
+  'src/runtime_limits.mjs',
   'src/runtime_adapters.mjs',
   'src/runtime_diagnostics.mjs',
   'src/runtime_usage_reader.mjs',

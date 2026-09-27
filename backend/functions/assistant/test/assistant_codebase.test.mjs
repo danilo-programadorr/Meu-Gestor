@@ -136,6 +136,10 @@ test('roteiro development separa inspeção, deploy fechado, ativação confirma
   assert.match(source, /New-TemporaryEnvironmentFiles -ProviderEnabled \$true -KillSwitchDisabled \$true/u);
   assert.match(source, /ASSISTANT_REAL_PROVIDER_ENABLED=\$providerValue/u);
   assert.match(source, /ASSISTANT_KILL_SWITCH_DISABLED=\$killSwitchValue/u);
+  assert.match(source, /ASSISTANT_DAILY_COST_LIMIT_CENTS=\$dailyLimitCents/u);
+  assert.match(source, /ASSISTANT_MONTHLY_OPERATIONAL_LIMIT_CENTS=\$monthlyLimitCents/u);
+  assert.match(source, /ASSISTANT_USAGE_COST_UNITS_PER_WINDOW=\$usageCostUnitsPerWindow/u);
+  assert.match(source, /ASSISTANT_PRO_CALLS_PER_WINDOW=\$proCallsPerWindow/u);
   assert.match(source, /\.env\.\$ProjectId/u);
   assert.match(source, /WriteAllLines\(\$temporaryEnvironmentFile/u);
   assert.match(source, /WriteAllLines\(\$temporaryProjectEnvironmentFile/u);
@@ -159,6 +163,7 @@ test('roteiro development separa inspeção, deploy fechado, ativação confirma
   assert.match(source, /Assert-RemoteActivationConfiguration/u);
   assert.match(source, /\$environment\.ASSISTANT_REAL_PROVIDER_ENABLED -ne 'true'/u);
   assert.match(source, /\$environment\.ASSISTANT_KILL_SWITCH_DISABLED -ne 'true'/u);
+  assert.match(source, /\$environment\.ASSISTANT_PRO_CALLS_PER_WINDOW -ne \[string\]\$proCallsPerWindow/u);
   assert.doesNotMatch(source, /'ActivateDevelopment'[\s\S]{0,400}throw 'Ativação não pode prosseguir/u);
   assert.match(source, /effectiveMinInstanceCount\s*=\s*if\s*\(\$null -eq \$service\.minInstanceCount\)\s*\{\s*0\s*\}/u);
   assert.match(source, /configuração remota divergiu em:/iu);

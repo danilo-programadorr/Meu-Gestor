@@ -13,6 +13,7 @@ import { createAssistantRuntimeLedger } from './src/runtime_ledger.mjs';
 import { createAssistantRuntimeAdapters } from './src/runtime_adapters.mjs';
 import { createSanitizedAssistantRuntimeDiagnostics } from './src/runtime_diagnostics.mjs';
 import { createAssistantRuntimeUsageReader } from './src/runtime_usage_reader.mjs';
+import { createAssistantRuntimeModelRouter } from './src/runtime_limits.mjs';
 import {
   ASSISTANT_FUNCTION_OPTIONS,
   readAssistantRuntimeControls,
@@ -27,6 +28,7 @@ const providerGateway = createVertexRuntimeGateway({
 const runtimeAdapters = createAssistantRuntimeAdapters();
 const runtimeDiagnostics = createSanitizedAssistantRuntimeDiagnostics();
 const ledger = createAssistantRuntimeLedger({ runtimeDiagnostics });
+const modelRouter = createAssistantRuntimeModelRouter();
 const dependencies = createFailClosedAssistantDependencies({
   HttpsError,
   providerGateway,
@@ -38,6 +40,7 @@ const callables = registerAssistRemoteV1Gen2({
   onCall,
   HttpsError,
   functionOptions: ASSISTANT_FUNCTION_OPTIONS,
+  modelRouter,
   runtimeControlsReader: readAssistantRuntimeControls,
   runtimeDiagnostics,
   ...dependencies,

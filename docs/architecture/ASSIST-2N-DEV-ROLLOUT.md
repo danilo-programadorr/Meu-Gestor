@@ -51,7 +51,11 @@ Somente depois dessas fronteiras, a fase cria os dois dotenvs efêmeros antes
 ausentes: o base recebe a identidade runtime fornecida fora do Git e o do
 projeto development recebe explicitamente
 `ASSISTANT_REAL_PROVIDER_ENABLED=true` e
-`ASSISTANT_KILL_SWITCH_DISABLED=true`. O deploy continua limitado a
+`ASSISTANT_KILL_SWITCH_DISABLED=true`. O mesmo arquivo fixa somente em
+development os limites operacionais revisados: 32 chamadas Pro e 256 unidades
+de uso por janela diária, com tetos de 3.200 centavos por dia e 32.000 centavos
+por mês. Fora desse deploy parametrizado, os padrões conservadores permanecem
+4 chamadas Pro, 32 unidades, 500 centavos por dia e 4.500 por mês. O deploy continua limitado a
 `functions:assistant:assistRemoteV1`. Um `finally` remove somente os arquivos
 registrados pelo próprio processo, mesmo se o deploy falhar.
 

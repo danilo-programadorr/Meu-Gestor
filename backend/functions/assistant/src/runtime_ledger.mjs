@@ -4,6 +4,8 @@
  */
 import { AssistantCostControlLedger } from '../shared/index.mjs';
 import { NamedDatabaseAssistantCostLedgerStore } from './named_database_ledger_store.mjs';
+import { readAssistantRuntimeLimits } from './function_options.mjs';
+import { resolveAssistantRuntimeLimits } from './runtime_limits.mjs';
 
 /**
  * Responsabilidade: cria a porta transacional que só será acionada depois dos
@@ -12,8 +14,22 @@ import { NamedDatabaseAssistantCostLedgerStore } from './named_database_ledger_s
 export const createAssistantRuntimeLedger = ({
   clock = () => new Date(),
   runtimeDiagnostics = undefined,
+  runtimeLimitsReader = readAssistantRuntimeLimits,
   store = undefined,
-} = {}) => new AssistantCostControlLedger({
-  clock,
-  store: store ?? new NamedDatabaseAssistantCostLedgerStore({ runtimeDiagnostics }),
-});
+} = {}) => {
+  const resolvedStore = store ?? new NamedDatabaseAssistantCostLedgerStore({ runtimeDiagnostics });
+  const currentLedger = () => {
+    const { costControlLimits, ownerUsageLimits } = resolveAssistantRuntimeLimits({ runtimeLimitsReader });
+    return new AssistantCostControlLedger({
+      clock,
+      limits: costControlLimits,
+      store: resolvedStore,
+      usageLimits: ownerUsageLimits,
+    });
+  };
+  return Object.freeze({
+    readUsage: (input) => currentLedger().readUsage(input),
+    reserve: (input) => currentLedger().reserve(input),
+    confirm: (input) => currentLedger().confirm(input),
+  });
+};
