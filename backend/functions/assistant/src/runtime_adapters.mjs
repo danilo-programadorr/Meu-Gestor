@@ -5,10 +5,10 @@
 import { GoogleAuth } from 'google-auth-library';
 import {
   ASSISTANT_POLICY_VERSION,
+  ASSISTANT_FINANCIAL_TOOL_SOURCES,
   OwnerScopedFirestoreContextReader,
   OwnerScopedFirestoreRestTransport,
-  civilPeriodForSingleDay,
-  currentCivilDate,
+  civilPeriodForRelativeCode,
 } from '../shared/index.mjs';
 
 const invalid = () => new Error('assistant_runtime_adapter_unavailable');
@@ -71,10 +71,20 @@ export const createAssistantRuntimeAdapters = ({
         return Object.freeze({ legalProfileVerified: false, aiConsentEnabled: false, acceptedPolicyVersion: null, aiConsentUpdatedAt: null, profileFromServer: false, profileHasPendingWrites: true, financialPrivacyActive: true });
       }
     },
-    contextReader: async ({ ownerAuthority, authorization }) => context.readAuthorizedOwnConfirmedContext({
+    contextReader: async ({
+      ownerAuthority,
       authorization,
-      authority: ownerAuthority,
-      period: civilPeriodForSingleDay(currentCivilDate(clock())),
-    }),
+      periodCode = 'today',
+      financialTool = 'overview',
+    }) => {
+      const sources = ASSISTANT_FINANCIAL_TOOL_SOURCES[financialTool];
+      if (!sources) throw invalid();
+      return context.readAuthorizedOwnConfirmedContext({
+        authorization,
+        authority: ownerAuthority,
+        period: civilPeriodForRelativeCode(periodCode, clock()),
+        scope: Object.freeze({ kind: 'own_financial_information', sources }),
+      });
+    },
   });
 };

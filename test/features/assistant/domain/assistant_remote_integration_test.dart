@@ -64,6 +64,30 @@ void main() {
     );
   });
 
+  test('aceita somente pergunta de esclarecimento canônica e enumerada', () {
+    final AssistantRemoteResponse response =
+        AssistantRemoteResponse.fromCallableData(<String, Object?>{
+          'status': 'clarification_required',
+          'contractVersion': 'assist-remote-v1',
+          'intent': 'financial_overview',
+          'clarificationCode': 'period_required',
+          'question': 'Qual período você quer analisar?',
+        });
+    expect(response.requiresClarification, isTrue);
+    expect(response.clarification?.intent, 'financial_overview');
+
+    expect(
+      () => AssistantRemoteResponse.fromCallableData(<String, Object?>{
+        'status': 'clarification_required',
+        'contractVersion': 'assist-remote-v1',
+        'intent': 'financial_overview',
+        'clarificationCode': 'period_required',
+        'question': 'Texto livre do modelo.',
+      }),
+      throwsA(isA<AssistantFailure>()),
+    );
+  });
+
   test('resposta fundamentada exige fonte e período civil estritos', () {
     final AssistantRemoteResponse response =
         AssistantRemoteResponse.fromCallableData(<String, Object?>{

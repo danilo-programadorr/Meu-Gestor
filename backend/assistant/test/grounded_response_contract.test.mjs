@@ -22,7 +22,7 @@ const context = Object.freeze({
   facts: [fact], missingSources: [],
 });
 const response = Object.freeze({
-  schemaVersion: 1, status: 'grounded', answer: 'Resumo confirmado.',
+  schemaVersion: 1, status: 'grounded', intent: 'financial_overview', clarificationCode: 'none', answer: 'Resumo confirmado.',
   assertions: [{ statement: 'O saldo confirmado é R$ 1.250,00.', evidence: fact.evidence }],
   missingData: [],
 });
@@ -179,6 +179,8 @@ test('classifica ausência legítima e falha de interpretação sem promover res
     response: {
       schemaVersion: 1,
       status: 'safe_unavailable',
+      intent: 'financial_overview',
+      clarificationCode: 'none',
       answer: 'Não há dados confirmados suficientes para responder com segurança.',
       assertions: [],
       missingData: ['confirmed_financial_evidence'],
@@ -195,6 +197,29 @@ test('classifica ausência legítima e falha de interpretação sem promover res
   });
   assert.equal(invalidJson.finalStatus, 'safe_unavailable');
   assert.equal(invalidJson.reason, 'provider_output_invalid_json');
+});
+
+test('converte esclarecimento válido em pergunta canônica sem evidência financeira', () => {
+  const admission = admitGroundedAssistantResponse({
+    context,
+    response: {
+      schemaVersion: 1,
+      status: 'clarification_required',
+      intent: 'financial_overview',
+      clarificationCode: 'period_required',
+      answer: 'Texto do modelo que não deve ser exibido.',
+      assertions: [],
+      missingData: [],
+    },
+  });
+  assert.equal(admission.finalStatus, 'clarification_required');
+  assert.deepEqual(admission.response, {
+    status: 'clarification_required',
+    contractVersion: 'assist-remote-v1',
+    intent: 'financial_overview',
+    clarificationCode: 'period_required',
+    question: 'Qual período você quer analisar?',
+  });
 });
 
 test('monta contexto somente após admissão e sem expor identidade na saída', async () => {

@@ -16,13 +16,13 @@ test('feature flag permanece desligada e falha com resposta segura', () => {
 
 test('Flash é a execução padrão quando uma borda autorizada for habilitada', () => {
   assert.deepEqual(resolveAssistantModelExecution({ routing: { tier: 'flash' }, featureEnabled: true }), {
-    enabled: true, tier: 'flash', providerModel: 'gemini-2.5-flash', fallback: 'safe_unavailable',
+    enabled: true, tier: 'flash', providerModel: 'gemini-3.8-flash', thinkingLevel: 'LOW', fallback: 'safe_unavailable',
   });
 });
 
 test('Pro só é selecionado por escalonamento já decidido pelo backend', () => {
   assert.deepEqual(resolveAssistantModelExecution({ routing: { tier: 'pro' }, featureEnabled: true }), {
-    enabled: true, tier: 'pro', providerModel: 'gemini-2.5-pro', fallback: 'safe_unavailable',
+    enabled: true, tier: 'pro', providerModel: 'gemini-3.8-flash', thinkingLevel: 'HIGH', fallback: 'safe_unavailable',
   });
 });
 

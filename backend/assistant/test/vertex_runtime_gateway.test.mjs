@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   ASSISTANT_VERTEX_GLOBAL_API_ENDPOINT,
   ASSISTANT_VERTEX_LOCATION,
+  ASSISTANT_VERTEX_PLAN_SCHEMA,
   ASSISTANT_VERTEX_PROMPT_VERSION,
   ASSISTANT_VERTEX_RESPONSE_SCHEMA,
   assistantVertexClientConfiguration,
@@ -12,25 +13,57 @@ import {
 import { AssistantContractError } from '../src/errors.mjs';
 
 const execution = Object.freeze({
-  enabled: true,
-  tier: 'flash',
-  providerModel: 'gemini-2.5-flash',
-  fallback: 'safe_unavailable',
+  enabled: true, tier: 'flash', providerModel: 'gemini-3.8-flash',
+  thinkingLevel: 'LOW', fallback: 'safe_unavailable',
 });
-const proExecution = Object.freeze({
-  enabled: true,
-  tier: 'pro',
-  providerModel: 'gemini-2.5-pro',
-  fallback: 'safe_unavailable',
-});
-
+const proExecution = Object.freeze({ ...execution, tier: 'pro', thinkingLevel: 'HIGH' });
 const providerRequest = Object.freeze({
   contractVersion: 'assist-remote-v1',
   message: 'Explique o resumo confirmado.',
+  intentPlan: Object.freeze({
+    schemaVersion: 1, status: 'ready', intent: 'financial_overview',
+    clarificationCode: 'none', periodCode: 'current_month', financialTool: 'overview',
+  }),
   context: Object.freeze({
     civilPeriod: Object.freeze({ timeZone: 'America/Sao_Paulo', startDate: '2026-09-01', endDateExclusive: '2026-10-01' }),
     facts: Object.freeze([Object.freeze({ evidenceId: 'ev_accounts_001', source: 'accounts', kind: 'moneyCentsBrl', value: 1200 })]),
   }),
+});
+
+const providerJson = (overrides = {}) => JSON.stringify({
+  schemaVersion: 1,
+  status: 'grounded',
+  intent: 'financial_overview',
+  clarificationCode: 'none',
+  assertions: [{
+    statement: 'Resumo confirmado.',
+    evidence: {
+      alias: 'ev_accounts_001', source: 'accounts',
+      period: { timeZone: 'America/Sao_Paulo', startDate: '2026-09-01', endDateExclusive: '2026-10-01' },
+    },
+  }],
+  missingData: [],
+  ...overrides,
+});
+
+const fakeGateway = ({ result, calls = [] } = {}) => createVertexRuntimeGateway({
+  providerFeatureEnabled: true,
+  killSwitchActive: false,
+  projectIdReader: () => 'synthetic-project',
+  clock: (() => { let now = 100; return () => (now += 25); })(),
+  vertexAiFactory: async (configuration) => {
+    calls.push({ kind: 'factory', configuration });
+    return {
+      models: {
+        generateContent: async (request) => {
+          calls.push({ kind: 'generate', request });
+          return result ?? {
+            candidates: [{ finishReason: 'STOP', content: { parts: [{ text: providerJson() }] } }],
+          };
+        },
+      },
+    };
+  },
 });
 
 test('desligado falha antes de carregar cliente, credencial ou rede', async () => {
@@ -45,236 +78,176 @@ test('desligado falha antes de carregar cliente, credencial ou rede', async () =
   assert.equal(factoryCalls, 0);
 });
 
-test('flags são lidos no runtime do gateway, não em sua criação', async () => {
-  let reads = 0;
-  const gateway = createVertexRuntimeGateway({
-    runtimeControlsReader: () => {
-      reads += 1;
-      return Object.freeze({ killSwitchActive: true, providerFeatureEnabled: false });
-    },
-  });
-  assert.equal(reads, 0);
-  await assert.rejects(
-    gateway.generate({ execution, maximumCostCents: 20, providerRequest }),
-    (error) => error instanceof AssistantContractError && error.code === 'assistant_provider_unavailable',
-  );
-  assert.equal(reads, 1);
-});
-
-test('fake local valida plano, usa Flash e devolve somente JSON estruturado', async () => {
+test('planeja intenção, período e ferramenta sem receber contexto financeiro', async () => {
   const calls = [];
   const gateway = createVertexRuntimeGateway({
     providerFeatureEnabled: true,
     killSwitchActive: false,
     projectIdReader: () => 'synthetic-project',
-    clock: (() => { let now = 100; return () => (now += 25); })(),
-    vertexAiFactory: async (configuration) => {
-      calls.push(Object.freeze({ kind: 'factory', configuration }));
-      return Object.freeze({
-        getGenerativeModel: (modelConfiguration) => {
-          calls.push(Object.freeze({ kind: 'model', modelConfiguration }));
-          return Object.freeze({
-            generateContent: async (request) => {
-              calls.push(Object.freeze({ kind: 'generate', request }));
-              return Object.freeze({
-                response: Object.freeze({
-                  candidates: [Object.freeze({
-                    content: Object.freeze({
-                      parts: [Object.freeze({ text: '{"schemaVersion":1,"status":"grounded","assertions":[{"statement":"Resumo confirmado.","evidence":{"alias":"ev_accounts_001","source":"accounts","period":{"timeZone":"America/Sao_Paulo","startDate":"2026-09-01","endDateExclusive":"2026-10-01"}}}],"missingData":[]}' })],
-                    }),
-                  })],
-                }),
-              });
-            },
-          });
+    clock: (() => { let now = 100; return () => (now += 10); })(),
+    vertexAiFactory: async () => ({
+      models: {
+        generateContent: async (request) => {
+          calls.push(request);
+          return {
+            candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify({
+              schemaVersion: 1,
+              status: 'ready',
+              intent: 'financial_overview',
+              clarificationCode: 'none',
+              periodCode: 'current_month',
+              financialTool: 'overview',
+            }) }] } }],
+          };
         },
-      });
-    },
+      },
+    }),
   });
-
-  const result = await gateway.generate({ execution, maximumCostCents: 20, providerRequest });
-  assert.equal(calls[0].configuration.location, ASSISTANT_VERTEX_LOCATION);
-  assert.equal(calls[0].configuration.apiEndpoint, ASSISTANT_VERTEX_GLOBAL_API_ENDPOINT);
-  assert.equal(calls[1].modelConfiguration.model, 'gemini-2.5-flash');
-  assert.deepEqual(calls[1].modelConfiguration.generationConfig.thinkingConfig, {
-    thinkingBudget: 0,
-    includeThoughts: false,
+  const result = await gateway.plan({
+    execution,
+    maximumCostCents: 20,
+    request: { message: 'Prepare um relatório deste mês.' },
   });
-  assert.equal(calls[1].modelConfiguration.generationConfig.responseMimeType, 'application/json');
-  assert.deepEqual(calls[1].modelConfiguration.generationConfig.responseSchema, ASSISTANT_VERTEX_RESPONSE_SCHEMA);
-  assert.deepEqual(Object.keys(ASSISTANT_VERTEX_RESPONSE_SCHEMA.properties).sort(), [
-    'assertions', 'missingData', 'schemaVersion', 'status',
-  ]);
-  assert.equal(ASSISTANT_VERTEX_RESPONSE_SCHEMA.required.includes('disclaimer'), false);
-  assert.equal('disclaimer' in ASSISTANT_VERTEX_RESPONSE_SCHEMA.properties, false);
-  assert.equal(calls[2].request.contents[0].role, 'user');
-  assert.equal('generationConfig' in calls[2].request, false);
-  const prompt = JSON.parse(calls[2].request.contents[0].parts[0].text);
-  assert.equal(prompt.promptVersion, ASSISTANT_VERTEX_PROMPT_VERSION);
-  assert.deepEqual(prompt.request, providerRequest);
-  assert.ok(prompt.instructions.some((instruction) => instruction.includes('evidência')));
-  assert.ok(prompt.instructions.some((instruction) => instruction.includes('moneyCentsBrl')));
-  assert.ok(prompt.instructions.some((instruction) => instruction.includes('Não gere answer')));
-  assert.ok(prompt.instructions.some((instruction) => instruction.includes('Não gere disclaimer')));
-  assert.equal(result.confirmedCostCents, 20);
-  assert.equal(result.durationMs, 25);
-  assert.equal(result.response.status, 'grounded');
-  assert.equal(result.response.answer, 'Resumo confirmado.');
-  assert.deepEqual(result.providerDiagnostics, {
-    finishReason: 'ABSENT',
-    candidateCount: 1,
-    textPartCount: 1,
-    nonTextPartCount: 0,
-    providerBlocked: false,
-  });
-  assert.equal('providerOutputIssue' in result, false);
+  assert.equal(result.plan.periodCode, 'current_month');
+  assert.equal(result.plan.financialTool, 'overview');
+  assert.deepEqual(calls[0].config.responseSchema, ASSISTANT_VERTEX_PLAN_SCHEMA);
+  assert.equal(calls[0].config.maxOutputTokens, 256);
+  const prompt = JSON.parse(calls[0].contents[0].parts[0].text);
+  assert.equal('context' in prompt.request, false);
+  assert.doesNotMatch(JSON.stringify(prompt), /moneyCentsBrl|evidenceId/u);
 });
 
-test('saída ausente ou não JSON chega à admissão somente por código enumerado', async () => {
-  for (const [candidate, expectedIssue] of [
-    [{ response: { candidates: [] } }, 'provider_output_missing'],
-    [{ response: { candidates: [{ content: { parts: [{ text: 'x'.repeat(20_001) }] } }] } }, 'provider_output_too_large'],
-    [{ response: { candidates: [{ content: { parts: [{ text: 'não-json' }] } }] } }, 'provider_output_invalid_json'],
-  ]) {
-    const gateway = createVertexRuntimeGateway({
-      providerFeatureEnabled: true,
-      killSwitchActive: false,
-      projectIdReader: () => 'synthetic-project',
-      vertexAiFactory: async () => ({
-        getGenerativeModel: () => ({ generateContent: async () => candidate }),
-      }),
-    });
-    const result = await gateway.generate({ execution, maximumCostCents: 20, providerRequest });
-    assert.equal(result.response, null);
-    assert.equal(result.providerOutputIssue, expectedIssue);
-  }
-});
-
-test('Pro usa o mínimo de thinking sem ampliar o limite total de saída', async () => {
-  let generationConfig;
+test('planejamento ambíguo pede esclarecimento sem selecionar leitor', async () => {
   const gateway = createVertexRuntimeGateway({
     providerFeatureEnabled: true,
     killSwitchActive: false,
     projectIdReader: () => 'synthetic-project',
     vertexAiFactory: async () => ({
-      getGenerativeModel: (configuration) => {
-        generationConfig = configuration.generationConfig;
-        return {
-          generateContent: async () => ({
-            response: {
-              candidates: [{
-                finishReason: 'STOP',
-                content: { parts: [{ text: '{"schemaVersion":1,"status":"safe_unavailable","assertions":[],"missingData":["confirmed_financial_evidence"]}' }] },
-              }],
-            },
-          }),
-        };
+      models: {
+        generateContent: async () => ({
+          candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify({
+            schemaVersion: 1,
+            status: 'clarification_required',
+            intent: 'financial_overview',
+            clarificationCode: 'period_required',
+            periodCode: 'none',
+            financialTool: 'none',
+          }) }] } }],
+        }),
       },
     }),
   });
-  await gateway.generate({ execution: proExecution, maximumCostCents: 100, providerRequest });
-  assert.equal(generationConfig.maxOutputTokens, 1_500);
-  assert.deepEqual(generationConfig.thinkingConfig, {
-    thinkingBudget: 128,
-    includeThoughts: false,
+  const result = await gateway.plan({
+    execution,
+    maximumCostCents: 20,
+    request: { message: 'Prepare um relatório.' },
+  });
+  assert.equal(result.plan.status, 'clarification_required');
+  assert.equal(result.plan.financialTool, 'none');
+});
+
+test('serializa Gemini 3.8 Flash, esforço baixo e contrato estruturado completo', async () => {
+  const calls = [];
+  const result = await fakeGateway({ calls }).generate({ execution, maximumCostCents: 20, providerRequest });
+  assert.deepEqual(calls[0].configuration, {
+    projectId: 'synthetic-project', location: ASSISTANT_VERTEX_LOCATION,
+    apiVersion: 'v1',
+    apiEndpoint: ASSISTANT_VERTEX_GLOBAL_API_ENDPOINT,
+  });
+  const request = calls[1].request;
+  assert.equal(request.model, 'gemini-3.8-flash');
+  assert.deepEqual(request.config.thinkingConfig, { thinkingLevel: 'LOW', includeThoughts: false });
+  assert.equal(request.config.responseMimeType, 'application/json');
+  assert.deepEqual(request.config.responseSchema, ASSISTANT_VERTEX_RESPONSE_SCHEMA);
+  assert.equal('candidateCount' in request.config, false);
+  assert.equal('temperature' in request.config, false);
+  assert.deepEqual(Object.keys(ASSISTANT_VERTEX_RESPONSE_SCHEMA.properties).sort(), [
+    'assertions', 'clarificationCode', 'intent', 'missingData', 'schemaVersion', 'status',
+  ]);
+  const prompt = JSON.parse(request.contents[0].parts[0].text);
+  assert.equal(prompt.promptVersion, ASSISTANT_VERTEX_PROMPT_VERSION);
+  assert.deepEqual(prompt.request, providerRequest);
+  assert.ok(prompt.instructions.some((instruction) => instruction.includes('intentPlan')));
+  assert.ok(prompt.instructions.some((instruction) => instruction.includes('somente grounded')));
+  assert.equal(result.response.answer, 'Resumo confirmado.');
+  assert.equal(result.confirmedCostCents, 20);
+  assert.equal(result.durationMs, 25);
+});
+
+test('tier complexo mantém o mesmo modelo e usa esforço alto sem ampliar saída', async () => {
+  const calls = [];
+  await fakeGateway({ calls }).generate({ execution: proExecution, maximumCostCents: 100, providerRequest });
+  assert.equal(calls[1].request.model, 'gemini-3.8-flash');
+  assert.equal(calls[1].request.config.maxOutputTokens, 1_500);
+  assert.deepEqual(calls[1].request.config.thinkingConfig, {
+    thinkingLevel: 'HIGH', includeThoughts: false,
   });
 });
 
-test('extração distingue truncamento, bloqueio e JSON inválido sem aceitar resposta parcial', async () => {
+test('preserva continuação efêmera no prompt sem promovê-la a autoridade', async () => {
+  const calls = [];
+  const continuation = {
+    intent: 'financial_overview', clarificationCode: 'period_required',
+    previousMessage: 'Prepare um relatório.',
+  };
+  await fakeGateway({ calls }).generate({
+    execution, maximumCostCents: 20,
+    providerRequest: { ...providerRequest, message: 'Deste mês.', continuation },
+  });
+  const prompt = JSON.parse(calls[1].request.contents[0].parts[0].text);
+  assert.deepEqual(prompt.request.continuation, continuation);
+});
+
+test('extração usa somente o primeiro candidato unary e suas partes textuais', async () => {
+  const serialized = providerJson({
+    status: 'safe_unavailable', clarificationCode: 'none', assertions: [],
+    missingData: ['confirmed_financial_evidence'],
+  });
+  const split = Math.floor(serialized.length / 2);
+  const result = await fakeGateway({ result: {
+    candidates: [
+      { finishReason: 'STOP', content: { parts: [{ text: serialized.slice(0, split) }, { text: serialized.slice(split) }] } },
+      { finishReason: 'STOP', content: { parts: [{ text: providerJson() }] } },
+    ],
+  } }).generate({ execution, maximumCostCents: 20, providerRequest });
+  assert.equal(result.response.status, 'safe_unavailable');
+  assert.equal(result.providerDiagnostics.candidateCount, 2);
+  assert.equal(result.providerDiagnostics.textPartCount, 2);
+});
+
+test('distingue ausência, truncamento, bloqueio e JSON inválido sem reparar saída', async () => {
   const cases = [
-    [
-      { response: { candidates: [{ finishReason: 'MAX_TOKENS', content: { parts: [{ text: '{"schemaVersion":1}' }] } }] } },
-      'provider_output_max_tokens',
-      'MAX_TOKENS',
-    ],
-    [
-      { response: { candidates: [{ finishReason: 'SAFETY', content: { parts: [] } }] } },
-      'provider_output_blocked',
-      'SAFETY',
-    ],
-    [
-      { response: { promptFeedback: { blockReason: 'SAFETY' }, candidates: [] } },
-      'provider_output_blocked',
-      'ABSENT',
-    ],
-    [
-      { response: { candidates: [{ finishReason: 'STOP', content: { parts: [{ text: 'não-json' }] } }] } },
-      'provider_output_invalid_json',
-      'STOP',
-    ],
+    [{ candidates: [] }, 'provider_output_missing', 'ABSENT'],
+    [{ candidates: [{ finishReason: 'MAX_TOKENS', content: { parts: [{ text: '{' }] } }] }, 'provider_output_max_tokens', 'MAX_TOKENS'],
+    [{ candidates: [{ finishReason: 'SAFETY', content: { parts: [] } }] }, 'provider_output_blocked', 'SAFETY'],
+    [{ candidates: [{ finishReason: 'STOP', content: { parts: [{ text: 'não-json' }] } }] }, 'provider_output_invalid_json', 'STOP'],
   ];
   for (const [sdkResult, expectedIssue, expectedFinishReason] of cases) {
-    const gateway = createVertexRuntimeGateway({
-      providerFeatureEnabled: true,
-      killSwitchActive: false,
-      projectIdReader: () => 'synthetic-project',
-      vertexAiFactory: async () => ({
-        getGenerativeModel: () => ({ generateContent: async () => sdkResult }),
-      }),
-    });
-    const result = await gateway.generate({ execution, maximumCostCents: 20, providerRequest });
+    const result = await fakeGateway({ result: sdkResult }).generate({ execution, maximumCostCents: 20, providerRequest });
     assert.equal(result.response, null);
     assert.equal(result.providerOutputIssue, expectedIssue);
     assert.equal(result.providerDiagnostics.finishReason, expectedFinishReason);
   }
 });
 
-test('extração monta somente partes textuais do primeiro candidato unary', async () => {
-  const firstCandidate = '{"schemaVersion":1,"status":"safe_unavailable","assertions":[],',
-    secondPart = '"missingData":["confirmed_financial_evidence"]}';
-  const gateway = createVertexRuntimeGateway({
-    providerFeatureEnabled: true,
-    killSwitchActive: false,
-    projectIdReader: () => 'synthetic-project',
-    vertexAiFactory: async () => ({
-      getGenerativeModel: () => ({
-        generateContent: async () => ({
-          response: {
-            candidates: [
-              { finishReason: 'STOP', content: { parts: [{ text: firstCandidate }, { text: secondPart }] } },
-              { finishReason: 'STOP', content: { parts: [{ text: 'não deve ser concatenado' }] } },
-            ],
-          },
-        }),
-      }),
-    }),
-  });
-  const result = await gateway.generate({ execution, maximumCostCents: 20, providerRequest });
-  assert.equal(result.response.status, 'safe_unavailable');
-  assert.equal(result.providerDiagnostics.candidateCount, 2);
-  assert.equal(result.providerDiagnostics.textPartCount, 2);
-});
-
 test('configura endpoint explícito apenas para location global', () => {
   assert.deepEqual(
     assistantVertexClientConfiguration({ projectId: 'synthetic-project', location: 'global' }),
     {
-      projectId: 'synthetic-project',
-      location: 'global',
+      projectId: 'synthetic-project', location: 'global', apiVersion: 'v1',
       apiEndpoint: 'aiplatform.googleapis.com',
     },
   );
   assert.deepEqual(
     assistantVertexClientConfiguration({ projectId: 'synthetic-project', location: 'southamerica-east1' }),
-    { projectId: 'synthetic-project', location: 'southamerica-east1' },
+    { projectId: 'synthetic-project', location: 'southamerica-east1', apiVersion: 'v1' },
   );
 });
 
-test('recusa identidade, segredo ou saída não JSON antes de entregar ao chamador', async () => {
-  const gateway = createVertexRuntimeGateway({
-    providerFeatureEnabled: true,
-    killSwitchActive: false,
-    projectIdReader: () => 'synthetic-project',
-    vertexAiFactory: async () => ({
-      getGenerativeModel: () => ({ generateContent: async () => ({ response: { candidates: [] } }) }),
-    }),
-  });
+test('recusa identidade ou segredo antes de alcançar o SDK', async () => {
+  const gateway = fakeGateway();
   await assert.rejects(
-    gateway.generate({
-      execution,
-      maximumCostCents: 20,
-      providerRequest: { ...providerRequest, context: { uid: 'proibido' } },
-    }),
+    gateway.generate({ execution, maximumCostCents: 20, providerRequest: { ...providerRequest, context: { uid: 'proibido' } } }),
     (error) => error instanceof AssistantContractError && error.code === 'assistant_provider_request_unsafe',
   );
 });

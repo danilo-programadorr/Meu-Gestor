@@ -29,12 +29,16 @@ final class FirebaseAssistantRemoteGateway implements AssistantRemoteGateway {
   @visibleForTesting
   FirebaseAssistantRemoteGateway.withInvoker({
     required AssistantRemoteCallableInvoker invoker,
-    Duration timeout = const Duration(seconds: 18),
+    Duration timeout = callableTimeout,
   }) : _invoker = invoker,
        _timeout = timeout;
 
   static const String callableName = 'assistRemoteV1';
   static const String callableRegion = 'southamerica-east1';
+
+  /// Mantém o cliente aguardando o limite server-side de 30 segundos e uma
+  /// margem curta de transporte, sem prolongar a execução da Function.
+  static const Duration callableTimeout = Duration(seconds: 35);
 
   final AssistantRemoteCallableInvoker _invoker;
   final Duration _timeout;
@@ -73,5 +77,11 @@ final class FirebaseAssistantRemoteGateway implements AssistantRemoteGateway {
       <String, Object?>{
         'contractVersion': AssistantRemoteRequest.contractVersion,
         'message': request.message,
+        if (request.continuation case final AssistantRemoteContinuation value)
+          'continuation': <String, Object?>{
+            'intent': value.intent,
+            'clarificationCode': value.clarificationCode,
+            'previousMessage': value.previousMessage,
+          },
       };
 }

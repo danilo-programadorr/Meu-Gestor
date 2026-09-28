@@ -16,6 +16,13 @@ somente em áudio.
   automaticamente e removido do estado visual antes da resposta. A resposta ou
   indisponibilidade segura é reproduzida exclusivamente pelo TTS; não há
   transcrição, cartão de resposta ou evidência visível nesse modo.
+- O TTS prioriza o mecanismo Google quando ele já estiver instalado e escolhe
+  deterministicamente a voz feminina pt-BR local de maior qualidade. Vozes que
+  exigem rede não são forçadas; ausência de metadado feminino mantém o fallback
+  pt-BR do aparelho, sem download, nova dependência ou serviço pago.
+- O núcleo visual usa quatro ondas concêntricas em pulso duplo e noventa
+  partículas menores. A animação responde à fase e à intensidade efêmera da
+  voz, mas fica estática quando o sistema solicita redução de movimento.
 - O cliente ainda envia somente a mensagem. Antes do gateway, ele exige
   consentimento geral de IA, aceite remoto próprio válido e privacidade
   financeira desativada. O backend revalida tudo e continua sendo a única

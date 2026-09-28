@@ -273,7 +273,6 @@ class _AssistantConversationPageState
     }
     _activationInProgress = true;
     try {
-      _remoteConversation.discard();
       final bool hasPermission = await _conversation.hasMicrophonePermission();
       if (!mounted) return;
       if (!hasPermission) {
@@ -288,7 +287,7 @@ class _AssistantConversationPageState
   }
 
   Future<void> _useTextMode() async {
-    await _stopForExit();
+    await _stopForExit(discardRemoteAnswer: false);
     if (mounted) setState(() => _textMode = true);
   }
 
@@ -300,7 +299,6 @@ class _AssistantConversationPageState
     if (!await _ensureEffectiveRemoteConsent()) return;
     final String question = _textController.text;
     _textController.clear();
-    _remoteConversation.discard();
     final int? conversationOperation = await _conversation.submitText(question);
     if (!mounted) return;
     final String message = ref
@@ -545,7 +543,7 @@ class _ConversationVisualState extends State<_ConversationVisual>
     with SingleTickerProviderStateMixin {
   late final AnimationController _animation = AnimationController(
     vsync: this,
-    duration: const Duration(seconds: 8),
+    duration: AssistantConversationVisualConfig.pulseDuration,
   )..repeat();
 
   @override
@@ -595,19 +593,18 @@ class _ConversationCorePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final Offset center = Offset(size.width / 2, size.height / 2);
-    final double fallback = switch (phase) {
+    final double phaseEnergy = switch (phase) {
       AssistantConversationPhase.listening =>
-        .42 + math.sin(progress * math.pi * 4).abs() * .25,
-      AssistantConversationPhase.thinking => .16,
-      AssistantConversationPhase.speaking => .32,
-      _ => 1,
+        .58 + math.sin(progress * math.pi * 6).abs() * .18,
+      AssistantConversationPhase.thinking => .42,
+      AssistantConversationPhase.speaking => .68,
+      _ => .2,
     };
     final double reactiveIntensity = voiceIntensity > 0
         ? voiceIntensity
-        : fallback;
-    final double intensity = 1 + reactiveIntensity * .24;
-    final double pulse =
-        1 + math.sin(progress * math.pi * 2) * .055 * intensity;
+        : phaseEnergy;
+    final double heartbeat = _heartbeat(progress);
+    final double pulse = 1 + heartbeat * (.08 + reactiveIntensity * .05);
     final Paint glow = Paint()
       ..shader = RadialGradient(
         colors: <Color>[
@@ -619,44 +616,83 @@ class _ConversationCorePainter extends CustomPainter {
     canvas.drawCircle(center, 70 * pulse, glow);
     canvas.drawCircle(
       center,
-      20 * pulse,
+      18 * pulse,
       Paint()..color = const Color(0xFFBFEAFF),
     );
     canvas.drawCircle(
       center,
-      11 * pulse,
+      9 * pulse,
       Paint()..color = const Color(0xFFEBF8FF),
     );
+
+    // Ondas concêntricas propagam o mesmo impulso do núcleo como uma descarga
+    // curta; cada anel desaparece antes de alcançar a borda do campo visual.
+    for (
+      int ring = 0;
+      ring < AssistantConversationVisualConfig.pulseRingCount;
+      ring++
+    ) {
+      final double wave = (progress + ring / 4) % 1;
+      final double radius = 24 + wave * 70;
+      final double opacity = (1 - wave) * (.24 + reactiveIntensity * .16);
+      canvas.drawCircle(
+        center,
+        radius,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.4 - wave * .65
+          ..color = const Color(0xFF8EDCFF).withValues(alpha: opacity),
+      );
+    }
+
     for (
       int index = 0;
       index < AssistantConversationVisualConfig.particleCount;
       index++
     ) {
-      final double direction = index.isEven ? 1 : -1;
-      final double velocity = .28 + (index % 7) * .11;
       final double phaseOffset = index * 2.399963229728653;
-      final double angle =
-          progress * math.pi * 2 * velocity * direction + phaseOffset;
-      final double baseRadius = 40 + (index % 6) * 12.0;
-      final double drift = math.sin(
-        progress * math.pi * 2 * (.18 + (index % 5) * .07) + phaseOffset,
+      final double shell = index % 9;
+      final double electricJitter = math.sin(
+        progress * math.pi * 12 + phaseOffset * 1.7,
       );
-      final double radius = baseRadius + drift * 7 + reactiveIntensity * 9;
+      final double radius =
+          30 +
+          shell * 7.2 +
+          heartbeat * (4 + reactiveIntensity * 5) +
+          electricJitter * 1.8;
+      final double angle =
+          phaseOffset + math.sin(progress * math.pi * 2 + shell * .37) * .055;
       final Offset particle =
           center +
           Offset(
             math.cos(angle) * radius,
-            math.sin(angle + drift * .16) * radius * (.42 + (index % 3) * .04),
+            math.sin(angle) * radius * (.46 + (index % 4) * .025),
           );
+      final double particleRadius =
+          AssistantConversationVisualConfig.minimumParticleRadius +
+          (index % 5) /
+              4 *
+              (AssistantConversationVisualConfig.maximumParticleRadius -
+                  AssistantConversationVisualConfig.minimumParticleRadius);
       canvas.drawCircle(
         particle,
-        1.7 + (index % 4) * .45,
+        particleRadius,
         Paint()
           ..color = const Color(0xFF87CBE8).withValues(
-            alpha: .38 + (index % 5) * .08 + reactiveIntensity * .12,
+            alpha:
+                .24 +
+                (index % 6) * .055 +
+                heartbeat * .16 +
+                reactiveIntensity * .08,
           ),
       );
     }
+  }
+
+  double _heartbeat(double value) {
+    final double first = math.exp(-math.pow((value - .18) / .055, 2));
+    final double second = .72 * math.exp(-math.pow((value - .31) / .07, 2));
+    return math.min(1, first + second);
   }
 
   @override

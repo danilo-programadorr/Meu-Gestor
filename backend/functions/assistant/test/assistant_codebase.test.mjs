@@ -31,6 +31,7 @@ test('codebase assistant é exclusivo, Node 22 e aponta somente à callable prev
   assert.equal(manifest.engines.node, '22');
   assert.deepEqual(manifest.dependencies, {
     '@google-cloud/vertexai': '1.12.0',
+    '@google/genai': '1.52.0',
     'firebase-functions': '7.3.2',
     'google-auth-library': '10.9.1',
   });
@@ -59,7 +60,10 @@ test('runtime identity é parâmetro sem valor versionado e opções são conser
 test('adapters sem banco falham fechados antes de qualquer leitura futura', async () => {
   const dependencies = createFailClosedAssistantDependencies({
     HttpsError: FakeHttpsError,
-    providerGateway: { generate: async () => { throw new Error('provider_must_not_run'); } },
+    providerGateway: {
+      plan: async () => { throw new Error('provider_must_not_run'); },
+      generate: async () => { throw new Error('provider_must_not_run'); },
+    },
   });
   for (const action of [dependencies.authorizationReader, dependencies.contextReader, dependencies.usageReader, dependencies.ledger.reserve]) {
     await assert.rejects(action(), (error) => error.code === 'failed-precondition');
@@ -110,7 +114,10 @@ test('composição runtime usa a porta ADC do ledger sem abrir o provedor', () =
   const dependencies = createFailClosedAssistantDependencies({
     HttpsError: FakeHttpsError,
     ledger,
-    providerGateway: { generate: async () => { throw new Error('provider_must_not_run'); } },
+    providerGateway: {
+      plan: async () => { throw new Error('provider_must_not_run'); },
+      generate: async () => { throw new Error('provider_must_not_run'); },
+    },
   });
   assert.equal(dependencies.ledger, ledger);
 });
@@ -120,9 +127,10 @@ test('ponte Vertex é dinâmica, genérica e não abre cliente com circuito desl
     new URL('../../../assistant/src/vertex_runtime_gateway.mjs', import.meta.url),
     'utf8',
   );
-  assert.match(source, /await import\('@google-cloud\/vertexai'\)/u);
+  assert.match(source, /await import\('@google\/genai'\)/u);
   assert.match(source, /process\.env\.GCLOUD_PROJECT/u);
-  assert.doesNotMatch(source, /firebase-admin|getFirestore\(|https?:\/\/|secretmanager|console\./iu);
+  assert.match(source, /aiplatform\.googleapis\.com/u);
+  assert.doesNotMatch(source, /firebase-admin|getFirestore\(|secretmanager|console\./iu);
   assert.doesNotMatch(source, /meu-gestor-financeiro|AIza|private[_-]?key|serviceAccountKey/iu);
 });
 

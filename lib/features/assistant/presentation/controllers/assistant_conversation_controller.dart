@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:meu_gestor_financeiro/features/assistant/data/assistant_speech_recognizer.dart';
 import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_context.dart';
 import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_conversation.dart';
-import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_summary.dart';
 
 final Provider<AssistantSpeechRecognizer> assistantSpeechRecognizerProvider =
     Provider<AssistantSpeechRecognizer>(
@@ -79,26 +78,22 @@ final class AssistantConversationController
       }
       final String transcript = await _recognizer.listen();
       if (operation != _operation || _disposed) return;
-      state = state.copyWith(
-        phase: AssistantConversationPhase.thinking,
-        transcript: transcript,
-        message: 'Verificando uma resposta determinística.',
-      );
-      final question = AssistantConversationQuestionMatcher.match(transcript);
-      if (question == null) {
+      final String message = transcript.trim();
+      if (!AssistantContentSafety.isSafe(message)) {
         state = state.copyWith(
           phase: AssistantConversationPhase.ready,
-          message:
-              'Ainda não tenho uma resposta determinística para essa pergunta. Use uma pergunta disponível por texto.',
+          transcript: '',
+          message: 'Não foi possível usar essa pergunta com segurança.',
           clearQuestion: true,
         );
-      } else {
-        state = state.copyWith(
-          phase: AssistantConversationPhase.thinking,
-          message: 'Pergunta reconhecida. Preparando resposta confirmada.',
-          question: question,
-        );
+        return;
       }
+      state = state.copyWith(
+        phase: AssistantConversationPhase.thinking,
+        transcript: message,
+        message: 'Pergunta reconhecida. Entendendo sua intenção.',
+        clearQuestion: true,
+      );
     } on AssistantSpeechException catch (error) {
       if (operation == _operation && !_disposed) _setSpeechFailure(error.code);
     } on Object {
@@ -161,8 +156,8 @@ final class AssistantConversationController
 
   Future<void> interrupt() => stopAndClear();
 
-  /// Usa a mesma classificação determinística da fala e nunca encaminha texto
-  /// para rede. O texto só existe no estado efêmero desta tela.
+  /// Aceita linguagem livre depois da barreira local de conteúdo. O texto
+  /// permanece efêmero e só é enviado pela tela após consentimento efetivo.
   Future<int?> submitText(String value) async {
     final String text = value.trim();
     await stopAndClear();
@@ -174,22 +169,11 @@ final class AssistantConversationController
       );
       return null;
     }
-    final AssistantGuidedQuestion? question =
-        AssistantConversationQuestionMatcher.match(text);
-    if (question == null) {
-      state = state.copyWith(
-        transcript: text,
-        message:
-            'Ainda não tenho uma resposta determinística para essa pergunta. Tente uma pergunta disponível.',
-        clearQuestion: true,
-      );
-      return operation;
-    }
     state = state.copyWith(
       phase: AssistantConversationPhase.thinking,
       transcript: text,
-      message: 'Pergunta recebida. Preparando resposta confirmada.',
-      question: question,
+      message: 'Pergunta recebida. Entendendo sua intenção.',
+      clearQuestion: true,
     );
     return operation;
   }

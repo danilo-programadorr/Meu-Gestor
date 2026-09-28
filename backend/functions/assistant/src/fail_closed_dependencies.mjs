@@ -6,7 +6,9 @@ export function createFailClosedAssistantDependencies({ HttpsError, providerGate
   if (typeof HttpsError !== 'function') {
     throw new TypeError('assistant_https_error_required');
   }
-  if (!providerGateway || typeof providerGateway.generate !== 'function') {
+  if (!providerGateway
+      || typeof providerGateway.plan !== 'function'
+      || typeof providerGateway.generate !== 'function') {
     throw new TypeError('assistant_provider_gateway_required');
   }
 

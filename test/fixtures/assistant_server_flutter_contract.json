@@ -7,6 +7,8 @@
         "response": {
           "schemaVersion": 1,
           "status": "grounded",
+          "intent": "balance",
+          "clarificationCode": "none",
           "answer": "O saldo confirmado é R$ 750,0.",
           "assertions": [
             {
@@ -58,6 +60,8 @@
         "response": {
           "schemaVersion": 1,
           "status": "safe_unavailable",
+          "intent": "balance",
+          "clarificationCode": "none",
           "answer": "Não há dados confirmados suficientes para responder com segurança.",
           "assertions": [],
           "missingData": [
@@ -73,6 +77,32 @@
       },
       "expectedFinalStatus": "safe_unavailable",
       "expectedReason": "provider_reported_insufficient_evidence",
+      "expectedFlutterGrounded": false
+    },
+    {
+      "name": "clarification_required",
+      "providerResult": {
+        "response": {
+          "schemaVersion": 1,
+          "status": "clarification_required",
+          "intent": "financial_overview",
+          "clarificationCode": "period_required",
+          "answer": "Conteúdo livre que não deve atravessar o servidor.",
+          "assertions": [],
+          "missingData": []
+        },
+        "durationMs": 25,
+        "confirmedCostCents": 7
+      },
+      "expectedResponse": {
+        "status": "clarification_required",
+        "contractVersion": "assist-remote-v1",
+        "intent": "financial_overview",
+        "clarificationCode": "period_required",
+        "question": "Qual período você quer analisar?"
+      },
+      "expectedFinalStatus": "clarification_required",
+      "expectedReason": null,
       "expectedFlutterGrounded": false
     },
     {
@@ -97,6 +127,8 @@
         "response": {
           "schemaVersion": 1,
           "status": "grounded",
+          "intent": "balance",
+          "clarificationCode": "none",
           "answer": "O saldo confirmado é R$ 750,00.",
           "assertions": [
             {

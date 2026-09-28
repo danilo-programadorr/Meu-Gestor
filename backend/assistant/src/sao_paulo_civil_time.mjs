@@ -105,4 +105,22 @@ export const civilPeriodForSingleDay = (date) => Object.freeze({
   endDateExclusive: nextCivilDate(date),
 });
 
+// Períodos relativos são derivados exclusivamente do relógio confiável do
+// servidor; o modelo escolhe apenas um código fechado, nunca datas livres.
+export const civilPeriodForRelativeCode = (code, now) => {
+  const current = parseCivilDate(currentCivilDate(now));
+  if (code === 'today') return civilPeriodForSingleDay(current.value);
+  if (!['current_month', 'previous_month'].includes(code)) {
+    throw deny('assistant_invalid_context', 'period_invalid');
+  }
+  const offset = code === 'current_month' ? 0 : -1;
+  const start = new Date(Date.UTC(current.year, current.month - 1 + offset, 1));
+  const end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 1));
+  return Object.freeze({
+    timeZone: ASSISTANT_CIVIL_TIME_ZONE,
+    startDate: start.toISOString().slice(0, 10),
+    endDateExclusive: end.toISOString().slice(0, 10),
+  });
+};
+
 export const currentCivilDate = (now) => civilDateFromUtcInstant(asUtcIso(now.toISOString()));

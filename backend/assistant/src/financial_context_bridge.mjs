@@ -127,7 +127,7 @@ export class AssistantFinancialContextBridge {
     this.clock = clock;
   }
 
-  async buildOwnConfirmedContext({ actor, period }) {
+  async buildOwnConfirmedContext({ actor, period, sources = undefined }) {
     validateActor(actor);
     const generatedAt = asUtcIso(this.clock.now().toISOString());
     const normalizedPeriod = validatePeriod(period, generatedAt);
@@ -139,7 +139,19 @@ export class AssistantFinancialContextBridge {
     const facts = [];
     let aliasSequence = 0;
 
-    for (const plan of sourcePlans) {
+    if (sources !== undefined
+        && (!Array.isArray(sources)
+          || sources.length === 0
+          || new Set(sources).size !== sources.length
+          || sources.some((source) => !sourcePlans.some((plan) => plan.sources.includes(source))))) {
+      throw deny('assistant_context_admission_denied');
+    }
+    const selectedSources = sources === undefined ? null : new Set(sources);
+    const selectedPlans = selectedSources === null
+      ? sourcePlans
+      : sourcePlans.filter((plan) => plan.sources.some((source) => selectedSources.has(source)));
+
+    for (const plan of selectedPlans) {
       const snapshot = validateSnapshot(
         await this.sourceReaders.readOwnSource({
           ownerUid: actor.uid,

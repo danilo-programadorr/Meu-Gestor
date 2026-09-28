@@ -42,6 +42,7 @@ enum AssistantRemoteConversationPhase {
   consentRequired,
   privacyBlocked,
   safeUnavailable,
+  clarificationRequired,
   grounded,
 }
 
@@ -93,6 +94,7 @@ final class AssistantRemoteConversationController
   late AssistantRemoteCallPolicy _policy;
   int _operation = 0;
   bool _disposed = false;
+  AssistantRemoteContinuation? _pendingContinuation;
 
   @override
   AssistantRemoteConversationState build() {
@@ -101,6 +103,7 @@ final class AssistantRemoteConversationController
     ref.onDispose(() {
       _disposed = true;
       _operation += 1;
+      _pendingContinuation = null;
     });
     return const AssistantRemoteConversationState.initial();
   }
@@ -116,6 +119,7 @@ final class AssistantRemoteConversationController
     if (state.isPreparing) return;
     final int operation = ++_operation;
     if (!aiConsentEnabled) {
+      _pendingContinuation = null;
       _setIfCurrent(
         operation,
         const AssistantRemoteConversationState(
@@ -127,6 +131,7 @@ final class AssistantRemoteConversationController
       return;
     }
     if (!remoteContextConsentAllowed) {
+      _pendingContinuation = null;
       _setIfCurrent(
         operation,
         const AssistantRemoteConversationState(
@@ -138,6 +143,7 @@ final class AssistantRemoteConversationController
       return;
     }
     if (!financialValuesVisible) {
+      _pendingContinuation = null;
       _setIfCurrent(
         operation,
         const AssistantRemoteConversationState(
@@ -150,8 +156,12 @@ final class AssistantRemoteConversationController
     }
     late final AssistantRemoteRequest request;
     try {
-      request = AssistantRemoteRequest(message: message);
+      request = AssistantRemoteRequest(
+        message: message,
+        continuation: _pendingContinuation,
+      );
     } on AssistantFailure {
+      _pendingContinuation = null;
       _setIfCurrent(
         operation,
         const AssistantRemoteConversationState(
@@ -183,12 +193,29 @@ final class AssistantRemoteConversationController
       final AssistantRemoteResponse result = await _gateway.ask(request);
       if (result.groundedResponse
           case final AssistantGroundedResponse response) {
+        if (!_isCurrent(operation)) return;
+        _pendingContinuation = null;
         _setIfCurrent(
           operation,
           AssistantRemoteConversationState(
             phase: AssistantRemoteConversationPhase.grounded,
             message: 'Resposta fundamentada pronta para leitura.',
             response: response,
+          ),
+        );
+      } else if (result.clarification
+          case final AssistantRemoteClarification clarification) {
+        if (!_isCurrent(operation)) return;
+        _pendingContinuation = AssistantRemoteContinuation(
+          intent: clarification.intent,
+          clarificationCode: clarification.clarificationCode,
+          previousMessage: message,
+        );
+        _setIfCurrent(
+          operation,
+          AssistantRemoteConversationState(
+            phase: AssistantRemoteConversationPhase.clarificationRequired,
+            message: clarification.question,
           ),
         );
       } else {
@@ -204,12 +231,14 @@ final class AssistantRemoteConversationController
   /// Remove resposta e invalida a operação antes de expor outra conta ou tela.
   void discard() {
     _operation += 1;
+    _pendingContinuation = null;
     if (!_disposed) state = const AssistantRemoteConversationState.initial();
   }
 
   /// A privacidade remove qualquer resposta carregada e bloqueia nova consulta.
   void blockForFinancialPrivacy() {
     _operation += 1;
+    _pendingContinuation = null;
     if (!_disposed) {
       state = const AssistantRemoteConversationState(
         phase: AssistantRemoteConversationPhase.privacyBlocked,
@@ -219,16 +248,22 @@ final class AssistantRemoteConversationController
     }
   }
 
-  void _setUnavailable(int operation) => _setIfCurrent(
-    operation,
-    const AssistantRemoteConversationState(
-      phase: AssistantRemoteConversationPhase.safeUnavailable,
-      message:
-          'A resposta fundamentada está indisponível com segurança neste momento.',
-    ),
-  );
+  void _setUnavailable(int operation) {
+    if (!_isCurrent(operation)) return;
+    _pendingContinuation = null;
+    _setIfCurrent(
+      operation,
+      const AssistantRemoteConversationState(
+        phase: AssistantRemoteConversationPhase.safeUnavailable,
+        message:
+            'A resposta fundamentada está indisponível com segurança neste momento.',
+      ),
+    );
+  }
+
+  bool _isCurrent(int operation) => operation == _operation && !_disposed;
 
   void _setIfCurrent(int operation, AssistantRemoteConversationState next) {
-    if (operation == _operation && !_disposed) state = next;
+    if (_isCurrent(operation)) state = next;
   }
 }

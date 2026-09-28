@@ -104,6 +104,82 @@ void main() {
     expect(state.response, isNull);
   });
 
+  test(
+    'esclarecimento preserva um turno e a resposta seguinte o consome',
+    () async {
+      final _FakeGateway gateway = _FakeGateway(
+        results: <AssistantRemoteResponse>[
+          AssistantRemoteResponse.fromCallableData(<String, Object?>{
+            'status': 'clarification_required',
+            'contractVersion': 'assist-remote-v1',
+            'intent': 'financial_overview',
+            'clarificationCode': 'period_required',
+            'question': 'Qual período você quer analisar?',
+          }),
+          AssistantRemoteResponse.fromCallableData(_groundedCallable()),
+        ],
+      );
+      final ProviderContainer container = _container(
+        gateway: gateway,
+        enabled: true,
+      );
+      addTearDown(container.dispose);
+
+      await _request(container, message: 'Prepare um relatório.');
+      final AssistantRemoteConversationState clarification = container.read(
+        assistantRemoteConversationControllerProvider,
+      );
+      expect(
+        clarification.phase,
+        AssistantRemoteConversationPhase.clarificationRequired,
+      );
+      expect(clarification.message, 'Qual período você quer analisar?');
+
+      await _request(container, message: 'Deste mês.');
+      expect(
+        gateway.requests[1].continuation?.previousMessage,
+        'Prepare um relatório.',
+      );
+      expect(
+        gateway.requests[1].continuation?.clarificationCode,
+        'period_required',
+      );
+      expect(
+        container.read(assistantRemoteConversationControllerProvider).phase,
+        AssistantRemoteConversationPhase.grounded,
+      );
+    },
+  );
+
+  test('privacidade apaga continuação e impede retorno tardio', () async {
+    final _FakeGateway gateway = _FakeGateway(
+      result: AssistantRemoteResponse.fromCallableData(<String, Object?>{
+        'status': 'clarification_required',
+        'contractVersion': 'assist-remote-v1',
+        'intent': 'financial_overview',
+        'clarificationCode': 'period_required',
+        'question': 'Qual período você quer analisar?',
+      }),
+    );
+    final ProviderContainer container = _container(
+      gateway: gateway,
+      enabled: true,
+    );
+    addTearDown(container.dispose);
+    await _request(container, message: 'Prepare um relatório.');
+
+    container
+        .read(assistantRemoteConversationControllerProvider.notifier)
+        .blockForFinancialPrivacy();
+    await _request(container, message: 'Deste mês.', valuesVisible: false);
+
+    expect(gateway.calls, 1);
+    expect(
+      container.read(assistantRemoteConversationControllerProvider).phase,
+      AssistantRemoteConversationPhase.privacyBlocked,
+    );
+  });
+
   test('resposta tardia não restaura conteúdo depois da privacidade', () async {
     final Completer<AssistantRemoteResponse> result =
         Completer<AssistantRemoteResponse>();
@@ -186,13 +262,14 @@ void main() {
 
 Future<void> _request(
   ProviderContainer container, {
+  String message = 'Explique o resumo confirmado.',
   bool consent = true,
   bool remoteConsent = true,
   bool valuesVisible = true,
 }) => container
     .read(assistantRemoteConversationControllerProvider.notifier)
     .requestGroundedAnswer(
-      message: 'Explique o resumo confirmado.',
+      message: message,
       aiConsentEnabled: consent,
       remoteContextConsentAllowed: remoteConsent,
       financialValuesVisible: valuesVisible,
@@ -238,15 +315,18 @@ final class _FakePolicy implements AssistantRemoteCallPolicy {
 }
 
 final class _FakeGateway implements AssistantRemoteGateway {
-  _FakeGateway({this.result, this.failure, this.future});
+  _FakeGateway({this.result, this.results, this.failure, this.future});
 
   final AssistantRemoteResponse? result;
+  final List<AssistantRemoteResponse>? results;
   final AssistantFailure? failure;
   final Future<AssistantRemoteResponse>? future;
   int calls = 0;
+  final List<AssistantRemoteRequest> requests = <AssistantRemoteRequest>[];
 
   @override
   Future<AssistantRemoteResponse> ask(AssistantRemoteRequest request) {
+    requests.add(request);
     calls += 1;
     if (failure case final AssistantFailure error) {
       return Future<AssistantRemoteResponse>.error(error);
@@ -254,8 +334,11 @@ final class _FakeGateway implements AssistantRemoteGateway {
     if (future case final Future<AssistantRemoteResponse> pending) {
       return pending;
     }
+    final List<AssistantRemoteResponse>? queued = results;
     return Future<AssistantRemoteResponse>.value(
-      result ?? AssistantRemoteResponse.safeUnavailable,
+      queued == null
+          ? result ?? AssistantRemoteResponse.safeUnavailable
+          : queued[calls - 1],
     );
   }
 }

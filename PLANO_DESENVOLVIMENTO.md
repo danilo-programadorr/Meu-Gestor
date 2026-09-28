@@ -1086,6 +1086,32 @@ Situação: corrigido e validado localmente antes do checkpoint development.
 - Resposta sem evidências, grandeza inventada ou saída inválida continua
   bloqueada. A mudança não altera modelo, quota, IAM, Rules ou dados.
 
+## 73. ASSIST-CONVERSATIONAL-PLANNER-1 — intenção, ferramentas e esclarecimento
+
+Situação: implementação e validação local concluídas; não houve chamada ao
+modelo, publicação, deploy, APK ou alteração de recurso externo.
+
+- Linguagem livre segue a um planejador estruturado antes de qualquer leitura
+  financeira. O plano escolhe intenção, período e ferramenta de catálogo
+  fechado; ambiguidade produz `clarification_required` canônico em vez de
+  indisponibilidade genérica.
+- Apenas as fontes owner-scoped autorizadas pela ferramenta são lidas. O
+  servidor continua renderizando e validando números, sinais, unidades,
+  fontes, períodos e evidências antes do contrato Flutter.
+- `gemini-3.8-flash` usa esforço baixo em perguntas simples e alto em análises
+  complexas. Planejamento e composição possuem reservas atômicas separadas e
+  preservam os tetos atuais de saída, custo e uso. Parâmetros legados ou
+  incompatíveis de amostragem e quantidade de candidatos não são enviados.
+- A continuação de esclarecimento existe somente em memória no Flutter, por um
+  turno, e é descartada ao sair, trocar conta, ativar privacidade ou concluir a
+  operação. Voz permanece sem transcrição ou resposta escrita visível.
+- O planejamento possui reserva e confirmação próprias, inclusive quando
+  termina em esclarecimento; a composição usa uma segunda reserva somente
+  quando há plano pronto. O Flutter aguarda 35 segundos para cobrir os 30
+  segundos da callable e a margem de transporte, sem ampliar o tempo do
+  backend, quotas ou orçamento.
+- A ADR-055 registra arquitetura, privacidade, custo e limites de validação.
+
 ## 68. ASSIST-USAGE-COMMIT-FIX-1 — resource name canônico no commit
 
 - `documents:commit` preserva o identificador de `beginTransaction` e um
@@ -1208,6 +1234,10 @@ privacidade financeira e à revalidação do backend.
 - Voz envia ao fim do reconhecimento, remove imediatamente a transcrição do
   estado visual e reproduz somente a resposta ou indisponibilidade segura em
   áudio; ela não mostra cartão de resposta escrita nesse modo.
+- A reprodução prioriza voz feminina pt-BR local de alta qualidade já
+  instalada, sem forçar voz de rede. O núcleo visual passa a representar um
+  pulso elétrico com quatro ondas e noventa partículas menores, preservando a
+  preferência de redução de movimento do sistema.
 - Privacidade e consentimentos só permitem editar o aceite remoto depois de o
   consentimento geral estar salvo. Desativar a IA tenta revogar também o aceite
   remoto; mesmo uma falha nessa segunda escrita deixa o backend bloqueado pelo

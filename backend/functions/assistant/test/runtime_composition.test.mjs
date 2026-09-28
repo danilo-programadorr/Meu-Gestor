@@ -96,6 +96,17 @@ test('composição real admite pergunta comum, hoje parcial, uso não zero e res
   let providerContext;
   const stages = [];
   const providerGateway = {
+    async plan() {
+      return {
+        plan: {
+          schemaVersion: 1, status: 'ready', intent: 'financial_overview',
+          clarificationCode: 'none', periodCode: 'today', financialTool: 'overview',
+        },
+        durationMs: 10,
+        confirmedCostCents: 7,
+        providerDiagnostics: { finishReason: 'STOP' },
+      };
+    },
     async generate({ providerRequest }) {
       providerContext = providerRequest.context;
       const moneyFact = providerRequest.context.facts.find(
@@ -104,7 +115,8 @@ test('composição real admite pergunta comum, hoje parcial, uso não zero e res
       const evidence = moneyFact.evidence;
       return {
         response: {
-          schemaVersion: 1, status: 'grounded', answer: 'O saldo inicial é R$ 1250,0.',
+          schemaVersion: 1, status: 'grounded', intent: 'financial_overview', clarificationCode: 'none',
+          answer: 'O saldo inicial é R$ 1250,0.',
           assertions: [{ statement: 'O saldo inicial é 125000 centavos.', evidence }], missingData: [],
         },
         durationMs: 25,
@@ -148,10 +160,10 @@ test('composição real admite pergunta comum, hoje parcial, uso não zero e res
   const transactionFacts = providerContext.facts.filter((fact) => fact.source === 'transactions');
   assert.deepEqual(transactionFacts.map((fact) => fact.value), [90000, -0]);
   const snapshot = store.snapshot();
-  assert.equal(snapshot.usage[ownerScope].costUnitsInWindow, 11);
-  assert.equal(Object.values(snapshot.records).length, 1);
-  assert.equal(Object.values(snapshot.records)[0].state, 'confirmed');
-  assert.equal(snapshot.daily['2026-09-13'].confirmedCostCents, 7);
+  assert.equal(snapshot.usage[ownerScope].costUnitsInWindow, 12);
+  assert.equal(Object.values(snapshot.records).length, 2);
+  assert.ok(Object.values(snapshot.records).every((record) => record.state === 'confirmed'));
+  assert.equal(snapshot.daily['2026-09-13'].confirmedCostCents, 14);
   assert.deepEqual(stages.slice(-10), [
     { stage: 'activation_plan', outcome: 'started' },
     { stage: 'activation_plan', outcome: 'passed' },

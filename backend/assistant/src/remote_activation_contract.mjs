@@ -56,16 +56,94 @@ const exactKeys = (value, keys) =>
   && !Array.isArray(value)
   && Object.keys(value).sort().join('|') === [...keys].sort().join('|');
 
+export const ASSISTANT_CONVERSATION_INTENTS = Object.freeze([
+  'unknown',
+  'financial_overview',
+  'balance',
+  'income',
+  'expenses',
+  'commitments',
+  'investments',
+  'comparison',
+  'cash_flow',
+  'explanation',
+]);
+
+export const ASSISTANT_CLARIFICATION_CODES = Object.freeze([
+  'intent_ambiguous',
+  'period_required',
+  'scope_required',
+  'comparison_basis_required',
+]);
+
+export const ASSISTANT_PERIOD_CODES = Object.freeze([
+  'today',
+  'current_month',
+  'previous_month',
+]);
+
+export const ASSISTANT_FINANCIAL_TOOLS = Object.freeze([
+  'overview',
+  'balance',
+  'income',
+  'expenses',
+  'commitments',
+  'investments',
+  'comparison',
+  'cash_flow',
+]);
+
+// Cada ferramenta libera somente grupos de leitores já owner-scoped. Nenhum
+// identificador, caminho ou valor pode ser escolhido pelo modelo.
+export const ASSISTANT_FINANCIAL_TOOL_SOURCES = Object.freeze({
+  overview: DEFAULT_ASSISTANT_CONTEXT_SCOPE.sources,
+  balance: Object.freeze(['accounts']),
+  income: Object.freeze(['transactions', 'payables', 'receivables', 'investmentIncome']),
+  expenses: Object.freeze(['transactions', 'payables', 'receivables']),
+  commitments: Object.freeze(['payables', 'receivables', 'financialCalendar']),
+  investments: Object.freeze([
+    'investmentPortfolios', 'investmentAssets', 'investmentOperations', 'investmentIncome',
+  ]),
+  comparison: DEFAULT_ASSISTANT_CONTEXT_SCOPE.sources,
+  cash_flow: Object.freeze(['transactions', 'payables', 'receivables']),
+});
+
+const conversationIntents = new Set(ASSISTANT_CONVERSATION_INTENTS);
+const clarificationCodes = new Set(ASSISTANT_CLARIFICATION_CODES);
+
+// O histórico remoto contém no máximo o turno que originou a pergunta de
+// esclarecimento. Ele é não autoritativo e nunca substitui contexto do servidor.
+const validateConversationContinuation = (value) => {
+  if (!exactKeys(value, ['intent', 'clarificationCode', 'previousMessage'])
+      || !conversationIntents.has(value.intent)
+      || !clarificationCodes.has(value.clarificationCode)) {
+    throw new TypeError('assistant_flutter_contract_invalid');
+  }
+  const validated = validateClientRequest({ message: value.previousMessage });
+  return Object.freeze({
+    intent: value.intent,
+    clarificationCode: value.clarificationCode,
+    previousMessage: validated.message,
+  });
+};
+
 /**
  * Accepts only the minimal Flutter payload. Identity, consent, financial
  * context, provider choice and all usage counters are server-side inputs.
  */
 export const validateFlutterAssistantRequest = (request) => {
-  if (!exactKeys(request, ['contractVersion', 'message'])
+  const hasContinuation = exactKeys(request, ['contractVersion', 'message', 'continuation']);
+  if (!(exactKeys(request, ['contractVersion', 'message']) || hasContinuation)
       || request.contractVersion !== ASSISTANT_FLUTTER_CONTRACT_VERSION) {
     throw new TypeError('assistant_flutter_contract_invalid');
   }
-  return validateClientRequest({ message: request.message });
+  const validated = validateClientRequest({ message: request.message });
+  return Object.freeze({
+    ...validated,
+    ...(hasContinuation
+      ? { continuation: validateConversationContinuation(request.continuation) }
+      : {}),
+  });
 };
 
 /**

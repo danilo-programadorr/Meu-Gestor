@@ -51,6 +51,27 @@ test('mapeia fontes próprias permitidas em fatos mínimos com aliases efêmeros
   assert.doesNotThrow(() => assertConfirmedContext(context));
 });
 
+test('executa somente os grupos de leitores autorizados pela ferramenta', async () => {
+  const readers = [];
+  const bridge = new AssistantFinancialContextBridge({
+    clock: { now: () => new Date('2026-09-03T12:00:00.000Z') },
+    sourceReaders: {
+      async readOwnSource({ reader }) {
+        readers.push(reader);
+        return snapshots[reader];
+      },
+    },
+  });
+  const context = await bridge.buildOwnConfirmedContext({
+    actor: { uid: 'synthetic-owner' },
+    period,
+    sources: ['accounts'],
+  });
+  assert.deepEqual(readers, ['accounts']);
+  assert.deepEqual(context.facts.map((fact) => fact.source), ['accounts']);
+  assert.doesNotThrow(() => assertConfirmedContext(context));
+});
+
 test('falha fechada quando uma fonte própria não está confirmada', async () => {
   await assert.rejects(
     createBridge({

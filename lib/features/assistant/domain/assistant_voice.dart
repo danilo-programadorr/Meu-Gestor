@@ -20,8 +20,8 @@ enum AssistantVoiceInterruption {
 
 enum AssistantVoiceSpeed {
   slow(label: 'Lenta', rate: 0.4),
-  normal(label: 'Normal', rate: 0.5),
-  fast(label: 'Rápida', rate: 0.6);
+  normal(label: 'Normal', rate: 0.48),
+  fast(label: 'Rápida', rate: 0.58);
 
   const AssistantVoiceSpeed({required this.label, required this.rate});
 

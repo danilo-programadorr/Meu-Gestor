@@ -435,7 +435,7 @@ export class OwnerScopedFirestoreContextReader {
     this.clock = clock;
   }
 
-  async readOwnConfirmedContext({ authority, period }) {
+  async readOwnConfirmedContext({ authority, period, sources = undefined }) {
     const normalizedPeriod = validateCivilPeriod(period);
     const ownerAuthority = createOwnerScopedFirestoreAuthority(authority ?? {});
     const sourceReaders = new OwnerScopedFirestoreSourceReaders({
@@ -453,6 +453,7 @@ export class OwnerScopedFirestoreContextReader {
         startDate: normalizedPeriod.startDate,
         endDateExclusive: normalizedPeriod.endDateExclusive,
       },
+      sources,
     });
   }
 
@@ -473,6 +474,7 @@ export class OwnerScopedFirestoreContextReader {
     return this.readOwnConfirmedContext({
       authority: ownerAuthority,
       period: admitted.civilPeriod,
+      sources: admitted.scope.sources,
     });
   }
 }

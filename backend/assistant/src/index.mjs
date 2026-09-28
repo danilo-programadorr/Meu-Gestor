@@ -28,10 +28,12 @@ export {
 } from './authorized_context_assembler.mjs';
 export {
   ASSISTANT_CANONICAL_DISCLAIMER,
+  ASSISTANT_CANONICAL_CLARIFICATION_QUESTIONS,
   ASSISTANT_GROUNDED_RESPONSE_CONTRACT_VERSION,
   ASSISTANT_RESPONSE_FALLBACK_REASONS,
   ASSISTANT_RESPONSE_FINAL_STATUSES,
   ASSISTANT_SAFE_INSUFFICIENT_EVIDENCE_RESPONSE,
+  admitAssistantClarificationPlan,
   admitGroundedAssistantResponse,
   assertGroundedAssistantResponse,
 } from './grounded_response_contract.mjs';
@@ -45,6 +47,7 @@ export {
   civilDateFromUtcInstant,
   currentCivilDate,
   civilPeriodForSingleDay,
+  civilPeriodForRelativeCode,
   validateCivilPeriod,
 } from './sao_paulo_civil_time.mjs';
 export {
@@ -55,8 +58,11 @@ export {
 } from './firebase_gen2_callable.mjs';
 export {
   ASSISTANT_VERTEX_GLOBAL_API_ENDPOINT,
+  ASSISTANT_VERTEX_API_VERSION,
   ASSISTANT_VERTEX_FINISH_REASONS,
   ASSISTANT_VERTEX_LOCATION,
+  ASSISTANT_VERTEX_PLAN_PROMPT_VERSION,
+  ASSISTANT_VERTEX_PLAN_SCHEMA,
   ASSISTANT_VERTEX_PROMPT_VERSION,
   ASSISTANT_VERTEX_RESPONSE_SCHEMA,
   assistantVertexClientConfiguration,
@@ -81,6 +87,11 @@ export {
 export { ASSISTANT_REAL_PROVIDER_FEATURE_ENABLED, MODEL_EXECUTION, resolveAssistantModelExecution } from './dual_model_execution.mjs';
 export {
   ASSISTANT_ACTIVATION_FAILURE_CODES,
+  ASSISTANT_CLARIFICATION_CODES,
+  ASSISTANT_CONVERSATION_INTENTS,
+  ASSISTANT_FINANCIAL_TOOLS,
+  ASSISTANT_FINANCIAL_TOOL_SOURCES,
+  ASSISTANT_PERIOD_CODES,
   ASSISTANT_FLUTTER_CONTRACT_VERSION,
   ASSISTANT_REMOTE_KILL_SWITCH_ACTIVE,
   assertSanitizedAssistantOperationalMetric,

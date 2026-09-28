@@ -6,6 +6,17 @@ import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_failur
 import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_remote_integration.dart';
 
 void main() {
+  test('timeout do cliente cobre a janela máxima da callable', () {
+    expect(
+      FirebaseAssistantRemoteGateway.callableTimeout,
+      greaterThan(const Duration(seconds: 30)),
+    );
+    expect(
+      FirebaseAssistantRemoteGateway.callableTimeout,
+      lessThanOrEqualTo(const Duration(seconds: 35)),
+    );
+  });
+
   test('gateway seleciona southamerica-east1 e nunca a região padrão', () {
     final String controllerSource = File(
       'lib/features/assistant/presentation/controllers/'
@@ -64,6 +75,28 @@ void main() {
     ]) {
       expect(payload, isNot(contains(forbidden)));
     }
+  });
+
+  test('payload inclui somente a continuação efêmera enumerada', () {
+    final Map<String, Object?> payload =
+        FirebaseAssistantRemoteGateway.payloadFor(
+          AssistantRemoteRequest(
+            message: 'Deste mês.',
+            continuation: AssistantRemoteContinuation(
+              intent: 'financial_overview',
+              clarificationCode: 'period_required',
+              previousMessage: 'Prepare um relatório.',
+            ),
+          ),
+        );
+
+    expect(payload['continuation'], <String, Object?>{
+      'intent': 'financial_overview',
+      'clarificationCode': 'period_required',
+      'previousMessage': 'Prepare um relatório.',
+    });
+    expect(payload, isNot(contains('uid')));
+    expect(payload, isNot(contains('context')));
   });
 
   test('safe_unavailable tem resposta estrita e mensagem sem erro técnico', () {

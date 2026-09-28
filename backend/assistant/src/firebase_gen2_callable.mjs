@@ -16,7 +16,10 @@ import {
 } from './dual_model_execution.mjs';
 import { AssistantModelRouter } from './model_router.mjs';
 import { assertAuthorized } from './policy.mjs';
-import { admitGroundedAssistantResponse } from './grounded_response_contract.mjs';
+import {
+  admitAssistantClarificationPlan,
+  admitGroundedAssistantResponse,
+} from './grounded_response_contract.mjs';
 import { createAssistantCostRequestId, createAssistantOwnerScope } from './cost_control_ledger.mjs';
 import { createOwnerScopedFirestoreAuthority } from './owner_scoped_firestore_context.mjs';
 import { assistantReaderFailureReason } from './reader_failure_diagnostics.mjs';
@@ -123,7 +126,74 @@ export function createAssistRemoteV1Callables({
         }
         reportRuntimeStage(diagnostics, stage, 'passed');
 
-        validateFlutterAssistantRequest(request.data);
+        const validatedFlutterRequest = validateFlutterAssistantRequest(request.data);
+        // O primeiro passe interpreta intenção e período sem receber fatos. A
+        // quota é reservada antes da inferência e confirmada mesmo quando o
+        // resultado pede esclarecimento ou falha fechado.
+        stage = 'intent_usage_reader';
+        const intentUsage = await traceRuntimeReader({
+          diagnostics,
+          stage,
+          read: () => usageReader({ uid }),
+        });
+        stage = 'intent_activation_plan';
+        reportRuntimeStage(diagnostics, stage, 'started');
+        const planningRouting = modelRouter.route({
+          message: 'intent plan',
+          context: Object.freeze({ facts: Object.freeze([]), missingSources: Object.freeze([]) }),
+          usage: intentUsage,
+        });
+        const planningExecution = resolveAssistantModelExecution({
+          routing: Object.freeze({ tier: planningRouting.tier }),
+          featureEnabled: runtimeProviderFeatureEnabled,
+        });
+        reportRuntimeStage(diagnostics, stage, 'passed');
+        const planningRequestId = createAssistantCostRequestId();
+        stage = 'intent_ledger_reserve';
+        reportRuntimeStage(diagnostics, stage, 'started');
+        await ledger.reserve({
+          maximumCostCents: ASSISTANT_MAXIMUM_VERTEX_COST_CENTS.flash,
+          ownerScope,
+          requestId: planningRequestId,
+          tier: 'flash',
+          usageCostUnits: planningRouting.costUnits,
+        });
+        reportRuntimeStage(diagnostics, stage, 'passed');
+        stage = 'intent_model';
+        reportRuntimeStage(diagnostics, stage, 'started');
+        const intentResult = await providerGateway.plan({
+          execution: Object.freeze({ ...planningExecution, tier: 'flash', thinkingLevel: 'LOW' }),
+          maximumCostCents: ASSISTANT_MAXIMUM_VERTEX_COST_CENTS.flash,
+          request: Object.freeze({
+            message: validatedFlutterRequest.message,
+            ...(validatedFlutterRequest.continuation
+              ? { continuation: validatedFlutterRequest.continuation }
+              : {}),
+          }),
+        });
+        reportRuntimeStage(diagnostics, stage, 'passed', intentResult.providerDiagnostics);
+        stage = 'intent_ledger_confirm';
+        reportRuntimeStage(diagnostics, stage, 'started');
+        await ledger.confirm({
+          requestId: planningRequestId,
+          durationMs: intentResult.durationMs,
+          confirmedCostCents: intentResult.confirmedCostCents,
+        });
+        reportRuntimeStage(diagnostics, stage, 'passed');
+        if (intentResult.plan === null || intentResult.plan.status === 'safe_unavailable') {
+          reportRuntimeStage(diagnostics, 'response_validation', 'passed', {
+            finalStatus: 'safe_unavailable',
+            reason: intentResult.providerOutputIssue ?? 'provider_reported_insufficient_evidence',
+          });
+          return ASSISTANT_SAFE_UNAVAILABLE;
+        }
+        if (intentResult.plan.status === 'clarification_required') {
+          const clarification = admitAssistantClarificationPlan(intentResult.plan);
+          reportRuntimeStage(diagnostics, 'response_validation', 'passed', {
+            finalStatus: clarification.finalStatus,
+          });
+          return clarification.response;
+        }
         // A autorização crua vem somente do envelope já validado pela callable.
         // Ela é efêmera, serve à leitura própria nas Rules e nunca chega ao modelo.
         stage = 'owner_scoped_context_and_usage';
@@ -134,7 +204,13 @@ export function createAssistRemoteV1Callables({
         const contextOperation = traceRuntimeReader({
           diagnostics,
           stage: 'owner_scoped_context',
-          read: () => contextReader({ uid, ownerAuthority, authorization }),
+          read: () => contextReader({
+            uid,
+            ownerAuthority,
+            authorization,
+            periodCode: intentResult.plan.periodCode,
+            financialTool: intentResult.plan.financialTool,
+          }),
         });
         const usageOperation = traceRuntimeReader({
           diagnostics,
@@ -192,6 +268,10 @@ export function createAssistRemoteV1Callables({
           providerRequest: Object.freeze({
             contractVersion: ASSISTANT_FLUTTER_CONTRACT_VERSION,
             message: request.data.message,
+            ...(request.data.continuation
+              ? { continuation: request.data.continuation }
+              : {}),
+            intentPlan: intentResult.plan,
             context,
           }),
         });
@@ -220,11 +300,11 @@ export function createAssistRemoteV1Callables({
           diagnostics,
           stage,
           'passed',
-          admission.finalStatus === 'grounded'
+          ['grounded', 'clarification_required'].includes(admission.finalStatus)
             ? { finalStatus: admission.finalStatus }
             : { finalStatus: admission.finalStatus, reason: admission.reason },
         );
-        return admission.finalStatus === 'grounded'
+        return ['grounded', 'clarification_required'].includes(admission.finalStatus)
           ? admission.response
           : ASSISTANT_SAFE_UNAVAILABLE;
       } catch (error) {
@@ -232,7 +312,7 @@ export function createAssistRemoteV1Callables({
           diagnostics,
           stage,
           'failed',
-          stage === 'activation_plan'
+          ['activation_plan', 'intent_activation_plan'].includes(stage)
             ? { code: sanitizedAssistantActivationFailureCode(error) }
             : undefined,
         );
@@ -281,7 +361,9 @@ function assertLedgerPort(ledger) {
 }
 
 function assertProviderGateway(providerGateway) {
-  if (!providerGateway || typeof providerGateway.generate !== 'function') {
+  if (!providerGateway
+      || typeof providerGateway.plan !== 'function'
+      || typeof providerGateway.generate !== 'function') {
     throw new TypeError('assistant_provider_gateway_port_invalid');
   }
 }
@@ -311,7 +393,8 @@ function requireAuthenticatedUid(request, HttpsError) {
 }
 
 function requireExactFlutterData(data, HttpsError) {
-  if (!exactKeys(data, ['contractVersion', 'message'])) {
+  if (!(exactKeys(data, ['contractVersion', 'message'])
+      || exactKeys(data, ['contractVersion', 'message', 'continuation']))) {
     throw new HttpsError('invalid-argument', 'Contrato de chamada inválido.');
   }
 }

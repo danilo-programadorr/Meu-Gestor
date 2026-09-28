@@ -81,7 +81,20 @@ const build = (overrides = {}) => {
       reserve: async () => { calls.reserve += 1; },
       confirm: async () => { calls.confirm += 1; },
     },
-    providerGateway: { generate: async () => { calls.provider += 1; throw new Error('provider_must_not_run'); } },
+    providerGateway: {
+      plan: async () => {
+        calls.provider += 1;
+        return {
+          plan: {
+            schemaVersion: 1, status: 'ready', intent: 'financial_overview',
+            clarificationCode: 'none', periodCode: 'today', financialTool: 'overview',
+          },
+          durationMs: 1, confirmedCostCents: 1,
+          providerDiagnostics: { finishReason: 'STOP' },
+        };
+      },
+      generate: async () => { calls.provider += 1; throw new Error('provider_must_not_run'); },
+    },
     ...overrides,
   });
   return { calls, invoke: callables.assistRemoteV1 };
@@ -182,7 +195,7 @@ test('factory exige gateway mesmo com o provedor desligado e não habilita por p
   assert.throws(() => createAssistRemoteV1Callables(base), /assistant_provider_gateway_port_invalid/);
   assert.doesNotThrow(() => createAssistRemoteV1Callables({
     ...base,
-    providerGateway: { generate: async () => undefined },
+    providerGateway: { plan: async () => undefined, generate: async () => undefined },
   }));
 });
 
@@ -234,29 +247,25 @@ test('falha do plano é atribuída ao estágio correto com código sanitizado', 
   });
 
   await assert.rejects(invoke(request()), (error) => error.code === 'failed-precondition');
-  assert.deepEqual(events.slice(-4), [
-    { stage: 'usage_reader', outcome: 'passed' },
-    { stage: 'owner_scoped_context_and_usage', outcome: 'passed' },
-    { stage: 'activation_plan', outcome: 'started' },
+  assert.deepEqual(events.slice(-3), [
+    { stage: 'intent_usage_reader', outcome: 'passed' },
+    { stage: 'intent_activation_plan', outcome: 'started' },
     {
-      stage: 'activation_plan', outcome: 'failed', code: 'assistant_context_limit_exceeded',
+      stage: 'intent_activation_plan', outcome: 'failed', code: 'assistant_context_limit_exceeded',
     },
   ]);
   assert.deepEqual(calls, {
-    authorization: 1, context: 1, usage: 1, reserve: 0, confirm: 0, provider: 0,
+    authorization: 1, context: 0, usage: 1, reserve: 0, confirm: 0, provider: 0,
   });
 });
 
-test('diagnóstico runtime separa falha de uso e aguarda sucesso do contexto antes de falhar fechado', async () => {
+test('diagnóstico runtime falha no uso antes de planejar ou ler contexto', async () => {
   const events = [];
-  let releaseContext;
-  const contextPending = new Promise((resolve) => { releaseContext = resolve; });
   const { calls, invoke } = build({
     killSwitchActive: false,
     providerFeatureEnabled: true,
     contextReader: async () => {
       calls.context += 1;
-      await contextPending;
       return context();
     },
     usageReader: async () => {
@@ -272,7 +281,6 @@ test('diagnóstico runtime separa falha de uso e aguarda sucesso do contexto ant
   const invocation = invoke(request());
   await Promise.resolve();
   assert.equal(calls.reserve, 0);
-  releaseContext();
   await assert.rejects(invocation, (error) => error.code === 'failed-precondition');
   assert.deepEqual(events, [
     { stage: 'handler_entry', outcome: 'started' },
@@ -281,18 +289,15 @@ test('diagnóstico runtime separa falha de uso e aguarda sucesso do contexto ant
     { stage: 'runtime_controls', outcome: 'passed' },
     { stage: 'authorization_consent', outcome: 'started' },
     { stage: 'authorization_consent', outcome: 'passed' },
-    { stage: 'owner_scoped_context_and_usage', outcome: 'started' },
-    { stage: 'owner_scoped_context', outcome: 'started' },
-    { stage: 'usage_reader', outcome: 'started' },
-    { stage: 'usage_reader', outcome: 'failed', reason: 'document_missing' },
-    { stage: 'owner_scoped_context', outcome: 'passed' },
-    { stage: 'owner_scoped_context_and_usage', outcome: 'failed' },
+    { stage: 'intent_usage_reader', outcome: 'started' },
+    { stage: 'intent_usage_reader', outcome: 'failed', reason: 'document_missing' },
+    { stage: 'intent_usage_reader', outcome: 'failed' },
   ]);
-  assert.deepEqual(calls, { authorization: 1, context: 1, usage: 1, reserve: 0, confirm: 0, provider: 0 });
+  assert.deepEqual(calls, { authorization: 1, context: 0, usage: 1, reserve: 0, confirm: 0, provider: 0 });
   assert.doesNotMatch(JSON.stringify(events), /synthetic-user|synthetic\.callable|Explique|stack|message/iu);
 });
 
-test('diagnóstico runtime separa falha de contexto sem permitir uso concluído avançar ao ledger', async () => {
+test('falha de contexto após o plano não avança à reserva da resposta', async () => {
   const events = [];
   const { calls, invoke } = build({
     killSwitchActive: false,
@@ -313,7 +318,7 @@ test('diagnóstico runtime separa falha de contexto sem permitir uso concluído 
     { stage: 'usage_reader', outcome: 'passed' },
     { stage: 'owner_scoped_context_and_usage', outcome: 'failed' },
   ]);
-  assert.deepEqual(calls, { authorization: 1, context: 1, usage: 1, reserve: 0, confirm: 0, provider: 0 });
+  assert.deepEqual(calls, { authorization: 1, context: 1, usage: 2, reserve: 1, confirm: 1, provider: 1 });
 });
 
 test('diagnóstico runtime não adivinha motivo de erro sem classificação de origem', async () => {
@@ -326,7 +331,7 @@ test('diagnóstico runtime não adivinha motivo de erro sem classificação de o
   });
 
   await assert.rejects(invoke(request()), (error) => error.code === 'failed-precondition');
-  assert.ok(events.some((event) => event.stage === 'usage_reader'
+  assert.ok(events.some((event) => event.stage === 'intent_usage_reader'
     && event.outcome === 'failed' && event.reason === 'unclassified'));
 });
 

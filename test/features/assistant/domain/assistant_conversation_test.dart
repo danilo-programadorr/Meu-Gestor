@@ -3,8 +3,21 @@ import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_conver
 import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_summary.dart';
 
 void main() {
-  test('modo de conversa usa trinta partículas determinísticas', () {
-    expect(AssistantConversationVisualConfig.particleCount, 30);
+  test('modo de conversa usa pulso elétrico com partículas menores', () {
+    expect(AssistantConversationVisualConfig.particleCount, 90);
+    expect(AssistantConversationVisualConfig.pulseRingCount, 4);
+    expect(
+      AssistantConversationVisualConfig.pulseDuration,
+      const Duration(milliseconds: 2400),
+    );
+    expect(
+      AssistantConversationVisualConfig.maximumParticleRadius,
+      lessThan(1.5),
+    );
+    expect(
+      AssistantConversationVisualConfig.minimumParticleRadius,
+      lessThan(AssistantConversationVisualConfig.maximumParticleRadius),
+    );
   });
 
   test('mapeia somente perguntas determinísticas conhecidas', () {

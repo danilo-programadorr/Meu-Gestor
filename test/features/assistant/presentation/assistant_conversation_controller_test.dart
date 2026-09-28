@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meu_gestor_financeiro/features/assistant/data/assistant_speech_recognizer.dart';
 import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_conversation.dart';
-import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_summary.dart';
 import 'package:meu_gestor_financeiro/features/assistant/presentation/controllers/assistant_conversation_controller.dart';
 
 void main() {
@@ -21,7 +20,7 @@ void main() {
       assistantConversationControllerProvider,
     );
     expect(state.transcript, 'Qual é meu saldo?');
-    expect(state.question, AssistantGuidedQuestion.currentBalance);
+    expect(state.question, isNull);
     expect(speech.stopCalls, 0);
   });
 
@@ -136,48 +135,50 @@ void main() {
     expect(speech.listenCalls, 0);
   });
 
-  test(
-    'pergunta por texto interrompe voz e usa a mesma intenção determinística',
-    () async {
-      final _FakeSpeech speech = _FakeSpeech(transcript: 'ignorada');
-      final ProviderContainer container = _container(speech);
-      addTearDown(container.dispose);
-      final AssistantConversationController controller = container.read(
-        assistantConversationControllerProvider.notifier,
-      );
-
-      final int? operation = await controller.submitText('Qual é meu saldo?');
-
-      final AssistantConversationState state = container.read(
-        assistantConversationControllerProvider,
-      );
-      expect(state.question, AssistantGuidedQuestion.currentBalance);
-      expect(state.transcript, 'Qual é meu saldo?');
-      expect(state.phase, AssistantConversationPhase.thinking);
-      expect(operation, isNotNull);
-      expect(speech.stopCalls, 1);
-      expect(speech.listenCalls, 0);
-    },
-  );
-
-  test('texto inseguro ou sem intenção não inventa resposta', () async {
-    final ProviderContainer container = _container(_FakeSpeech());
+  test('pergunta por texto interrompe voz e aceita linguagem livre', () async {
+    final _FakeSpeech speech = _FakeSpeech(transcript: 'ignorada');
+    final ProviderContainer container = _container(speech);
     addTearDown(container.dispose);
     final AssistantConversationController controller = container.read(
       assistantConversationControllerProvider.notifier,
     );
 
-    await controller.submitText('token=nao-enviar');
-    expect(
-      container.read(assistantConversationControllerProvider).question,
-      isNull,
+    final int? operation = await controller.submitText('Qual é meu saldo?');
+
+    final AssistantConversationState state = container.read(
+      assistantConversationControllerProvider,
     );
-    await controller.submitText('Conte algo livremente');
-    expect(
-      container.read(assistantConversationControllerProvider).message,
-      contains('não tenho uma resposta determinística'),
-    );
+    expect(state.question, isNull);
+    expect(state.transcript, 'Qual é meu saldo?');
+    expect(state.phase, AssistantConversationPhase.thinking);
+    expect(operation, isNotNull);
+    expect(speech.stopCalls, 1);
+    expect(speech.listenCalls, 0);
   });
+
+  test(
+    'texto inseguro é negado e linguagem livre segue para interpretação',
+    () async {
+      final ProviderContainer container = _container(_FakeSpeech());
+      addTearDown(container.dispose);
+      final AssistantConversationController controller = container.read(
+        assistantConversationControllerProvider.notifier,
+      );
+
+      await controller.submitText('token=nao-enviar');
+      expect(
+        container.read(assistantConversationControllerProvider).question,
+        isNull,
+      );
+      await controller.submitText('Conte algo livremente');
+      final AssistantConversationState freeLanguage = container.read(
+        assistantConversationControllerProvider,
+      );
+      expect(freeLanguage.phase, AssistantConversationPhase.thinking);
+      expect(freeLanguage.transcript, 'Conte algo livremente');
+      expect(freeLanguage.message, contains('Entendendo sua intenção'));
+    },
+  );
 
   test(
     'sucesso, indisponibilidade ou exceção remota finalizam o Pensando',

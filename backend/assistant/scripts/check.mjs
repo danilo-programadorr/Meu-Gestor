@@ -6,9 +6,11 @@ const sourceDirectory = fileURLToPath(new URL('../src/', import.meta.url));
 const ownerScopedFirestoreContextFile = 'owner_scoped_firestore_context.mjs';
 const approvedFirestoreRestOrigin = 'https://firestore.googleapis.com/';
 const vertexRuntimeGatewayFile = 'vertex_runtime_gateway.mjs';
-const approvedVertexRuntimeDependency = '@google-cloud/vertexai';
+const approvedVertexRuntimeDependency = '@google/genai';
 const approvedVertexRuntimeProjectId = 'process.env.GCLOUD_PROJECT';
 const approvedVertexGlobalEndpoint = 'aiplatform.googleapis.com';
+const approvedVertexGlobalOrigin = 'https://aiplatform.googleapis.com';
+const approvedVertexEndpointTemplate = 'https://${apiEndpoint}';
 // Rótulos de modelo são seguros; SDK, endpoint e projeto permanecem restritos
 // exclusivamente ao gateway aprovado e auditado.
 const forbidden = /(?:firebase-admin|firebase-functions|@google-cloud|googleapis|@google\/genai|generative-ai|openai|anthropic|\bsecretmanager(?:\b|client\b|service\b|config\b|secret\b|url\b|endpoint\b)|https?:\/\/|process\.env)/i;
@@ -25,6 +27,8 @@ export const hasForbiddenRuntimeDependency = (source, fileName = '') => {
     sourceForCheck = sourceForCheck
       .replaceAll(approvedVertexRuntimeDependency, 'approved_vertex_runtime_dependency')
       .replaceAll(approvedVertexRuntimeProjectId, 'approved_vertex_runtime_project_id')
+      .replaceAll(approvedVertexGlobalOrigin, 'approved_vertex_global_origin')
+      .replaceAll(approvedVertexEndpointTemplate, 'approved_vertex_endpoint_template')
       .replaceAll(approvedVertexGlobalEndpoint, 'approved_vertex_global_endpoint');
   }
   return forbidden.test(sourceForCheck);

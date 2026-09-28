@@ -3,12 +3,27 @@ import test from 'node:test';
 
 import {
   civilDateFromUtcInstant,
+  civilPeriodForRelativeCode,
   validateCivilPeriod,
 } from '../src/index.mjs';
 
 test('hoje financeiro respeita a virada de dia em São Paulo', () => {
   assert.equal(civilDateFromUtcInstant('2026-09-03T02:59:59.999Z'), '2026-09-02');
   assert.equal(civilDateFromUtcInstant('2026-09-03T03:00:00.000Z'), '2026-09-03');
+});
+
+test('deriva hoje e meses relativos pelo relógio de São Paulo', () => {
+  const now = new Date('2026-10-01T02:30:00.000Z');
+  assert.deepEqual(civilPeriodForRelativeCode('today', now), {
+    timeZone: 'America/Sao_Paulo', startDate: '2026-09-30', endDateExclusive: '2026-10-01',
+  });
+  assert.deepEqual(civilPeriodForRelativeCode('current_month', now), {
+    timeZone: 'America/Sao_Paulo', startDate: '2026-09-01', endDateExclusive: '2026-10-01',
+  });
+  assert.deepEqual(civilPeriodForRelativeCode('previous_month', now), {
+    timeZone: 'America/Sao_Paulo', startDate: '2026-08-01', endDateExclusive: '2026-09-01',
+  });
+  assert.throws(() => civilPeriodForRelativeCode('custom', now), /assistant_invalid_context/);
 });
 
 test('mês financeiro muda no limite civil, não no UTC', () => {

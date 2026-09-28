@@ -51,7 +51,10 @@ const createEntrypoint = (overrides = {}) => {
     },
     usageReader: async () => { calls.usage += 1; return { costUnitsInWindow: 0, proCallsInWindow: 0 }; },
     ledger: { reserve: async () => undefined, confirm: async () => undefined },
-    providerGateway: { generate: async () => { throw new Error('provider_must_not_run'); } },
+    providerGateway: {
+      plan: async () => { throw new Error('provider_must_not_run'); },
+      generate: async () => { throw new Error('provider_must_not_run'); },
+    },
     ...overrides,
   });
   return { calls, entrypoint, receivedOptions };

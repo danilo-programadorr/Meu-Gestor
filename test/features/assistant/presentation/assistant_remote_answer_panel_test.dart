@@ -52,6 +52,27 @@ void main() {
     expect(find.textContaining('indisponível com segurança'), findsOneWidget);
     expect(find.text('Resumo confirmado.'), findsNothing);
   });
+
+  testWidgets('esclarecimento canônico aparece sem resposta financeira', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: AssistantRemoteAnswerPanel(
+            state: AssistantRemoteConversationState(
+              phase: AssistantRemoteConversationPhase.clarificationRequired,
+              message: 'Qual período você quer analisar?',
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Qual período você quer analisar?'), findsOneWidget);
+    expect(find.text('Resumo confirmado.'), findsNothing);
+    expect(find.byType(LinearProgressIndicator), findsNothing);
+  });
 }
 
 AssistantGroundedResponse _response() => AssistantGroundedResponse(

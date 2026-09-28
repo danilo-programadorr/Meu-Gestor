@@ -67,6 +67,32 @@ const authorization = Object.freeze({
   financialPrivacyActive: false,
 });
 
+const readyPlanEnvelope = Object.freeze({
+  candidates: [Object.freeze({
+    finishReason: 'STOP',
+    content: Object.freeze({ parts: [Object.freeze({ text: JSON.stringify({
+      schemaVersion: 1,
+      status: 'ready',
+      intent: 'balance',
+      clarificationCode: 'none',
+      periodCode: 'today',
+      financialTool: 'balance',
+    }) })] }),
+  })],
+});
+
+const vertexFactoryFor = (answerEnvelope) => {
+  let invocation = 0;
+  return async () => ({
+    models: {
+      generateContent: async () => {
+        invocation += 1;
+        return invocation === 1 ? readyPlanEnvelope : answerEnvelope;
+      },
+    },
+  });
+};
+
 // Cada caso começa com uso não zero e usa o ledger real para reservar e
 // confirmar a mesma quota que protege a composição implantada.
 const invokeCase = async (contractCase, providerGateway = undefined) => {
@@ -85,7 +111,23 @@ const invokeCase = async (contractCase, providerGateway = undefined) => {
     contextReader: async () => context,
     usageReader: async () => ledger.readUsage({ ownerScope }),
     ledger,
-    providerGateway: providerGateway ?? { generate: async () => structuredClone(contractCase.providerResult) },
+    providerGateway: providerGateway ?? {
+      plan: async () => ({
+        plan: contractCase.name === 'clarification_required'
+          ? {
+              schemaVersion: 1, status: 'clarification_required', intent: 'financial_overview',
+              clarificationCode: 'period_required', periodCode: 'none', financialTool: 'none',
+            }
+          : {
+              schemaVersion: 1, status: 'ready', intent: 'balance', clarificationCode: 'none',
+              periodCode: 'today', financialTool: 'balance',
+            },
+        durationMs: 10,
+        confirmedCostCents: 7,
+        providerDiagnostics: { finishReason: 'STOP' },
+      }),
+      generate: async () => structuredClone(contractCase.providerResult),
+    },
     runtimeControlsReader: () => ({ killSwitchActive: false, providerFeatureEnabled: true }),
     runtimeDiagnostics: { report: (event) => events.push(event) },
   }).assistRemoteV1;
@@ -111,8 +153,13 @@ for (const contractCase of fixture.cases) {
     assert.equal(finalEvent.outcome, 'passed');
     assert.equal(finalEvent.finalStatus, contractCase.expectedFinalStatus);
     assert.equal(finalEvent.reason ?? null, contractCase.expectedReason);
-    assert.equal(Object.values(snapshot.records).length, 1);
-    assert.equal(Object.values(snapshot.records)[0].state, 'confirmed');
+    const records = Object.values(snapshot.records);
+    assert.equal(records.length, contractCase.name === 'clarification_required' ? 1 : 2);
+    assert.ok(records.every((record) => record.state === 'confirmed'));
+    assert.equal(
+      snapshot.usage[ownerScope].costUnitsInWindow,
+      contractCase.name === 'clarification_required' ? 4 : 5,
+    );
   });
 }
 
@@ -127,17 +174,11 @@ test('SDK unary completo chega grounded ao contrato Flutter', async () => {
     killSwitchActive: false,
     projectIdReader: () => 'synthetic-project',
     clock: (() => { let value = 100; return () => (value += 25); })(),
-    vertexAiFactory: async () => ({
-      getGenerativeModel: () => ({
-        generateContent: async () => ({
-          response: {
-            candidates: [{
-              finishReason: 'STOP',
-              content: { parts: [{ text: JSON.stringify(providerEnvelope) }] },
-            }],
-          },
-        }),
-      }),
+    vertexAiFactory: vertexFactoryFor({
+      candidates: [{
+        finishReason: 'STOP',
+        content: { parts: [{ text: JSON.stringify(providerEnvelope) }] },
+      }],
     }),
   });
   const { response, events } = await invokeCase(groundedCase, gateway);
@@ -151,17 +192,11 @@ test('SDK não aceita answer livre do provedor fora do schema autoritativo', asy
     providerFeatureEnabled: true,
     killSwitchActive: false,
     projectIdReader: () => 'synthetic-project',
-    vertexAiFactory: async () => ({
-      getGenerativeModel: () => ({
-        generateContent: async () => ({
-          response: {
-            candidates: [{
-              finishReason: 'STOP',
-              content: { parts: [{ text: JSON.stringify(groundedCase.providerResult.response) }] },
-            }],
-          },
-        }),
-      }),
+    vertexAiFactory: vertexFactoryFor({
+      candidates: [{
+        finishReason: 'STOP',
+        content: { parts: [{ text: JSON.stringify(groundedCase.providerResult.response) }] },
+      }],
     }),
   });
   const { response, events } = await invokeCase(groundedCase, gateway);
@@ -175,17 +210,11 @@ test('SDK truncado por tokens permanece indisponível no contrato Flutter', asyn
     providerFeatureEnabled: true,
     killSwitchActive: false,
     projectIdReader: () => 'synthetic-project',
-    vertexAiFactory: async () => ({
-      getGenerativeModel: () => ({
-        generateContent: async () => ({
-          response: {
-            candidates: [{
-              finishReason: 'MAX_TOKENS',
-              content: { parts: [{ text: '{"schemaVersion":1' }] },
-            }],
-          },
-        }),
-      }),
+    vertexAiFactory: vertexFactoryFor({
+      candidates: [{
+        finishReason: 'MAX_TOKENS',
+        content: { parts: [{ text: '{"schemaVersion":1' }] },
+      }],
     }),
   });
   const { response, events } = await invokeCase(fallbackCase, gateway);

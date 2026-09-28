@@ -14,7 +14,11 @@ enum AssistantConversationPhase {
 
 /// Parâmetros visuais verificáveis do modo de conversa.
 abstract final class AssistantConversationVisualConfig {
-  static const int particleCount = 30;
+  static const int particleCount = 90;
+  static const int pulseRingCount = 4;
+  static const Duration pulseDuration = Duration(milliseconds: 2400);
+  static const double minimumParticleRadius = 0.65;
+  static const double maximumParticleRadius = 1.45;
 }
 
 final class AssistantConversationState {

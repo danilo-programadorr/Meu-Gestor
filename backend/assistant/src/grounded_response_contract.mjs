@@ -6,13 +6,28 @@ import { deny } from './errors.mjs';
 import { validateAndCanonicalizeGroundedText } from './grounded_numeric_values.mjs';
 import { assertConfirmedContext } from './policy.mjs';
 import { validateCivilPeriod } from './sao_paulo_civil_time.mjs';
+import {
+  ASSISTANT_CLARIFICATION_CODES,
+  ASSISTANT_CONVERSATION_INTENTS,
+} from './remote_activation_contract.mjs';
 
 export const ASSISTANT_GROUNDED_RESPONSE_CONTRACT_VERSION = 'assist-grounded-response-v1';
 
 export const ASSISTANT_RESPONSE_FINAL_STATUSES = Object.freeze([
   'grounded',
+  'clarification_required',
   'safe_unavailable',
 ]);
+
+const conversationIntents = new Set(ASSISTANT_CONVERSATION_INTENTS);
+const clarificationCodes = new Set(ASSISTANT_CLARIFICATION_CODES);
+
+export const ASSISTANT_CANONICAL_CLARIFICATION_QUESTIONS = Object.freeze({
+  intent_ambiguous: 'O que você gostaria de consultar nas suas finanças?',
+  period_required: 'Qual período você quer analisar?',
+  scope_required: 'Qual parte das suas finanças você quer incluir?',
+  comparison_basis_required: 'O que você quer comparar e com qual período?',
+});
 
 // O disclaimer pertence exclusivamente ao servidor e nunca é aceito da saída
 // do provedor. O texto deliberadamente não contém grandezas ou números.
@@ -89,6 +104,24 @@ const grounded = (response) => Object.freeze({
   finalStatus: 'grounded',
 });
 
+const clarificationRequired = ({ intent, clarificationCode }) => Object.freeze({
+  response: Object.freeze({
+    status: 'clarification_required',
+    contractVersion: 'assist-remote-v1',
+    intent,
+    clarificationCode,
+    question: ASSISTANT_CANONICAL_CLARIFICATION_QUESTIONS[clarificationCode],
+  }),
+  finalStatus: 'clarification_required',
+});
+
+export const admitAssistantClarificationPlan = ({ intent, clarificationCode }) => {
+  if (!conversationIntents.has(intent) || !clarificationCodes.has(clarificationCode)) {
+    throw new TypeError('assistant_clarification_plan_invalid');
+  }
+  return clarificationRequired({ intent, clarificationCode });
+};
+
 /** Provider-neutral delivery gate. Only a validated ephemeral alias may bind an assertion to a fact. */
 /**
  * Substitui conteúdo sem evidência por indisponibilidade segura antes da UI.
@@ -100,12 +133,18 @@ export const admitGroundedAssistantResponse = ({ response, context, providerOutp
     return safeUnavailable('context_invalid');
   }
   if (providerOutputIssue !== undefined) return safeUnavailable(providerOutputIssue);
-  if (!exactKeys(response, ['schemaVersion', 'status', 'answer', 'assertions', 'missingData'])) {
+  if (!exactKeys(response, [
+    'schemaVersion', 'status', 'intent', 'clarificationCode', 'answer', 'assertions', 'missingData',
+  ])) {
     return safeUnavailable('response_shape_invalid');
   }
   if (response.schemaVersion !== 1) return safeUnavailable('response_schema_version_invalid');
-  if (!['grounded', 'safe_unavailable'].includes(response.status)) {
+  if (!ASSISTANT_RESPONSE_FINAL_STATUSES.includes(response.status)) {
     return safeUnavailable('response_status_invalid');
+  }
+  if (!conversationIntents.has(response.intent)
+      || !(response.clarificationCode === 'none' || clarificationCodes.has(response.clarificationCode))) {
+    return safeUnavailable('response_shape_invalid');
   }
   if (unsafeText(response.answer)) {
     return safeUnavailable('response_text_unsafe');
@@ -115,12 +154,23 @@ export const admitGroundedAssistantResponse = ({ response, context, providerOutp
     return safeUnavailable('missing_data_invalid');
   }
   if (!Array.isArray(response.assertions)) return safeUnavailable('assertions_invalid');
+  if (response.status === 'clarification_required') {
+    return response.assertions.length === 0
+      && response.missingData.length === 0
+      && clarificationCodes.has(response.clarificationCode)
+      ? clarificationRequired(response)
+      : safeUnavailable('response_shape_invalid');
+  }
   if (response.status === 'safe_unavailable') {
-    return response.assertions.length === 0 && response.missingData.length > 0
+    return response.assertions.length === 0
+      && response.missingData.length > 0
+      && response.clarificationCode === 'none'
       ? safeUnavailable('provider_reported_insufficient_evidence')
       : safeUnavailable('safe_unavailable_contract_invalid');
   }
-  if (response.assertions.length === 0) return safeUnavailable('assertions_missing');
+  if (response.clarificationCode !== 'none' || response.assertions.length === 0) {
+    return safeUnavailable(response.assertions.length === 0 ? 'assertions_missing' : 'response_shape_invalid');
+  }
 
   try {
     const facts = new Map(context.facts.map((fact) => [fact.evidenceId, fact]));
@@ -175,9 +225,11 @@ export const admitGroundedAssistantResponse = ({ response, context, providerOutp
       return safeUnavailable('answer_numeric_value_mismatch');
     }
     return grounded({
-      ...response,
+      schemaVersion: response.schemaVersion,
+      status: response.status,
       answer: answerAdmission.text,
       assertions: admittedAssertions,
+      missingData: response.missingData,
       disclaimer: ASSISTANT_CANONICAL_DISCLAIMER,
     });
   } catch {

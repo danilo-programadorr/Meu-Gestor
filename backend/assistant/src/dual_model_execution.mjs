@@ -1,14 +1,22 @@
 /**
  * Responsabilidade: converte a escolha interna de tier em plano de execução,
- * mantendo Flash como padrão lógico e Pro restrito ao backend.
+ * mantendo dois níveis lógicos de esforço sobre o mesmo Gemini Flash.
  */
 import { AssistantContractError } from './errors.mjs';
 
 export const ASSISTANT_REAL_PROVIDER_FEATURE_ENABLED = false;
 
 export const MODEL_EXECUTION = Object.freeze({
-  flash: Object.freeze({ providerModel: 'gemini-2.5-flash', fallback: 'safe_unavailable' }),
-  pro: Object.freeze({ providerModel: 'gemini-2.5-pro', fallback: 'safe_unavailable' }),
+  flash: Object.freeze({
+    providerModel: 'gemini-3.8-flash',
+    thinkingLevel: 'LOW',
+    fallback: 'safe_unavailable',
+  }),
+  pro: Object.freeze({
+    providerModel: 'gemini-3.8-flash',
+    thinkingLevel: 'HIGH',
+    fallback: 'safe_unavailable',
+  }),
 });
 
 /**

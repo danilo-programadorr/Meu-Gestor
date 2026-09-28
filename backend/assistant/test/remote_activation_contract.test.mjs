@@ -7,6 +7,7 @@ import {
   assertSanitizedAssistantOperationalMetric,
   prepareAssistantRemoteActivation,
   sanitizedAssistantActivationFailureCode,
+  validateFlutterAssistantRequest,
 } from '../src/index.mjs';
 import { AssistantContractError } from '../src/errors.mjs';
 
@@ -49,6 +50,37 @@ test('contrato Flutter aceita somente versão e mensagem sem identidade ou conte
     () => prepareAssistantRemoteActivation({
       flutterRequest: { contractVersion: ASSISTANT_FLUTTER_CONTRACT_VERSION, message: 'Resumo', uid: 'other-user' },
       authorization: authorization(), context: context(), usage: usage(),
+    }),
+    /assistant_flutter_contract_invalid/,
+  );
+});
+
+test('continuação aceita somente um turno seguro e enums fechados', () => {
+  assert.deepEqual(validateFlutterAssistantRequest({
+    contractVersion: ASSISTANT_FLUTTER_CONTRACT_VERSION,
+    message: 'Deste mês.',
+    continuation: {
+      intent: 'financial_overview',
+      clarificationCode: 'period_required',
+      previousMessage: 'Prepare um relatório.',
+    },
+  }), {
+    message: 'Deste mês.',
+    continuation: {
+      intent: 'financial_overview',
+      clarificationCode: 'period_required',
+      previousMessage: 'Prepare um relatório.',
+    },
+  });
+  assert.throws(
+    () => validateFlutterAssistantRequest({
+      contractVersion: ASSISTANT_FLUTTER_CONTRACT_VERSION,
+      message: 'Deste mês.',
+      continuation: {
+        intent: 'arbitrary',
+        clarificationCode: 'period_required',
+        previousMessage: 'Prepare um relatório.',
+      },
     }),
     /assistant_flutter_contract_invalid/,
   );

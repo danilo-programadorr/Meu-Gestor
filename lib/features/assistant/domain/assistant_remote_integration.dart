@@ -10,7 +10,8 @@ import 'assistant_repository.dart';
 /// Contrato mínimo para a futura borda server-side. O cliente nunca envia UID,
 /// e-mail, consentimento, contexto financeiro, modelo ou credenciais.
 final class AssistantRemoteRequest {
-  AssistantRemoteRequest({required String message}) : message = message.trim() {
+  AssistantRemoteRequest({required String message, this.continuation})
+    : message = message.trim() {
     if (message.length < 2 ||
         message.length > 2000 ||
         !AssistantContentSafety.isSafe(message)) {
@@ -20,6 +21,61 @@ final class AssistantRemoteRequest {
 
   static const String contractVersion = 'assist-remote-v1';
   final String message;
+  final AssistantRemoteContinuation? continuation;
+}
+
+/// Contexto conversacional efêmero e não autoritativo para um único pedido de
+/// esclarecimento. Identidade e fatos financeiros continuam server-side.
+final class AssistantRemoteContinuation {
+  AssistantRemoteContinuation({
+    required this.intent,
+    required this.clarificationCode,
+    required String previousMessage,
+  }) : previousMessage = previousMessage.trim() {
+    if (!_intents.contains(intent) ||
+        !_clarificationQuestions.containsKey(clarificationCode) ||
+        this.previousMessage.length < 2 ||
+        this.previousMessage.length > 2000 ||
+        !AssistantContentSafety.isSafe(this.previousMessage)) {
+      throw const AssistantFailure(AssistantFailureKind.invalidRequest);
+    }
+  }
+
+  final String intent;
+  final String clarificationCode;
+  final String previousMessage;
+
+  static const Set<String> _intents = <String>{
+    'unknown',
+    'financial_overview',
+    'balance',
+    'income',
+    'expenses',
+    'commitments',
+    'investments',
+    'comparison',
+    'cash_flow',
+    'explanation',
+  };
+
+  static const Map<String, String> _clarificationQuestions = <String, String>{
+    'intent_ambiguous': 'O que você gostaria de consultar nas suas finanças?',
+    'period_required': 'Qual período você quer analisar?',
+    'scope_required': 'Qual parte das suas finanças você quer incluir?',
+    'comparison_basis_required': 'O que você quer comparar e com qual período?',
+  };
+}
+
+final class AssistantRemoteClarification {
+  const AssistantRemoteClarification({
+    required this.intent,
+    required this.clarificationCode,
+    required this.question,
+  });
+
+  final String intent;
+  final String clarificationCode;
+  final String question;
 }
 
 abstract interface class AssistantRemoteGateway {
@@ -29,7 +85,7 @@ abstract interface class AssistantRemoteGateway {
 /// Resposta estrita da borda remota. A resposta fundamentada leva apenas
 /// texto seguro, aliases efêmeros, fonte e período civil já validados.
 final class AssistantRemoteResponse {
-  const AssistantRemoteResponse._({this.groundedResponse});
+  const AssistantRemoteResponse._({this.groundedResponse, this.clarification});
 
   static const String safeUnavailableStatus = 'safe_unavailable';
 
@@ -37,8 +93,10 @@ final class AssistantRemoteResponse {
       AssistantRemoteResponse._();
 
   final AssistantGroundedResponse? groundedResponse;
+  final AssistantRemoteClarification? clarification;
 
   bool get isGrounded => groundedResponse != null;
+  bool get requiresClarification => clarification != null;
 
   static AssistantRemoteResponse fromCallableData(Object? value) {
     try {
@@ -48,6 +106,31 @@ final class AssistantRemoteResponse {
           data['status'] == safeUnavailableStatus &&
           data['contractVersion'] == AssistantRemoteRequest.contractVersion) {
         return safeUnavailable;
+      }
+      if (_hasExactKeys(data, const <String>[
+            'status',
+            'contractVersion',
+            'intent',
+            'clarificationCode',
+            'question',
+          ]) &&
+          data['status'] == 'clarification_required' &&
+          data['contractVersion'] == AssistantRemoteRequest.contractVersion) {
+        final String intent = _string(data['intent']);
+        final String code = _string(data['clarificationCode']);
+        final String question = _string(data['question']);
+        if (!AssistantRemoteContinuation._intents.contains(intent) ||
+            AssistantRemoteContinuation._clarificationQuestions[code] !=
+                question) {
+          _unavailable();
+        }
+        return AssistantRemoteResponse._(
+          clarification: AssistantRemoteClarification(
+            intent: intent,
+            clarificationCode: code,
+            question: question,
+          ),
+        );
       }
       if (!_hasExactKeys(data, const <String>[
         'schemaVersion',
