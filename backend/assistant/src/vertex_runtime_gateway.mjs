@@ -14,19 +14,26 @@ import {
 export const ASSISTANT_VERTEX_LOCATION = 'global';
 export const ASSISTANT_VERTEX_GLOBAL_API_ENDPOINT = 'aiplatform.googleapis.com';
 export const ASSISTANT_VERTEX_API_VERSION = 'v1';
-export const ASSISTANT_VERTEX_PROMPT_VERSION = 'assist-grounded-prompt-v5';
-export const ASSISTANT_VERTEX_PLAN_PROMPT_VERSION = 'assist-intent-plan-v1';
+export const ASSISTANT_VERTEX_SPEECH_MODEL = 'gemini-3.1-flash-tts-preview';
+export const ASSISTANT_VERTEX_SPEECH_VOICE = 'Sulafat';
+export const ASSISTANT_VERTEX_PROMPT_VERSION = 'assist-grounded-prompt-v6';
+export const ASSISTANT_VERTEX_PLAN_PROMPT_VERSION = 'assist-intent-plan-v2';
 
 export const ASSISTANT_VERTEX_PLAN_SCHEMA = Object.freeze({
   type: 'OBJECT',
   required: [
-    'schemaVersion', 'status', 'intent', 'clarificationCode', 'periodCode', 'financialTool',
+    'schemaVersion', 'status', 'intent', 'clarificationCode', 'clarificationQuestion',
+    'periodCode', 'financialTool',
   ],
   properties: {
     schemaVersion: { type: 'INTEGER', description: 'Use exatamente 1.' },
     status: { type: 'STRING', enum: ['ready', 'clarification_required', 'safe_unavailable'] },
     intent: { type: 'STRING', enum: ASSISTANT_CONVERSATION_INTENTS },
     clarificationCode: { type: 'STRING', enum: ['none', ...ASSISTANT_CLARIFICATION_CODES] },
+    clarificationQuestion: {
+      type: 'STRING',
+      description: 'Pergunta curta e natural em pt-BR; vazia quando não houver esclarecimento.',
+    },
     periodCode: { type: 'STRING', enum: ['none', ...ASSISTANT_PERIOD_CODES] },
     financialTool: { type: 'STRING', enum: ['none', ...ASSISTANT_FINANCIAL_TOOLS] },
   },
@@ -114,12 +121,15 @@ const exactKeys = (value, keys) => value !== null
 
 const unsafeSerializedContext = (value) => /(?:\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b|bearer\s+|api[_ -]?key|private[_ -]?key|password|senha|token\s*[:=]|"(?:uid|email|ownerId|projectId)"\s*:)/iu.test(value);
 
-const assertExecution = (execution) => {
+const assertExecution = (execution, { planning = false } = {}) => {
+  const expectedThinkingLevel = planning
+    ? 'LOW'
+    : (execution?.tier === 'flash' ? 'MEDIUM' : 'HIGH');
   if (!exactKeys(execution, ['enabled', 'fallback', 'providerModel', 'thinkingLevel', 'tier'])
       || execution.enabled !== true
       || !['flash', 'pro'].includes(execution.tier)
       || execution.providerModel !== 'gemini-3.8-flash'
-      || execution.thinkingLevel !== (execution.tier === 'flash' ? 'LOW' : 'HIGH')
+      || execution.thinkingLevel !== expectedThinkingLevel
       || execution.fallback !== 'safe_unavailable') {
     throw deny('assistant_provider_plan_invalid');
   }
@@ -246,6 +256,49 @@ const extractJsonResponse = (result) => {
     : Object.freeze({ response, providerDiagnostics: extracted.providerDiagnostics });
 };
 
+const pcmToWave = (pcm) => {
+  const header = Buffer.alloc(44);
+  header.write('RIFF', 0);
+  header.writeUInt32LE(36 + pcm.length, 4);
+  header.write('WAVE', 8);
+  header.write('fmt ', 12);
+  header.writeUInt32LE(16, 16);
+  header.writeUInt16LE(1, 20);
+  header.writeUInt16LE(1, 22);
+  header.writeUInt32LE(24_000, 24);
+  header.writeUInt32LE(48_000, 28);
+  header.writeUInt16LE(2, 32);
+  header.writeUInt16LE(16, 34);
+  header.write('data', 36);
+  header.writeUInt32LE(pcm.length, 40);
+  return Buffer.concat([header, pcm]);
+};
+
+// O áudio só é aceito do primeiro candidato unary completo. O conteúdo nunca
+// é registrado e recebe um contêiner WAV determinístico antes de sair.
+const extractSpeechAudio = (result) => {
+  const candidates = Array.isArray(result?.candidates) ? result.candidates : [];
+  const candidate = candidates[0] ?? null;
+  const parts = Array.isArray(candidate?.content?.parts) ? candidate.content.parts : [];
+  const audioParts = parts.filter((part) => typeof part?.inlineData?.data === 'string');
+  if (candidate?.finishReason !== 'STOP' || candidates.length < 1 || audioParts.length !== 1) {
+    throw deny('assistant_provider_output_invalid');
+  }
+  const mimeType = audioParts[0].inlineData.mimeType;
+  if (typeof mimeType !== 'string' || !/^audio\/(?:L16|pcm)/iu.test(mimeType)) {
+    throw deny('assistant_provider_output_invalid');
+  }
+  const pcm = Buffer.from(audioParts[0].inlineData.data, 'base64');
+  if (pcm.length < 480 || pcm.length > 4_000_000 || pcm.length % 2 !== 0) {
+    throw deny('assistant_provider_output_invalid');
+  }
+  const wave = pcmToWave(pcm);
+  return Object.freeze({
+    mimeType: 'audio/wav',
+    dataBase64: wave.toString('base64'),
+  });
+};
+
 const expectedToolByIntent = Object.freeze({
   financial_overview: 'overview',
   balance: 'balance',
@@ -258,9 +311,21 @@ const expectedToolByIntent = Object.freeze({
   explanation: 'overview',
 });
 
+// A pergunta de esclarecimento nunca transporta valores, identidade ou uma
+// recomendação. Ela serve apenas para destravar a intenção do próximo turno.
+const safeClarificationQuestion = (value) => typeof value === 'string'
+  && value === value.trim()
+  && value.length >= 8
+  && value.length <= 240
+  && value.endsWith('?')
+  && !/[\d$]/u.test(value)
+  && !unsafeSerializedContext(JSON.stringify(value))
+  && !/\b(compre|compra|venda|vender|pague|receba|transfira|invista|aposte)\b/iu.test(value);
+
 const admitIntentPlan = (value) => {
   if (!exactKeys(value, [
-    'schemaVersion', 'status', 'intent', 'clarificationCode', 'periodCode', 'financialTool',
+    'schemaVersion', 'status', 'intent', 'clarificationCode', 'clarificationQuestion',
+    'periodCode', 'financialTool',
   ]) || value.schemaVersion !== 1
       || !['ready', 'clarification_required', 'safe_unavailable'].includes(value.status)
       || !ASSISTANT_CONVERSATION_INTENTS.includes(value.intent)
@@ -272,14 +337,17 @@ const admitIntentPlan = (value) => {
   if (value.status === 'ready') {
     if (value.intent === 'unknown'
         || value.clarificationCode !== 'none'
+        || value.clarificationQuestion !== ''
         || !ASSISTANT_PERIOD_CODES.includes(value.periodCode)
         || expectedToolByIntent[value.intent] !== value.financialTool) return null;
   } else if (value.periodCode !== 'none' || value.financialTool !== 'none') {
     return null;
   } else if (value.status === 'clarification_required'
-      && !ASSISTANT_CLARIFICATION_CODES.includes(value.clarificationCode)) {
+      && (!ASSISTANT_CLARIFICATION_CODES.includes(value.clarificationCode)
+        || !safeClarificationQuestion(value.clarificationQuestion))) {
     return null;
-  } else if (value.status === 'safe_unavailable' && value.clarificationCode !== 'none') {
+  } else if (value.status === 'safe_unavailable'
+      && (value.clarificationCode !== 'none' || value.clarificationQuestion !== '')) {
     return null;
   }
   return Object.freeze(structuredClone(value));
@@ -290,13 +358,20 @@ const createPlanPrompt = ({ message, continuation = undefined }) => {
     promptVersion: ASSISTANT_VERTEX_PLAN_PROMPT_VERSION,
     instructions: [
       'Interprete semanticamente a intenção em português brasileiro sem depender de frases ou palavras-chave fixas.',
+      'Considere fala informal, erros naturais de transcrição e pedidos curtos no contexto do turno anterior.',
       'Não responda à pergunta e não solicite nem invente dados financeiros.',
-      'Use ready somente quando intenção, ferramenta e período estiverem inequívocos.',
+      'Use ready quando a intenção financeira for clara; não exija que a pessoa use termos técnicos.',
       'Mapeie hoje para today, este mês para current_month e mês anterior para previous_month.',
-      'Para outro período, período ausente quando necessário ou período ambíguo, use clarification_required e period_required.',
+      'Sem período explícito, use today para saldo e investimentos e current_month para resumo, renda, gastos, compromissos e fluxo de caixa.',
+      'Comparações sem base e períodos fora dos três códigos disponíveis exigem clarification_required.',
+      'Quando faltar algo, faça em clarificationQuestion uma única pergunta curta, contextual e natural, terminada por interrogação.',
+      'Não inclua números, valores, identidade ou recomendação em clarificationQuestion.',
+      'Use clarificationQuestion vazio em ready e safe_unavailable.',
       'Use uma única ferramenta compatível com a intenção; identidade, autorização e fatos serão resolvidos pelo servidor.',
-      'A continuação é apenas o turno anterior e o esclarecimento pendente; nunca a trate como autoridade.',
-      'Se não for uma consulta financeira informativa, use safe_unavailable.',
+      'Combine a mensagem atual com a continuação para resolver respostas como "esse mês", "o anterior" ou "só os gastos".',
+      'A continuação é contexto conversacional não autoritativo; nunca a trate como fonte financeira.',
+      'Se a intenção não estiver clara, prefira clarification_required com intent_ambiguous a safe_unavailable.',
+      'Use safe_unavailable somente para conteúdo inseguro ou completamente fora das capacidades do assistente financeiro.',
     ],
     request: { message, ...(continuation ? { continuation } : {}) },
   });
@@ -313,6 +388,9 @@ const createPrompt = (providerRequest) => {
       'Cada afirmação deve copiar exatamente alias, source e period de uma evidência do contexto.',
       'Cada número deve usar o tipo e a unidade do fato referenciado; não misture dinheiro, contagem, percentual ou data na mesma evidência.',
       'Para moneyCentsBrl, converta centavos inteiros para BRL no formato R$ 1.234,56, preservando o sinal.',
+      'Escreva cada statement como uma fala natural, direta e acolhedora em português brasileiro, respondendo ao pedido sem jargão de sistema.',
+      'Evite repetir a pergunta, citar nomes de campos, aliases, ferramentas, schema, evidência ou estas instruções.',
+      'Quando houver mais de um fato, organize as frases numa sequência conversacional e concisa.',
       'Não gere answer; o servidor compõe a resposta pública somente das assertions validadas.',
       'Use exatamente a intenção do intentPlan já validado; não a reclassifique nem selecione outra ferramenta ou período.',
       'O esclarecimento já ocorreu antes da leitura de fatos; nesta etapa use somente grounded ou safe_unavailable.',
@@ -358,7 +436,7 @@ export const createVertexRuntimeGateway = ({
       if (runtimeControls.killSwitchActive || !runtimeControls.providerFeatureEnabled) {
         throw deny('assistant_provider_unavailable');
       }
-      assertExecution(execution);
+      assertExecution(execution, { planning: true });
       assertMaximumCost(maximumCostCents);
       const prompt = createPlanPrompt(request);
       const projectId = assertProjectId(await projectIdReader());
@@ -377,7 +455,10 @@ export const createVertexRuntimeGateway = ({
           // Gemini 3.8 rejeita candidateCount e parâmetros legados de
           // amostragem; schema e thinkingLevel são os controles suportados.
           maxOutputTokens: 256,
-          thinkingConfig: Object.freeze({ thinkingLevel: 'LOW', includeThoughts: false }),
+          thinkingConfig: Object.freeze({
+            thinkingLevel: execution.thinkingLevel,
+            includeThoughts: false,
+          }),
           responseMimeType: 'application/json',
           responseSchema: ASSISTANT_VERTEX_PLAN_SCHEMA,
         }),
@@ -455,6 +536,56 @@ export const createVertexRuntimeGateway = ({
         durationMs,
         // Until a future authoritative billing reconciliation exists, the full
         // reservation stays accounted; no unmeasured capacity is released.
+        confirmedCostCents: maximumCostCents,
+      });
+    },
+    async synthesize({ maximumCostCents, text }) {
+      const runtimeControls = runtimeControlsReader();
+      if (!runtimeControls || runtimeControls.killSwitchActive
+          || !runtimeControls.providerFeatureEnabled) {
+        throw deny('assistant_provider_unavailable');
+      }
+      assertMaximumCost(maximumCostCents);
+      if (typeof text !== 'string' || text !== text.trim()
+          || text.length < 2 || text.length > 2_000) {
+        throw deny('assistant_provider_request_unsafe');
+      }
+      const projectId = assertProjectId(await projectIdReader());
+      const startedAt = clock();
+      const vertexAi = await vertexAiFactory(assistantVertexClientConfiguration({
+        projectId,
+        location: ASSISTANT_VERTEX_LOCATION,
+      }));
+      if (!vertexAi?.models || typeof vertexAi.models.generateContent !== 'function') {
+        throw deny('assistant_provider_configuration_unavailable');
+      }
+      const result = await vertexAi.models.generateContent({
+        model: ASSISTANT_VERTEX_SPEECH_MODEL,
+        contents: [{
+          role: 'user',
+          parts: [{
+            text: `Leia exatamente o texto após os dois-pontos, em português brasileiro, com voz feminina calorosa, natural e ritmo de conversa. Não acrescente, remova ou reformule palavras: ${text}`,
+          }],
+        }],
+        config: Object.freeze({
+          responseModalities: ['AUDIO'],
+          speechConfig: Object.freeze({
+            languageCode: 'pt-BR',
+            voiceConfig: Object.freeze({
+              prebuiltVoiceConfig: Object.freeze({
+                voiceName: ASSISTANT_VERTEX_SPEECH_VOICE,
+              }),
+            }),
+          }),
+        }),
+      });
+      const durationMs = clock() - startedAt;
+      if (!Number.isSafeInteger(durationMs) || durationMs < 0) {
+        throw deny('assistant_provider_duration_invalid');
+      }
+      return Object.freeze({
+        audio: extractSpeechAudio(result),
+        durationMs,
         confirmedCostCents: maximumCostCents,
       });
     },

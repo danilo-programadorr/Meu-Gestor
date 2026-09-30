@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   ASSISTANT_CANONICAL_DISCLAIMER,
+  admitAssistantClarificationPlan,
   admitGroundedAssistantResponse,
   AssistantAuthorizedContextAssembler,
   assessDevelopmentAssistantActivationReadiness,
@@ -220,6 +221,22 @@ test('converte esclarecimento válido em pergunta canônica sem evidência finan
     clarificationCode: 'period_required',
     question: 'Qual período você quer analisar?',
   });
+});
+
+test('admite pergunta contextual segura e rejeita conteúdo financeiro livre', () => {
+  const contextual = admitAssistantClarificationPlan({
+    intent: 'financial_overview',
+    clarificationCode: 'period_required',
+    clarificationQuestion: 'Você quer olhar este mês ou o mês anterior?',
+  });
+  assert.equal(contextual.response.question, 'Você quer olhar este mês ou o mês anterior?');
+
+  const unsafe = admitAssistantClarificationPlan({
+    intent: 'financial_overview',
+    clarificationCode: 'period_required',
+    clarificationQuestion: 'Você quer analisar R$ 100?',
+  });
+  assert.equal(unsafe.response.question, 'Qual período você quer analisar?');
 });
 
 test('monta contexto somente após admissão e sem expor identidade na saída', async () => {

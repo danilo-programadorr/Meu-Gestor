@@ -3,6 +3,7 @@ package br.com.hellenfaro.meugestorfinanceiro
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.MediaPlayer
 import android.os.Bundle
 import android.provider.CalendarContract
 import android.speech.RecognitionListener
@@ -15,12 +16,14 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.EventChannel
+import java.io.File
 
 class MainActivity : FlutterActivity() {
     companion object {
         private const val CHANNEL = "br.com.hellenfaro.meugestorfinanceiro/android_calendar"
         private const val SPEECH_CHANNEL = "br.com.hellenfaro.meugestorfinanceiro/assistant_speech"
         private const val SPEECH_RMS_CHANNEL = "br.com.hellenfaro.meugestorfinanceiro/assistant_speech_rms"
+        private const val ASSISTANT_AUDIO_CHANNEL = "br.com.hellenfaro.meugestorfinanceiro/assistant_audio"
         private const val CALENDAR_PERMISSION_REQUEST = 4812
         private const val AUDIO_PERMISSION_REQUEST = 4813
     }
@@ -31,9 +34,13 @@ class MainActivity : FlutterActivity() {
     private var speechRecognizer: SpeechRecognizer? = null
     private var waitingForAudioPermission = false
     private var rmsEventSink: EventChannel.EventSink? = null
+    private var assistantAudioPlayer: MediaPlayer? = null
+    private var assistantAudioResult: MethodChannel.Result? = null
+    private var assistantAudioFile: File? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        clearStaleAssistantAudio()
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
@@ -67,6 +74,17 @@ class MainActivity : FlutterActivity() {
                     rmsEventSink = null
                 }
             })
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, ASSISTANT_AUDIO_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "playWav" -> playAssistantWav(call.arguments, result)
+                    "stop" -> {
+                        stopAssistantAudio()
+                        result.success(null)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
     }
 
     private fun withReadPermission(call: MethodCall, result: MethodChannel.Result) {
@@ -121,12 +139,79 @@ class MainActivity : FlutterActivity() {
         // O diálogo de permissão pode pausar a Activity; não cancele a solicitação
         // explícita antes de o Android devolver a decisão do usuário.
         if (!waitingForAudioPermission) stopSpeechRecognition()
+        stopAssistantAudio()
         super.onPause()
     }
 
     override fun onDestroy() {
         stopSpeechRecognition()
+        stopAssistantAudio()
         super.onDestroy()
+    }
+
+    // O arquivo existe apenas no cache durante a reprodução e é removido em
+    // conclusão, interrupção ou destruição da Activity.
+    private fun playAssistantWav(arguments: Any?, result: MethodChannel.Result) {
+        val bytes = arguments as? ByteArray
+        if (bytes == null || bytes.size !in 524..4_000_044 ||
+            !bytes.copyOfRange(0, 4).contentEquals("RIFF".toByteArray()) ||
+            !bytes.copyOfRange(8, 12).contentEquals("WAVE".toByteArray())
+        ) {
+            result.error("assistant_audio_invalid", "Assistant audio is unavailable.", null)
+            return
+        }
+        stopAssistantAudio()
+        try {
+            val file = File.createTempFile("assistant-voice-", ".wav", cacheDir)
+            file.writeBytes(bytes)
+            assistantAudioFile = file
+            assistantAudioResult = result
+            assistantAudioPlayer = MediaPlayer().apply {
+                setDataSource(file.absolutePath)
+                setOnCompletionListener {
+                    finishAssistantAudio(success = true)
+                }
+                setOnErrorListener { _, _, _ ->
+                    finishAssistantAudio(success = false)
+                    true
+                }
+                prepare()
+                start()
+            }
+        } catch (_: Exception) {
+            finishAssistantAudio(success = false, fallbackResult = result)
+        }
+    }
+
+    private fun clearStaleAssistantAudio() {
+        cacheDir.listFiles { file ->
+            file.name.startsWith("assistant-voice-") && file.extension == "wav"
+        }?.forEach { file -> file.delete() }
+    }
+
+    private fun stopAssistantAudio() {
+        val pending = assistantAudioResult
+        assistantAudioResult = null
+        assistantAudioPlayer?.runCatching { stop() }
+        assistantAudioPlayer?.release()
+        assistantAudioPlayer = null
+        assistantAudioFile?.delete()
+        assistantAudioFile = null
+        pending?.error("assistant_audio_interrupted", "Assistant audio was stopped.", null)
+    }
+
+    private fun finishAssistantAudio(
+        success: Boolean,
+        fallbackResult: MethodChannel.Result? = null,
+    ) {
+        val pending = assistantAudioResult ?: fallbackResult
+        assistantAudioResult = null
+        assistantAudioPlayer?.release()
+        assistantAudioPlayer = null
+        assistantAudioFile?.delete()
+        assistantAudioFile = null
+        if (success) pending?.success(null)
+        else pending?.error("assistant_audio_unavailable", "Assistant audio is unavailable.", null)
     }
 
     private fun startSpeechRecognition(result: MethodChannel.Result?) {

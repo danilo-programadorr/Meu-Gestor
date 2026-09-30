@@ -127,6 +127,41 @@ export function createAssistRemoteV1Callables({
         reportRuntimeStage(diagnostics, stage, 'passed');
 
         const validatedFlutterRequest = validateFlutterAssistantRequest(request.data);
+        // A voz neural é produzida somente depois da admissão do texto. Assim,
+        // áudio nunca contorna evidências e o modo texto não paga essa chamada.
+        const finalizeForResponseMode = async ({ response, text }) => {
+          if (validatedFlutterRequest.responseMode !== 'voice') return response;
+          if (typeof providerGateway.synthesize !== 'function') {
+            throw deny('assistant_provider_configuration_unavailable');
+          }
+          const speechRequestId = createAssistantCostRequestId();
+          stage = 'voice_ledger_reserve';
+          reportRuntimeStage(diagnostics, stage, 'started');
+          await ledger.reserve({
+            maximumCostCents: ASSISTANT_MAXIMUM_VERTEX_COST_CENTS.flash,
+            ownerScope,
+            requestId: speechRequestId,
+            tier: 'flash',
+            usageCostUnits: 1,
+          });
+          reportRuntimeStage(diagnostics, stage, 'passed');
+          stage = 'voice_model';
+          reportRuntimeStage(diagnostics, stage, 'started');
+          const speechResult = await providerGateway.synthesize({
+            maximumCostCents: ASSISTANT_MAXIMUM_VERTEX_COST_CENTS.flash,
+            text,
+          });
+          reportRuntimeStage(diagnostics, stage, 'passed');
+          stage = 'voice_ledger_confirm';
+          reportRuntimeStage(diagnostics, stage, 'started');
+          await ledger.confirm({
+            requestId: speechRequestId,
+            durationMs: speechResult.durationMs,
+            confirmedCostCents: speechResult.confirmedCostCents,
+          });
+          reportRuntimeStage(diagnostics, stage, 'passed');
+          return Object.freeze({ ...response, audio: speechResult.audio });
+        };
         // O primeiro passe interpreta intenção e período sem receber fatos. A
         // quota é reservada antes da inferência e confirmada mesmo quando o
         // resultado pede esclarecimento ou falha fechado.
@@ -162,7 +197,11 @@ export function createAssistRemoteV1Callables({
         stage = 'intent_model';
         reportRuntimeStage(diagnostics, stage, 'started');
         const intentResult = await providerGateway.plan({
-          execution: Object.freeze({ ...planningExecution, tier: 'flash', thinkingLevel: 'LOW' }),
+          execution: Object.freeze({
+            ...planningExecution,
+            tier: 'flash',
+            thinkingLevel: 'LOW',
+          }),
           maximumCostCents: ASSISTANT_MAXIMUM_VERTEX_COST_CENTS.flash,
           request: Object.freeze({
             message: validatedFlutterRequest.message,
@@ -180,19 +219,37 @@ export function createAssistRemoteV1Callables({
           confirmedCostCents: intentResult.confirmedCostCents,
         });
         reportRuntimeStage(diagnostics, stage, 'passed');
-        if (intentResult.plan === null || intentResult.plan.status === 'safe_unavailable') {
+        if (intentResult.plan === null) {
           reportRuntimeStage(diagnostics, 'response_validation', 'passed', {
             finalStatus: 'safe_unavailable',
             reason: intentResult.providerOutputIssue ?? 'provider_reported_insufficient_evidence',
           });
           return ASSISTANT_SAFE_UNAVAILABLE;
         }
+        // Uma intenção não resolvida é uma conversa incompleta, não uma falha
+        // técnica. O servidor pede contexto sem tocar dados financeiros.
+        if (intentResult.plan.status === 'safe_unavailable') {
+          const clarification = admitAssistantClarificationPlan({
+            intent: 'unknown',
+            clarificationCode: 'intent_ambiguous',
+          });
+          reportRuntimeStage(diagnostics, 'response_validation', 'passed', {
+            finalStatus: clarification.finalStatus,
+          });
+          return finalizeForResponseMode({
+            response: clarification.response,
+            text: clarification.response.question,
+          });
+        }
         if (intentResult.plan.status === 'clarification_required') {
           const clarification = admitAssistantClarificationPlan(intentResult.plan);
           reportRuntimeStage(diagnostics, 'response_validation', 'passed', {
             finalStatus: clarification.finalStatus,
           });
-          return clarification.response;
+          return finalizeForResponseMode({
+            response: clarification.response,
+            text: clarification.response.question,
+          });
         }
         // A autorização crua vem somente do envelope já validado pela callable.
         // Ela é efêmera, serve à leitura própria nas Rules e nunca chega ao modelo.
@@ -305,7 +362,12 @@ export function createAssistRemoteV1Callables({
             : { finalStatus: admission.finalStatus, reason: admission.reason },
         );
         return ['grounded', 'clarification_required'].includes(admission.finalStatus)
-          ? admission.response
+          ? finalizeForResponseMode({
+              response: admission.response,
+              text: admission.finalStatus === 'grounded'
+                ? admission.response.answer
+                : admission.response.question,
+            })
           : ASSISTANT_SAFE_UNAVAILABLE;
       } catch (error) {
         reportRuntimeStage(
@@ -393,8 +455,12 @@ function requireAuthenticatedUid(request, HttpsError) {
 }
 
 function requireExactFlutterData(data, HttpsError) {
-  if (!(exactKeys(data, ['contractVersion', 'message'])
-      || exactKeys(data, ['contractVersion', 'message', 'continuation']))) {
+  const hasContinuation = Object.hasOwn(data ?? {}, 'continuation');
+  const hasResponseMode = Object.hasOwn(data ?? {}, 'responseMode');
+  const keys = ['contractVersion', 'message'];
+  if (hasContinuation) keys.push('continuation');
+  if (hasResponseMode) keys.push('responseMode');
+  if (!exactKeys(data, keys)) {
     throw new HttpsError('invalid-argument', 'Contrato de chamada inválido.');
   }
 }

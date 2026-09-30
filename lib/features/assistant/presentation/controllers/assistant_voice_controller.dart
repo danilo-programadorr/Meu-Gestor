@@ -1,4 +1,7 @@
+import 'dart:typed_data';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:meu_gestor_financeiro/features/assistant/data/assistant_audio_player.dart';
 import 'package:meu_gestor_financeiro/features/assistant/data/assistant_tts_engine.dart';
 import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_voice.dart';
 
@@ -11,8 +14,14 @@ assistantVoiceControllerProvider =
       AssistantVoiceController.new,
     );
 
+final Provider<AssistantAudioPlayer> assistantAudioPlayerProvider =
+    Provider<AssistantAudioPlayer>(
+      (Ref ref) => const MethodChannelAssistantAudioPlayer(),
+    );
+
 final class AssistantVoiceController extends Notifier<AssistantVoiceState> {
   late AssistantTtsEngine _engine;
+  late AssistantAudioPlayer _audioPlayer;
   bool _initialized = false;
   bool _disposed = false;
   int _operation = 0;
@@ -21,10 +30,12 @@ final class AssistantVoiceController extends Notifier<AssistantVoiceState> {
   @override
   AssistantVoiceState build() {
     _engine = ref.watch(assistantTtsEngineProvider);
+    _audioPlayer = ref.watch(assistantAudioPlayerProvider);
     ref.onDispose(() {
       _disposed = true;
       _operation += 1;
       _engine.stop();
+      _stopAudioSafely();
     });
     return const AssistantVoiceState.initial();
   }
@@ -67,6 +78,39 @@ final class AssistantVoiceController extends Notifier<AssistantVoiceState> {
         state = state.copyWith(
           phase: AssistantVoicePhase.speaking,
           message: 'Lendo a resposta.',
+        );
+      }
+    } on Object {
+      if (operation == _operation && !_disposed) _setFailure();
+    }
+  }
+
+  /// Reproduz a voz neural devolvida para o modo voz. O Future nativo só
+  /// conclui quando o áudio termina, mantendo o pulso sincronizado.
+  Future<void> playAudio(Uint8List bytes, {required bool valuesVisible}) async {
+    if (!state.enabled || !valuesVisible || bytes.isEmpty) {
+      await stop(clearLastText: !valuesVisible);
+      return;
+    }
+    final int operation = ++_operation;
+    _lastText = null;
+    state = state.copyWith(
+      phase: AssistantVoicePhase.preparing,
+      message: 'Preparando voz natural em português do Brasil.',
+    );
+    try {
+      await _engine.stop();
+      await _audioPlayer.stop();
+      if (operation != _operation || _disposed) return;
+      state = state.copyWith(
+        phase: AssistantVoicePhase.speaking,
+        message: 'Reproduzindo a resposta.',
+      );
+      await _audioPlayer.play(bytes);
+      if (operation == _operation && !_disposed) {
+        state = state.copyWith(
+          phase: AssistantVoicePhase.completed,
+          message: 'Resposta concluída.',
         );
       }
     } on Object {
@@ -118,6 +162,7 @@ final class AssistantVoiceController extends Notifier<AssistantVoiceState> {
     if (clearLastText) _lastText = null;
     try {
       await _engine.stop();
+      await _audioPlayer.stop();
     } on Object {
       // O texto continua disponível; falhas nativas nunca expõem detalhes.
     }
@@ -173,7 +218,15 @@ final class AssistantVoiceController extends Notifier<AssistantVoiceState> {
     state = state.copyWith(
       phase: AssistantVoicePhase.failed,
       message:
-          'A leitura em voz não está disponível neste dispositivo. A resposta escrita permanece visível.',
+          'A voz não está disponível neste momento. Você pode tentar novamente no modo texto.',
     );
+  }
+
+  Future<void> _stopAudioSafely() async {
+    try {
+      await _audioPlayer.stop();
+    } on Object {
+      // Interrupção nativa é best-effort e nunca expõe detalhes do áudio.
+    }
   }
 }

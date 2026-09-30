@@ -104,22 +104,36 @@ const grounded = (response) => Object.freeze({
   finalStatus: 'grounded',
 });
 
-const clarificationRequired = ({ intent, clarificationCode }) => Object.freeze({
+const safeClarificationQuestion = (value) => typeof value === 'string'
+  && value === value.trim()
+  && value.length >= 8
+  && value.length <= 240
+  && value.endsWith('?')
+  && !/[\d$]/u.test(value)
+  && !unsafeText(value);
+
+const clarificationRequired = ({ intent, clarificationCode, clarificationQuestion }) => Object.freeze({
   response: Object.freeze({
     status: 'clarification_required',
     contractVersion: 'assist-remote-v1',
     intent,
     clarificationCode,
-    question: ASSISTANT_CANONICAL_CLARIFICATION_QUESTIONS[clarificationCode],
+    question: safeClarificationQuestion(clarificationQuestion)
+      ? clarificationQuestion
+      : ASSISTANT_CANONICAL_CLARIFICATION_QUESTIONS[clarificationCode],
   }),
   finalStatus: 'clarification_required',
 });
 
-export const admitAssistantClarificationPlan = ({ intent, clarificationCode }) => {
+export const admitAssistantClarificationPlan = ({
+  intent,
+  clarificationCode,
+  clarificationQuestion = undefined,
+}) => {
   if (!conversationIntents.has(intent) || !clarificationCodes.has(clarificationCode)) {
     throw new TypeError('assistant_clarification_plan_invalid');
   }
-  return clarificationRequired({ intent, clarificationCode });
+  return clarificationRequired({ intent, clarificationCode, clarificationQuestion });
 };
 
 /** Provider-neutral delivery gate. Only a validated ephemeral alias may bind an assertion to a fact. */

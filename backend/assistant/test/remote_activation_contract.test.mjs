@@ -66,6 +66,7 @@ test('continuação aceita somente um turno seguro e enums fechados', () => {
     },
   }), {
     message: 'Deste mês.',
+    responseMode: 'text',
     continuation: {
       intent: 'financial_overview',
       clarificationCode: 'period_required',
@@ -76,6 +77,7 @@ test('continuação aceita somente um turno seguro e enums fechados', () => {
     () => validateFlutterAssistantRequest({
       contractVersion: ASSISTANT_FLUTTER_CONTRACT_VERSION,
       message: 'Deste mês.',
+      responseMode: 'text',
       continuation: {
         intent: 'arbitrary',
         clarificationCode: 'period_required',

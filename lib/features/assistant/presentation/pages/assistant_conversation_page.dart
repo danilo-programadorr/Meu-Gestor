@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:meu_gestor_financeiro/app/theme/app_spacing.dart';
 import 'package:meu_gestor_financeiro/core/privacy/financial_privacy_controller.dart';
 import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_conversation.dart';
+import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_remote_integration.dart';
 import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_voice.dart';
 import 'package:meu_gestor_financeiro/features/assistant/presentation/controllers/assistant_conversation_consent_controller.dart';
 import 'package:meu_gestor_financeiro/features/assistant/presentation/controllers/assistant_conversation_controller.dart';
@@ -248,7 +249,7 @@ class _AssistantConversationPageState
                           ),
                         const SizedBox(height: AppSpacing.md),
                         const Text(
-                          'O áudio não é gravado, salvo ou enviado. No modo de voz, a transcrição é descartada antes da resposta, que é reproduzida apenas em áudio. Este modo nunca altera dados financeiros.',
+                          'O app não persiste o áudio do microfone. No modo de voz, a transcrição é descartada antes da resposta. Depois da validação financeira, somente o texto aprovado é enviado ao Google Gemini-TTS e a voz retornada é reproduzida sem mostrar a resposta escrita. Se a voz neural estiver indisponível, o Android pode usar a voz local. Este modo nunca altera dados financeiros.',
                           style: TextStyle(color: Color(0xFFD5DEE7)),
                           textAlign: TextAlign.center,
                         ),
@@ -315,7 +316,10 @@ class _AssistantConversationPageState
 
   /// Envia somente a pergunta já validada pelo modo atual. O backend continua
   /// responsável pelo contexto, pela evidência e pela resposta segura.
-  Future<void> _requestRemoteAnswer(String message) async {
+  Future<void> _requestRemoteAnswer(
+    String message, {
+    bool voiceOnly = false,
+  }) async {
     if (!_isForeground) return;
     if (!await _ensureEffectiveRemoteConsent()) return;
     if (!mounted) return;
@@ -326,6 +330,7 @@ class _AssistantConversationPageState
         assistantRemoteConsentControllerProvider,
       ),
       financialValuesVisible: ref.read(financialPrivacyControllerProvider),
+      voiceOnly: voiceOnly,
     );
   }
 
@@ -398,7 +403,7 @@ class _AssistantConversationPageState
     builder: (BuildContext context) => AlertDialog(
       title: const Text('Usar microfone nesta conversa?'),
       content: const Text(
-        'O microfone será usado apenas para reconhecer sua pergunta enquanto esta tela estiver aberta e o aplicativo estiver em primeiro plano. Nenhum áudio é gravado, salvo ou enviado.',
+        'O microfone será usado apenas para reconhecer sua pergunta enquanto esta tela estiver aberta e o aplicativo estiver em primeiro plano. O app não grava nem persiste o áudio; o serviço de reconhecimento configurado no Android pode processá-lo para produzir a transcrição temporária.',
       ),
       actions: <Widget>[
         TextButton(
@@ -424,7 +429,7 @@ class _AssistantConversationPageState
     final String message = state.transcript;
     if (message.isEmpty) return;
     _conversation.clearTranscript();
-    await _requestRemoteAnswer(message);
+    await _requestRemoteAnswer(message, voiceOnly: true);
     if (!_conversationEnabled || !_isForeground || !mounted) return;
     final AssistantRemoteConversationState remoteState = ref.read(
       assistantRemoteConversationControllerProvider,
@@ -432,10 +437,14 @@ class _AssistantConversationPageState
     await _voice.setEnabled(true, valuesVisible: true);
     if (!_conversationEnabled || !_isForeground || !mounted) return;
     _conversation.speaking();
-    await _voice.speak(
-      remoteState.response?.answer ?? remoteState.message,
-      valuesVisible: true,
-    );
+    if (remoteState.audio case final AssistantRemoteAudio audio) {
+      await _voice.playAudio(audio.bytes, valuesVisible: true);
+    } else {
+      await _voice.speak(
+        remoteState.response?.answer ?? remoteState.message,
+        valuesVisible: true,
+      );
+    }
   }
 
   Future<void> _resumeListeningAfterSpeech() async {

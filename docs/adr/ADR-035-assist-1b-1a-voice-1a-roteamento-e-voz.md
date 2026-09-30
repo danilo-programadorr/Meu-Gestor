@@ -13,7 +13,7 @@ O contrato do Assistente já separa contexto confirmado, consentimento, evidênc
 2. O cliente não envia nem escolhe tier. Campo adicional é recusado pelo contrato. Análise complexa sem orçamento falha fechada; não é silenciosamente rebaixada para uma resposta potencialmente inadequada.
 3. Unidades de custo não representam preço comercial. Um adaptador futuro, autorizado separadamente, deverá mapear preços reais e aplicar orçamento server-side antes da chamada.
 4. Nesta etapa o gateway continua fake e desconectado. Nenhum dado financeiro é enviado e nenhuma resposta é apresentada como gerada por IA.
-5. A leitura usa `flutter_tts 4.2.5`, licença MIT, somente como ponte para o TTS nativo do dispositivo. Não há microfone, gravação, arquivo de voz, memória, chave ou serviço de voz em nuvem.
+5. O modo remoto usa Gemini-TTS server-side com ADC da identidade runtime e voz feminina `Sulafat`; nenhum segredo entra no APK. O áudio WAV é efêmero, estrito e existe somente no modo voz após admissão. `flutter_tts 4.2.5` permanece fallback local do Android.
 6. “Responder em voz” começa desligado. A resposta textual permanece visível. Pausar, continuar, repetir, parar e três velocidades são controlados por uma abstração substituível em testes.
 7. Ocultar dados financeiros interrompe e descarta o texto repetível. Sair da rota, suspender/bloquear o aplicativo e trocar a identidade autenticada também interrompem a reprodução.
 8. A voz é configurada como `pt-BR`. Ausência de voz compatível ou falha do mecanismo gera mensagem sanitizada e não afeta a resposta escrita.
@@ -29,5 +29,5 @@ O contrato do Assistente já separa contexto confirmado, consentimento, evidênc
 ## Consequências
 
 - A política pode ser testada sem custo ou fornecedor e não expõe seleção de modelo ao aplicativo.
-- A fala depende das vozes instaladas e das características do mecanismo Android do usuário.
+- A voz neural depende da disponibilidade do modelo TTS em development; em falha, o fallback depende das vozes Android instaladas.
 - Uma integração generativa continua bloqueada por seleção explícita de provedor, consentimento de envio, backend, segredo, orçamento, retenção e autorização de deploy.

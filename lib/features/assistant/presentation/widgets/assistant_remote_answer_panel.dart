@@ -12,53 +12,61 @@ class AssistantRemoteAnswerPanel extends StatelessWidget {
   final AssistantRemoteConversationState state;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    liveRegion: true,
-    label: 'Resposta fundamentada: ${state.message}',
-    child: Card(
-      color: const Color(0xFF1B252D),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            Text(
-              'Resposta fundamentada',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(color: Colors.white),
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              state.message,
-              style: const TextStyle(color: Color(0xFFD5DEE7)),
-            ),
-            if (state.isPreparing) ...<Widget>[
-              const SizedBox(height: AppSpacing.sm),
-              const LinearProgressIndicator(),
-            ],
-            if (state.response
-                case final AssistantGroundedResponse response) ...<Widget>[
-              const SizedBox(height: AppSpacing.sm),
+  Widget build(BuildContext context) {
+    final String title = switch (state.phase) {
+      AssistantRemoteConversationPhase.clarificationRequired =>
+        'Vamos continuar',
+      AssistantRemoteConversationPhase.grounded => 'Resposta fundamentada',
+      _ => 'Assistente Financeiro',
+    };
+    return Semantics(
+      liveRegion: true,
+      label: '$title: ${state.message}',
+      child: Card(
+        color: const Color(0xFF1B252D),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
               Text(
-                response.answer,
-                style: const TextStyle(color: Colors.white),
+                title,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(color: Colors.white),
               ),
-              const SizedBox(height: AppSpacing.sm),
-              for (final AssistantGroundedAssertion assertion
-                  in response.assertions)
-                _EvidenceLine(assertion: assertion),
               const SizedBox(height: AppSpacing.xs),
               Text(
-                response.disclaimer,
-                style: const TextStyle(color: Color(0xFFB7E8FF)),
+                state.message,
+                style: const TextStyle(color: Color(0xFFD5DEE7)),
               ),
+              if (state.isPreparing) ...<Widget>[
+                const SizedBox(height: AppSpacing.sm),
+                const LinearProgressIndicator(),
+              ],
+              if (state.response
+                  case final AssistantGroundedResponse response) ...<Widget>[
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  response.answer,
+                  style: const TextStyle(color: Colors.white),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                for (final AssistantGroundedAssertion assertion
+                    in response.assertions)
+                  _EvidenceLine(assertion: assertion),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  response.disclaimer,
+                  style: const TextStyle(color: Color(0xFFB7E8FF)),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _EvidenceLine extends StatelessWidget {

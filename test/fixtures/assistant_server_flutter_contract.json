@@ -99,7 +99,7 @@
         "contractVersion": "assist-remote-v1",
         "intent": "financial_overview",
         "clarificationCode": "period_required",
-        "question": "Qual período você quer analisar?"
+        "question": "Você quer analisar este mês ou o mês anterior?"
       },
       "expectedFinalStatus": "clarification_required",
       "expectedReason": null,

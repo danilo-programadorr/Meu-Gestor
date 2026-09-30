@@ -1,10 +1,10 @@
-// Intenção: selecionar uma voz feminina pt-BR satisfatória sem depender de
-// rede, instalação de pacote ou nomenclatura fora do catálogo nativo.
+// Intenção: selecionar uma voz feminina pt-BR natural e manter fallback local
+// sem aceitar voz masculina ou de outro idioma.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meu_gestor_financeiro/features/assistant/data/assistant_tts_engine.dart';
 
 void main() {
-  test('prioriza voz feminina pt-BR local e de maior qualidade', () {
+  test('prioriza voz feminina pt-BR de rede e de maior qualidade', () {
     final Map<String, String>? selected = AssistantTtsVoiceSelector.select(
       <Map<String, String>>[
         <String, String>{
@@ -29,7 +29,7 @@ void main() {
     );
 
     expect(selected, <String, String>{
-      'name': 'pt-br-x-afs#female_1-local',
+      'name': 'pt-br-x-afs#female_1-network',
       'locale': 'pt-BR',
     });
   });
@@ -46,7 +46,7 @@ void main() {
     expect(selected, isNull);
   });
 
-  test('não força voz de rede quando não existe opção feminina local', () {
+  test('usa voz feminina de rede quando ela é a única opção natural', () {
     final Map<String, String>? selected = AssistantTtsVoiceSelector.select(
       <Map<String, String>>[
         <String, String>{
@@ -58,7 +58,10 @@ void main() {
       ],
     );
 
-    expect(selected, isNull);
+    expect(selected, <String, String>{
+      'name': 'pt-br-x-afs#female_1-network',
+      'locale': 'pt-BR',
+    });
   });
 
   test('entrada nativa malformada mantém fallback sem exceção', () {

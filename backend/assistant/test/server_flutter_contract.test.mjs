@@ -75,6 +75,7 @@ const readyPlanEnvelope = Object.freeze({
       status: 'ready',
       intent: 'balance',
       clarificationCode: 'none',
+      clarificationQuestion: '',
       periodCode: 'today',
       financialTool: 'balance',
     }) })] }),
@@ -116,11 +117,13 @@ const invokeCase = async (contractCase, providerGateway = undefined) => {
         plan: contractCase.name === 'clarification_required'
           ? {
               schemaVersion: 1, status: 'clarification_required', intent: 'financial_overview',
-              clarificationCode: 'period_required', periodCode: 'none', financialTool: 'none',
+              clarificationCode: 'period_required',
+              clarificationQuestion: 'Você quer analisar este mês ou o mês anterior?',
+              periodCode: 'none', financialTool: 'none',
             }
           : {
               schemaVersion: 1, status: 'ready', intent: 'balance', clarificationCode: 'none',
-              periodCode: 'today', financialTool: 'balance',
+              clarificationQuestion: '', periodCode: 'today', financialTool: 'balance',
             },
         durationMs: 10,
         confirmedCostCents: 7,

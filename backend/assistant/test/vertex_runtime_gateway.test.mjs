@@ -7,6 +7,8 @@ import {
   ASSISTANT_VERTEX_PLAN_SCHEMA,
   ASSISTANT_VERTEX_PROMPT_VERSION,
   ASSISTANT_VERTEX_RESPONSE_SCHEMA,
+  ASSISTANT_VERTEX_SPEECH_MODEL,
+  ASSISTANT_VERTEX_SPEECH_VOICE,
   assistantVertexClientConfiguration,
   createVertexRuntimeGateway,
 } from '../src/index.mjs';
@@ -14,15 +16,17 @@ import { AssistantContractError } from '../src/errors.mjs';
 
 const execution = Object.freeze({
   enabled: true, tier: 'flash', providerModel: 'gemini-3.8-flash',
-  thinkingLevel: 'LOW', fallback: 'safe_unavailable',
+  thinkingLevel: 'MEDIUM', fallback: 'safe_unavailable',
 });
 const proExecution = Object.freeze({ ...execution, tier: 'pro', thinkingLevel: 'HIGH' });
+const planningExecution = Object.freeze({ ...execution, thinkingLevel: 'LOW' });
 const providerRequest = Object.freeze({
   contractVersion: 'assist-remote-v1',
   message: 'Explique o resumo confirmado.',
   intentPlan: Object.freeze({
     schemaVersion: 1, status: 'ready', intent: 'financial_overview',
-    clarificationCode: 'none', periodCode: 'current_month', financialTool: 'overview',
+    clarificationCode: 'none', clarificationQuestion: '',
+    periodCode: 'current_month', financialTool: 'overview',
   }),
   context: Object.freeze({
     civilPeriod: Object.freeze({ timeZone: 'America/Sao_Paulo', startDate: '2026-09-01', endDateExclusive: '2026-10-01' }),
@@ -95,6 +99,7 @@ test('planeja intenção, período e ferramenta sem receber contexto financeiro'
               status: 'ready',
               intent: 'financial_overview',
               clarificationCode: 'none',
+              clarificationQuestion: '',
               periodCode: 'current_month',
               financialTool: 'overview',
             }) }] } }],
@@ -104,7 +109,7 @@ test('planeja intenção, período e ferramenta sem receber contexto financeiro'
     }),
   });
   const result = await gateway.plan({
-    execution,
+    execution: planningExecution,
     maximumCostCents: 20,
     request: { message: 'Prepare um relatório deste mês.' },
   });
@@ -130,6 +135,7 @@ test('planejamento ambíguo pede esclarecimento sem selecionar leitor', async ()
             status: 'clarification_required',
             intent: 'financial_overview',
             clarificationCode: 'period_required',
+            clarificationQuestion: 'Você quer o relatório deste mês ou do mês anterior?',
             periodCode: 'none',
             financialTool: 'none',
           }) }] } }],
@@ -138,15 +144,19 @@ test('planejamento ambíguo pede esclarecimento sem selecionar leitor', async ()
     }),
   });
   const result = await gateway.plan({
-    execution,
+    execution: planningExecution,
     maximumCostCents: 20,
     request: { message: 'Prepare um relatório.' },
   });
   assert.equal(result.plan.status, 'clarification_required');
   assert.equal(result.plan.financialTool, 'none');
+  assert.equal(
+    result.plan.clarificationQuestion,
+    'Você quer o relatório deste mês ou do mês anterior?',
+  );
 });
 
-test('serializa Gemini 3.8 Flash, esforço baixo e contrato estruturado completo', async () => {
+test('serializa Gemini 3.8 Flash, esforço médio e contrato estruturado completo', async () => {
   const calls = [];
   const result = await fakeGateway({ calls }).generate({ execution, maximumCostCents: 20, providerRequest });
   assert.deepEqual(calls[0].configuration, {
@@ -156,13 +166,17 @@ test('serializa Gemini 3.8 Flash, esforço baixo e contrato estruturado completo
   });
   const request = calls[1].request;
   assert.equal(request.model, 'gemini-3.8-flash');
-  assert.deepEqual(request.config.thinkingConfig, { thinkingLevel: 'LOW', includeThoughts: false });
+  assert.deepEqual(request.config.thinkingConfig, { thinkingLevel: 'MEDIUM', includeThoughts: false });
   assert.equal(request.config.responseMimeType, 'application/json');
   assert.deepEqual(request.config.responseSchema, ASSISTANT_VERTEX_RESPONSE_SCHEMA);
   assert.equal('candidateCount' in request.config, false);
   assert.equal('temperature' in request.config, false);
   assert.deepEqual(Object.keys(ASSISTANT_VERTEX_RESPONSE_SCHEMA.properties).sort(), [
     'assertions', 'clarificationCode', 'intent', 'missingData', 'schemaVersion', 'status',
+  ]);
+  assert.deepEqual(Object.keys(ASSISTANT_VERTEX_PLAN_SCHEMA.properties).sort(), [
+    'clarificationCode', 'clarificationQuestion', 'financialTool', 'intent',
+    'periodCode', 'schemaVersion', 'status',
   ]);
   const prompt = JSON.parse(request.contents[0].parts[0].text);
   assert.equal(prompt.promptVersion, ASSISTANT_VERTEX_PROMPT_VERSION);
@@ -196,6 +210,95 @@ test('preserva continuação efêmera no prompt sem promovê-la a autoridade', a
   });
   const prompt = JSON.parse(calls[1].request.contents[0].parts[0].text);
   assert.deepEqual(prompt.request.continuation, continuation);
+});
+
+test('planejador define períodos usuais e prefere esclarecer a indisponibilidade', async () => {
+  const calls = [];
+  const gateway = createVertexRuntimeGateway({
+    providerFeatureEnabled: true,
+    killSwitchActive: false,
+    projectIdReader: () => 'synthetic-project',
+    vertexAiFactory: async () => ({
+      models: {
+        generateContent: async (request) => {
+          calls.push(request);
+          return {
+            candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify({
+              schemaVersion: 1,
+              status: 'ready',
+              intent: 'expenses',
+              clarificationCode: 'none',
+              clarificationQuestion: '',
+              periodCode: 'current_month',
+              financialTool: 'expenses',
+            }) }] } }],
+          };
+        },
+      },
+    }),
+  });
+  const result = await gateway.plan({
+    execution: planningExecution,
+    maximumCostCents: 20,
+    request: { message: 'Como estão meus gastos?' },
+  });
+  assert.equal(result.plan.periodCode, 'current_month');
+  const prompt = JSON.parse(calls[0].contents[0].parts[0].text);
+  assert.ok(prompt.instructions.some((item) => item.includes('Sem período explícito')));
+  assert.ok(prompt.instructions.some((item) => item.includes('prefira clarification_required')));
+});
+
+test('sintetiza somente áudio unary completo com a voz feminina aprovada', async () => {
+  const calls = [];
+  const pcm = Buffer.alloc(960, 7);
+  const gateway = fakeGateway({
+    calls,
+    result: {
+      candidates: [{
+        finishReason: 'STOP',
+        content: {
+          parts: [{
+            inlineData: {
+              mimeType: 'audio/L16;rate=24000',
+              data: pcm.toString('base64'),
+            },
+          }],
+        },
+      }],
+    },
+  });
+
+  const result = await gateway.synthesize({
+    maximumCostCents: 20,
+    text: 'Resposta validada.',
+  });
+
+  const request = calls[1].request;
+  assert.equal(request.model, ASSISTANT_VERTEX_SPEECH_MODEL);
+  assert.deepEqual(request.config.responseModalities, ['AUDIO']);
+  assert.equal(
+    request.config.speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName,
+    ASSISTANT_VERTEX_SPEECH_VOICE,
+  );
+  assert.equal(request.config.speechConfig.languageCode, 'pt-BR');
+  assert.equal(result.audio.mimeType, 'audio/wav');
+  const wave = Buffer.from(result.audio.dataBase64, 'base64');
+  assert.equal(wave.subarray(0, 4).toString(), 'RIFF');
+  assert.equal(wave.subarray(8, 12).toString(), 'WAVE');
+  assert.deepEqual(wave.subarray(44), pcm);
+});
+
+test('não aceita áudio truncado, parcial ou misturado entre candidatos', async () => {
+  const pcm = Buffer.alloc(960, 7).toString('base64');
+  for (const result of [
+    { candidates: [{ finishReason: 'MAX_TOKENS', content: { parts: [{ inlineData: { mimeType: 'audio/L16', data: pcm } }] } }] },
+    { candidates: [{ finishReason: 'STOP', content: { parts: [{ inlineData: { mimeType: 'audio/L16', data: pcm } }, { inlineData: { mimeType: 'audio/L16', data: pcm } }] } }] },
+  ]) {
+    await assert.rejects(
+      fakeGateway({ result }).synthesize({ maximumCostCents: 20, text: 'Resposta validada.' }),
+      (error) => error.code === 'assistant_provider_output_invalid',
+    );
+  }
 });
 
 test('extração usa somente o primeiro candidato unary e suas partes textuais', async () => {

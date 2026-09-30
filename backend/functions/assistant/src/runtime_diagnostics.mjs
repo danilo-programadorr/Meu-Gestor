@@ -27,6 +27,9 @@ const stages = new Set([
   'vertex_model',
   'ledger_confirm',
   'response_validation',
+  'voice_ledger_reserve',
+  'voice_model',
+  'voice_ledger_confirm',
 ]);
 const outcomes = new Set(['started', 'passed', 'blocked', 'failed']);
 const reasons = new Set(ASSISTANT_READER_FAILURE_REASONS);

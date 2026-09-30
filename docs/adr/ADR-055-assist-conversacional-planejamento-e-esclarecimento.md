@@ -22,8 +22,9 @@ antes de consultar o backend.
 - Somente um plano completo autoriza leitores owner-scoped. Cada ferramenta
   limita as fontes consultadas; o servidor continua sendo a autoridade sobre
   identidade, período, valores, evidências, fontes e admissão da resposta.
-- O mesmo `gemini-3.8-flash` atende os dois tiers internos. Perguntas simples
-  usam `thinkingLevel: LOW`; análises complexas usam `thinkingLevel: HIGH`, sem
+- O mesmo `gemini-3.8-flash` atende os dois tiers internos. Perguntas comuns e
+  planejamento usa `thinkingLevel: LOW`, respostas comuns usam `MEDIUM` e análises complexas usam
+  `thinkingLevel: HIGH`, sem
   ampliar os tetos existentes de saída ou custo. A requisição não envia
   `candidateCount`, `temperature` ou outros parâmetros incompatíveis com esse
   modelo; schema e nível de raciocínio são os controles autoritativos. O SDK
@@ -32,12 +33,14 @@ antes de consultar o backend.
   independentes e atômicas. Uma consulta fundamentada pode consumir duas
   inferências; um pedido de esclarecimento encerra após a primeira e não lê
   contexto financeiro.
-- `clarification_required` usa somente perguntas canônicas do servidor. Texto
-  livre produzido pelo modelo não é apresentado como esclarecimento.
-- O Flutter mantém no máximo uma continuação em memória e a envia apenas no
-  turno seguinte. Ela é apagada ao concluir, sair da conversa, trocar conta,
-  ativar privacidade ou descartar o estado. Áudio e transcrição continuam
-  locais; voz mostra somente áudio.
+- `clarification_required` pode usar uma pergunta contextual curta do
+  planejador, admitida pelo servidor sem números, identidade, valores ou
+  recomendações. Conteúdo fora desse contrato volta para uma pergunta canônica.
+- O Flutter mantém no máximo a última pergunta em memória e a envia apenas no
+  turno seguinte. Respostas e fatos financeiros não são reenviados. A memória
+  é apagada ao sair da conversa, trocar conta, ativar privacidade ou descartar
+  o estado; no modo de voz, a interface mostra somente áudio. A síntese neural
+  ocorre depois da admissão e tem reserva de custo própria; texto não a executa.
 - A lista rígida de frases deixa de bloquear perguntas. Entrada não vazia e
   segura segue ao planejador, que pode entender linguagem livre ou solicitar a
   informação ausente.

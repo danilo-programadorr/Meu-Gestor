@@ -87,7 +87,8 @@ const build = (overrides = {}) => {
         return {
           plan: {
             schemaVersion: 1, status: 'ready', intent: 'financial_overview',
-            clarificationCode: 'none', periodCode: 'today', financialTool: 'overview',
+            clarificationCode: 'none', clarificationQuestion: '',
+            periodCode: 'today', financialTool: 'overview',
           },
           durationMs: 1, confirmedCostCents: 1,
           providerDiagnostics: { finishReason: 'STOP' },
@@ -233,6 +234,115 @@ test('rota futura falha fechada sem bearer do envelope autenticado', async () =>
     (error) => error.code === 'unauthenticated',
   );
   assert.equal(calls.context, 0);
+});
+
+test('intenção não resolvida pede esclarecimento sem ler contexto financeiro', async () => {
+  const events = [];
+  const { calls, invoke } = build({
+    killSwitchActive: false,
+    providerFeatureEnabled: true,
+    providerGateway: {
+      plan: async () => {
+        calls.provider += 1;
+        return {
+          plan: {
+            schemaVersion: 1,
+            status: 'safe_unavailable',
+            intent: 'unknown',
+            clarificationCode: 'none',
+            clarificationQuestion: '',
+            periodCode: 'none',
+            financialTool: 'none',
+          },
+          durationMs: 1,
+          confirmedCostCents: 1,
+          providerDiagnostics: { finishReason: 'STOP' },
+        };
+      },
+      generate: async () => { throw new Error('generate_must_not_run'); },
+    },
+    runtimeDiagnostics: { report: (event) => events.push(event) },
+  });
+
+  const response = await invoke(request());
+  assert.deepEqual(response, {
+    status: 'clarification_required',
+    contractVersion: 'assist-remote-v1',
+    intent: 'unknown',
+    clarificationCode: 'intent_ambiguous',
+    question: 'O que você gostaria de consultar nas suas finanças?',
+  });
+  assert.equal(calls.context, 0);
+  assert.equal(calls.reserve, 1);
+  assert.equal(calls.confirm, 1);
+  assert.equal(calls.provider, 1);
+  assert.deepEqual(events.at(-1), {
+    stage: 'response_validation',
+    outcome: 'passed',
+    finalStatus: 'clarification_required',
+  });
+});
+
+test('modo voz sintetiza somente após admitir o esclarecimento e contabiliza a chamada', async () => {
+  const events = [];
+  const audio = {
+    mimeType: 'audio/wav',
+    dataBase64: Buffer.concat([
+      Buffer.from('RIFF'), Buffer.alloc(4), Buffer.from('WAVE'), Buffer.alloc(512),
+    ]).toString('base64'),
+  };
+  const { calls, invoke } = build({
+    killSwitchActive: false,
+    providerFeatureEnabled: true,
+    providerGateway: {
+      plan: async () => {
+        calls.provider += 1;
+        return {
+          plan: {
+            schemaVersion: 1,
+            status: 'clarification_required',
+            intent: 'financial_overview',
+            clarificationCode: 'period_required',
+            clarificationQuestion: 'Você quer analisar este mês ou o mês anterior?',
+            periodCode: 'none',
+            financialTool: 'none',
+          },
+          durationMs: 2,
+          confirmedCostCents: 1,
+          providerDiagnostics: { finishReason: 'STOP' },
+        };
+      },
+      generate: async () => { throw new Error('generate_must_not_run'); },
+      synthesize: async ({ text }) => {
+        calls.provider += 1;
+        assert.equal(text, 'Você quer analisar este mês ou o mês anterior?');
+        return { audio, durationMs: 3, confirmedCostCents: 2 };
+      },
+    },
+    runtimeDiagnostics: { report: (event) => events.push(event) },
+  });
+
+  const response = await invoke(request({
+    data: {
+      contractVersion: 'assist-remote-v1',
+      message: 'Prepare um relatório.',
+      responseMode: 'voice',
+    },
+  }));
+
+  assert.deepEqual(response.audio, audio);
+  assert.equal(calls.reserve, 2);
+  assert.equal(calls.confirm, 2);
+  assert.equal(calls.provider, 2);
+  assert.deepEqual(events.slice(-7), [
+    { stage: 'response_validation', outcome: 'passed', finalStatus: 'clarification_required' },
+    { stage: 'voice_ledger_reserve', outcome: 'started' },
+    { stage: 'voice_ledger_reserve', outcome: 'passed' },
+    { stage: 'voice_model', outcome: 'started' },
+    { stage: 'voice_model', outcome: 'passed' },
+    { stage: 'voice_ledger_confirm', outcome: 'started' },
+    { stage: 'voice_ledger_confirm', outcome: 'passed' },
+  ]);
 });
 
 test('falha do plano é atribuída ao estágio correto com código sanitizado', async () => {

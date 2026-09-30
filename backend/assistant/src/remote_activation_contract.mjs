@@ -132,14 +132,22 @@ const validateConversationContinuation = (value) => {
  * context, provider choice and all usage counters are server-side inputs.
  */
 export const validateFlutterAssistantRequest = (request) => {
-  const hasContinuation = exactKeys(request, ['contractVersion', 'message', 'continuation']);
-  if (!(exactKeys(request, ['contractVersion', 'message']) || hasContinuation)
+  const hasContinuation = Object.hasOwn(request ?? {}, 'continuation');
+  const hasResponseMode = Object.hasOwn(request ?? {}, 'responseMode');
+  const expectedKeys = ['contractVersion', 'message'];
+  if (hasContinuation) expectedKeys.push('continuation');
+  if (hasResponseMode) expectedKeys.push('responseMode');
+  if (!exactKeys(request, expectedKeys)
       || request.contractVersion !== ASSISTANT_FLUTTER_CONTRACT_VERSION) {
+    throw new TypeError('assistant_flutter_contract_invalid');
+  }
+  if (hasResponseMode && !['text', 'voice'].includes(request.responseMode)) {
     throw new TypeError('assistant_flutter_contract_invalid');
   }
   const validated = validateClientRequest({ message: request.message });
   return Object.freeze({
     ...validated,
+    responseMode: hasResponseMode ? request.responseMode : 'text',
     ...(hasContinuation
       ? { continuation: validateConversationContinuation(request.continuation) }
       : {}),

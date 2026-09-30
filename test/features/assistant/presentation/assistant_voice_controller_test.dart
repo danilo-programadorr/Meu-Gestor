@@ -1,5 +1,8 @@
+import 'dart:typed_data';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:meu_gestor_financeiro/features/assistant/data/assistant_audio_player.dart';
 import 'package:meu_gestor_financeiro/features/assistant/data/assistant_tts_engine.dart';
 import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_voice.dart';
 import 'package:meu_gestor_financeiro/features/assistant/presentation/controllers/assistant_voice_controller.dart';
@@ -92,8 +95,31 @@ void main() {
       assistantVoiceControllerProvider,
     );
     expect(state.phase, AssistantVoicePhase.failed);
-    expect(state.message, contains('resposta escrita permanece visível'));
+    expect(state.message, contains('tentar novamente no modo texto'));
     expect(state.message, isNot(contains('native-secret')));
+  });
+
+  test('áudio neural é reproduzido sem enviar texto ao TTS local', () async {
+    final _FakeTtsEngine engine = _FakeTtsEngine();
+    final _FakeAudioPlayer player = _FakeAudioPlayer();
+    final ProviderContainer container = _container(engine, player: player);
+    addTearDown(container.dispose);
+    final AssistantVoiceController controller = container.read(
+      assistantVoiceControllerProvider.notifier,
+    );
+
+    await controller.setEnabled(true, valuesVisible: true);
+    await controller.playAudio(
+      Uint8List.fromList(<int>[1, 2, 3]),
+      valuesVisible: true,
+    );
+
+    expect(player.played.single, orderedEquals(<int>[1, 2, 3]));
+    expect(engine.spoken, isEmpty);
+    expect(
+      container.read(assistantVoiceControllerProvider).phase,
+      AssistantVoicePhase.completed,
+    );
   });
 
   test(
@@ -147,9 +173,28 @@ void main() {
   });
 }
 
-ProviderContainer _container(_FakeTtsEngine engine) => ProviderContainer(
-  overrides: [assistantTtsEngineProvider.overrideWithValue(engine)],
+ProviderContainer _container(
+  _FakeTtsEngine engine, {
+  _FakeAudioPlayer? player,
+}) => ProviderContainer(
+  overrides: [
+    assistantTtsEngineProvider.overrideWithValue(engine),
+    assistantAudioPlayerProvider.overrideWithValue(
+      player ?? _FakeAudioPlayer(),
+    ),
+  ],
 );
+
+final class _FakeAudioPlayer implements AssistantAudioPlayer {
+  final List<Uint8List> played = <Uint8List>[];
+  int stopCalls = 0;
+
+  @override
+  Future<void> play(Uint8List bytes) async => played.add(bytes);
+
+  @override
+  Future<void> stop() async => stopCalls += 1;
+}
 
 final class _FakeTtsEngine implements AssistantTtsEngine {
   _FakeTtsEngine({this.failInitialization = false});

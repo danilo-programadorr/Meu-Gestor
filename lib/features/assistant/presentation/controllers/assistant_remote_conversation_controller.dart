@@ -51,16 +51,19 @@ final class AssistantRemoteConversationState {
     required this.phase,
     required this.message,
     this.response,
+    this.audio,
   });
 
   const AssistantRemoteConversationState.initial()
     : phase = AssistantRemoteConversationPhase.idle,
       message = 'Envie uma pergunta para receber uma resposta fundamentada.',
-      response = null;
+      response = null,
+      audio = null;
 
   final AssistantRemoteConversationPhase phase;
   final String message;
   final AssistantGroundedResponse? response;
+  final AssistantRemoteAudio? audio;
 
   bool get isPreparing => phase == AssistantRemoteConversationPhase.preparing;
 
@@ -68,11 +71,13 @@ final class AssistantRemoteConversationState {
     AssistantRemoteConversationPhase? phase,
     String? message,
     AssistantGroundedResponse? response,
+    AssistantRemoteAudio? audio,
     bool clearResponse = false,
   }) => AssistantRemoteConversationState(
     phase: phase ?? this.phase,
     message: message ?? this.message,
     response: clearResponse ? null : response ?? this.response,
+    audio: clearResponse ? null : audio ?? this.audio,
   );
 }
 
@@ -115,6 +120,7 @@ final class AssistantRemoteConversationController
     required bool aiConsentEnabled,
     required bool remoteContextConsentAllowed,
     required bool financialValuesVisible,
+    bool voiceOnly = false,
   }) async {
     if (state.isPreparing) return;
     final int operation = ++_operation;
@@ -159,6 +165,9 @@ final class AssistantRemoteConversationController
       request = AssistantRemoteRequest(
         message: message,
         continuation: _pendingContinuation,
+        responseMode: voiceOnly
+            ? AssistantRemoteResponseMode.voice
+            : AssistantRemoteResponseMode.text,
       );
     } on AssistantFailure {
       _pendingContinuation = null;
@@ -194,13 +203,21 @@ final class AssistantRemoteConversationController
       if (result.groundedResponse
           case final AssistantGroundedResponse response) {
         if (!_isCurrent(operation)) return;
-        _pendingContinuation = null;
+        // Mantém somente a última pergunta, sem resposta ou valor financeiro.
+        // Isso permite continuações naturais como “e no mês passado?” sem
+        // transformar memória do cliente em fonte autoritativa.
+        _pendingContinuation = AssistantRemoteContinuation(
+          intent: 'unknown',
+          clarificationCode: 'intent_ambiguous',
+          previousMessage: message,
+        );
         _setIfCurrent(
           operation,
           AssistantRemoteConversationState(
             phase: AssistantRemoteConversationPhase.grounded,
             message: 'Resposta fundamentada pronta para leitura.',
             response: response,
+            audio: result.audio,
           ),
         );
       } else if (result.clarification
@@ -216,6 +233,7 @@ final class AssistantRemoteConversationController
           AssistantRemoteConversationState(
             phase: AssistantRemoteConversationPhase.clarificationRequired,
             message: clarification.question,
+            audio: result.audio,
           ),
         );
       } else {

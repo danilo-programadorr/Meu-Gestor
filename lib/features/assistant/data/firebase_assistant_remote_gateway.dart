@@ -83,5 +83,7 @@ final class FirebaseAssistantRemoteGateway implements AssistantRemoteGateway {
             'clarificationCode': value.clarificationCode,
             'previousMessage': value.previousMessage,
           },
+        if (request.responseMode == AssistantRemoteResponseMode.voice)
+          'responseMode': 'voice',
       };
 }

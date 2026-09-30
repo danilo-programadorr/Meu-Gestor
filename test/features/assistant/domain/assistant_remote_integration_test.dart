@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_failure.dart';
@@ -64,14 +65,14 @@ void main() {
     );
   });
 
-  test('aceita somente pergunta de esclarecimento canônica e enumerada', () {
+  test('aceita pergunta contextual segura e enumerada', () {
     final AssistantRemoteResponse response =
         AssistantRemoteResponse.fromCallableData(<String, Object?>{
           'status': 'clarification_required',
           'contractVersion': 'assist-remote-v1',
           'intent': 'financial_overview',
           'clarificationCode': 'period_required',
-          'question': 'Qual período você quer analisar?',
+          'question': 'Você quer analisar este mês ou o mês anterior?',
         });
     expect(response.requiresClarification, isTrue);
     expect(response.clarification?.intent, 'financial_overview');
@@ -82,7 +83,54 @@ void main() {
         'contractVersion': 'assist-remote-v1',
         'intent': 'financial_overview',
         'clarificationCode': 'period_required',
-        'question': 'Texto livre do modelo.',
+        'question': r'Você quer analisar R$ 100?',
+      }),
+      throwsA(isA<AssistantFailure>()),
+    );
+  });
+
+  test('aceita somente áudio WAV limitado no envelope fundamentado', () {
+    final Uint8List wav = Uint8List(524)
+      ..setRange(0, 4, ascii.encode('RIFF'))
+      ..setRange(8, 12, ascii.encode('WAVE'));
+    final Map<String, Object?> response = <String, Object?>{
+      'schemaVersion': 1,
+      'status': 'grounded',
+      'answer': 'Resumo confirmado.',
+      'assertions': <Object?>[
+        <String, Object?>{
+          'statement': 'Há uma evidência confirmada.',
+          'evidence': <String, Object?>{
+            'alias': 'ev_accounts_001',
+            'source': 'accounts',
+            'period': <String, Object?>{
+              'timeZone': 'America/Sao_Paulo',
+              'startDate': '2026-09-01',
+              'endDateExclusive': '2026-09-02',
+            },
+          },
+        },
+      ],
+      'missingData': <Object?>[],
+      'disclaimer':
+          'Conteúdo informativo; nenhuma ação financeira foi realizada.',
+      'audio': <String, Object?>{
+        'mimeType': 'audio/wav',
+        'dataBase64': base64Encode(wav),
+      },
+    };
+
+    expect(
+      AssistantRemoteResponse.fromCallableData(response).audio?.bytes,
+      orderedEquals(wav),
+    );
+    expect(
+      () => AssistantRemoteResponse.fromCallableData(<String, Object?>{
+        ...response,
+        'audio': <String, Object?>{
+          'mimeType': 'audio/wav',
+          'dataBase64': base64Encode(Uint8List(524)),
+        },
       }),
       throwsA(isA<AssistantFailure>()),
     );

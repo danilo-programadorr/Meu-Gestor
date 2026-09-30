@@ -9,7 +9,7 @@ export const ASSISTANT_REAL_PROVIDER_FEATURE_ENABLED = false;
 export const MODEL_EXECUTION = Object.freeze({
   flash: Object.freeze({
     providerModel: 'gemini-3.8-flash',
-    thinkingLevel: 'LOW',
+    thinkingLevel: 'MEDIUM',
     fallback: 'safe_unavailable',
   }),
   pro: Object.freeze({

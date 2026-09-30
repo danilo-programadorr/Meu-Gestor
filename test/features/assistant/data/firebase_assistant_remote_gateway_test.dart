@@ -99,6 +99,22 @@ void main() {
     expect(payload, isNot(contains('context')));
   });
 
+  test('modo voz acrescenta somente o seletor enumerado', () {
+    final Map<String, Object?> payload =
+        FirebaseAssistantRemoteGateway.payloadFor(
+          AssistantRemoteRequest(
+            message: 'Como estão meus gastos?',
+            responseMode: AssistantRemoteResponseMode.voice,
+          ),
+        );
+
+    expect(payload, <String, Object?>{
+      'contractVersion': 'assist-remote-v1',
+      'message': 'Como estão meus gastos?',
+      'responseMode': 'voice',
+    });
+  });
+
   test('safe_unavailable tem resposta estrita e mensagem sem erro técnico', () {
     final AssistantRemoteResponse response =
         AssistantRemoteResponse.fromCallableData(<String, Object?>{

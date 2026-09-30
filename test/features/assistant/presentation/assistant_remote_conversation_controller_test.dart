@@ -1,6 +1,8 @@
 // Intenção: protege o envio automático contra ausência de consentimento,
 // privacidade, resposta malformada e retorno remoto tardio.
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -85,6 +87,37 @@ void main() {
     },
   );
 
+  test('modo voz solicita e preserva somente o WAV efêmero', () async {
+    final Uint8List wav = Uint8List(524)
+      ..setRange(0, 4, ascii.encode('RIFF'))
+      ..setRange(8, 12, ascii.encode('WAVE'));
+    final _FakeGateway gateway = _FakeGateway(
+      result: AssistantRemoteResponse.fromCallableData(<String, Object?>{
+        ..._groundedCallable(),
+        'audio': <String, Object?>{
+          'mimeType': 'audio/wav',
+          'dataBase64': base64Encode(wav),
+        },
+      }),
+    );
+    final ProviderContainer container = _container(
+      gateway: gateway,
+      enabled: true,
+    );
+    addTearDown(container.dispose);
+
+    await _request(container, voiceOnly: true);
+
+    expect(
+      gateway.requests.single.responseMode,
+      AssistantRemoteResponseMode.voice,
+    );
+    expect(
+      container.read(assistantRemoteConversationControllerProvider).audio?.bytes,
+      orderedEquals(wav),
+    );
+  });
+
   test('indisponibilidade e falha de contrato não inventam resposta', () async {
     final _FakeGateway gateway = _FakeGateway(
       failure: const AssistantFailure(AssistantFailureKind.unavailable),
@@ -148,6 +181,32 @@ void main() {
         container.read(assistantRemoteConversationControllerProvider).phase,
         AssistantRemoteConversationPhase.grounded,
       );
+    },
+  );
+
+  test(
+    'resposta fundamentada mantém somente a última pergunta para continuação',
+    () async {
+      final _FakeGateway gateway = _FakeGateway(
+        results: <AssistantRemoteResponse>[
+          AssistantRemoteResponse.fromCallableData(_groundedCallable()),
+          AssistantRemoteResponse.fromCallableData(_groundedCallable()),
+        ],
+      );
+      final ProviderContainer container = _container(
+        gateway: gateway,
+        enabled: true,
+      );
+      addTearDown(container.dispose);
+
+      await _request(container, message: 'Como estão meus gastos?');
+      await _request(container, message: 'E no mês passado?');
+
+      final AssistantRemoteContinuation? continuation =
+          gateway.requests[1].continuation;
+      expect(continuation?.previousMessage, 'Como estão meus gastos?');
+      expect(continuation?.intent, 'unknown');
+      expect(continuation?.clarificationCode, 'intent_ambiguous');
     },
   );
 
@@ -266,6 +325,7 @@ Future<void> _request(
   bool consent = true,
   bool remoteConsent = true,
   bool valuesVisible = true,
+  bool voiceOnly = false,
 }) => container
     .read(assistantRemoteConversationControllerProvider.notifier)
     .requestGroundedAnswer(
@@ -273,6 +333,7 @@ Future<void> _request(
       aiConsentEnabled: consent,
       remoteContextConsentAllowed: remoteConsent,
       financialValuesVisible: valuesVisible,
+      voiceOnly: voiceOnly,
     );
 
 ProviderContainer _container({

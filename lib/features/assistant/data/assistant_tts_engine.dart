@@ -1,15 +1,16 @@
 import 'package:flutter_tts/flutter_tts.dart';
 
-/// Perfil nativo conservador: prefere voz feminina pt-BR instalada e offline,
-/// sem baixar pacote nem encaminhar a resposta a um novo serviço do aplicativo.
+/// Perfil nativo: prefere a voz feminina pt-BR mais natural exposta pelo
+/// mecanismo Android, inclusive a variante de rede, e mantém a local como
+/// fallback para indisponibilidade de conectividade.
 abstract final class AssistantTtsVoiceProfile {
   static const String locale = 'pt-BR';
   static const String preferredAndroidEngine = 'com.google.android.tts';
   static const double pitch = 1.02;
 }
 
-/// Seleciona deterministicamente a melhor voz feminina local informada pelo
-/// Android. Nomes sem marcador de gênero não são adivinhados como femininos.
+/// Seleciona deterministicamente a melhor voz feminina informada pelo Android.
+/// Nomes sem marcador de gênero não são adivinhados como femininos.
 abstract final class AssistantTtsVoiceSelector {
   static Map<String, String>? select(Object? rawVoices) {
     if (rawVoices is! Iterable<Object?>) return null;
@@ -28,9 +29,10 @@ abstract final class AssistantTtsVoiceSelector {
       }
       final String quality =
           rawVoice['quality']?.toString().toLowerCase() ?? '';
+      final String networkValue =
+          rawVoice['network_required']?.toString().toLowerCase() ?? '';
       final bool networkRequired =
-          rawVoice['network_required']?.toString() == '1';
-      if (networkRequired) continue;
+          networkValue == '1' || networkValue == 'true';
       final int qualityScore = switch (quality) {
         'very high' => 400,
         'high' => 300,
@@ -44,7 +46,9 @@ abstract final class AssistantTtsVoiceSelector {
           'name': name,
           'locale': AssistantTtsVoiceProfile.locale,
         },
-        score: qualityScore,
+        // O mecanismo Google fornece as vozes de rede com síntese mais
+        // natural. A qualidade declarada continua decidindo dentro do grupo.
+        score: qualityScore + (networkRequired ? 1_000 : 0),
       ));
     }
     candidates.sort((left, right) {
@@ -143,9 +147,15 @@ final class FlutterAssistantTtsEngine implements AssistantTtsEngine {
       final Map<String, String>? voice = AssistantTtsVoiceSelector.select(
         await _flutterTts.getVoices,
       );
-      if (voice != null) await _flutterTts.setVoice(voice);
+      if (voice == null) throw StateError('assistant_female_voice_unavailable');
+      final dynamic selected = await _flutterTts.setVoice(voice);
+      if (selected != 1) {
+        throw StateError('assistant_female_voice_not_selected');
+      }
+    } on StateError {
+      rethrow;
     } on Object {
-      // Ausência de metadados não impede a voz pt-BR padrão do aparelho.
+      throw StateError('assistant_female_voice_selection_failed');
     }
   }
 

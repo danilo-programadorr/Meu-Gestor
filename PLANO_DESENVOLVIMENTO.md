@@ -1107,7 +1107,10 @@ modelo, publicação, deploy, APK ou alteração de recurso externo.
   operação. Voz permanece sem transcrição ou resposta escrita visível.
 - O planejamento possui reserva e confirmação próprias, inclusive quando
   termina em esclarecimento; a composição usa uma segunda reserva somente
-  quando há plano pronto. O Flutter aguarda 35 segundos para cobrir os 30
+  quando há plano pronto. No modo voz, uma terceira reserva cobre exclusivamente
+  a síntese posterior à admissão; o modo texto permanece com no máximo duas
+  inferências. O planejamento usa esforço baixo para reduzir latência sem
+  reduzir as validações da resposta. O Flutter aguarda 35 segundos para cobrir os 30
   segundos da callable e a margem de transporte, sem ampliar o tempo do
   backend, quotas ou orçamento.
 - A ADR-055 registra arquitetura, privacidade, custo e limites de validação.
@@ -1234,8 +1237,8 @@ privacidade financeira e à revalidação do backend.
 - Voz envia ao fim do reconhecimento, remove imediatamente a transcrição do
   estado visual e reproduz somente a resposta ou indisponibilidade segura em
   áudio; ela não mostra cartão de resposta escrita nesse modo.
-- A reprodução prioriza voz feminina pt-BR local de alta qualidade já
-  instalada, sem forçar voz de rede. O núcleo visual passa a representar um
+- A reprodução remota usa voz feminina pt-BR `Sulafat` do Gemini-TTS somente
+  depois da admissão do texto; o TTS Android permanece fallback. O núcleo visual passa a representar um
   pulso elétrico com quatro ondas e noventa partículas menores, preservando a
   preferência de redução de movimento do sistema.
 - Privacidade e consentimentos só permitem editar o aceite remoto depois de o

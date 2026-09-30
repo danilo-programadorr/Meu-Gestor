@@ -1,5 +1,8 @@
 // Responsabilidade: define o contrato mínimo entre Flutter e a borda remota,
 // sem permitir identidade, contexto, modelo ou credencial do cliente.
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:meu_gestor_financeiro/core/environment/app_environment.dart';
 
 import 'assistant_context.dart';
@@ -10,8 +13,11 @@ import 'assistant_repository.dart';
 /// Contrato mínimo para a futura borda server-side. O cliente nunca envia UID,
 /// e-mail, consentimento, contexto financeiro, modelo ou credenciais.
 final class AssistantRemoteRequest {
-  AssistantRemoteRequest({required String message, this.continuation})
-    : message = message.trim() {
+  AssistantRemoteRequest({
+    required String message,
+    this.continuation,
+    this.responseMode = AssistantRemoteResponseMode.text,
+  }) : message = message.trim() {
     if (message.length < 2 ||
         message.length > 2000 ||
         !AssistantContentSafety.isSafe(message)) {
@@ -22,10 +28,14 @@ final class AssistantRemoteRequest {
   static const String contractVersion = 'assist-remote-v1';
   final String message;
   final AssistantRemoteContinuation? continuation;
+  final AssistantRemoteResponseMode responseMode;
 }
 
-/// Contexto conversacional efêmero e não autoritativo para um único pedido de
-/// esclarecimento. Identidade e fatos financeiros continuam server-side.
+enum AssistantRemoteResponseMode { text, voice }
+
+/// Contexto conversacional efêmero e não autoritativo para o turno anterior.
+/// Identidade, respostas e fatos financeiros continuam exclusivamente no
+/// servidor e nunca são reenviados pelo cliente.
 final class AssistantRemoteContinuation {
   AssistantRemoteContinuation({
     required this.intent,
@@ -78,6 +88,39 @@ final class AssistantRemoteClarification {
   final String question;
 }
 
+/// Áudio efêmero já validado e sintetizado pelo backend. O cliente aceita
+/// somente WAV pequeno e não persiste o conteúdo fora do cache nativo.
+final class AssistantRemoteAudio {
+  const AssistantRemoteAudio._({required this.bytes});
+
+  final Uint8List bytes;
+
+  static AssistantRemoteAudio fromCallableData(Object? value) {
+    if (value is! Map<Object?, Object?> ||
+        !AssistantRemoteResponse._hasExactKeys(value, const <String>[
+          'mimeType',
+          'dataBase64',
+        ]) ||
+        value['mimeType'] != 'audio/wav' ||
+        value['dataBase64'] is! String) {
+      AssistantRemoteResponse._unavailable();
+    }
+    final Uint8List bytes;
+    try {
+      bytes = base64Decode(value['dataBase64']! as String);
+    } on FormatException {
+      AssistantRemoteResponse._unavailable();
+    }
+    if (bytes.length < 524 ||
+        bytes.length > 4000044 ||
+        ascii.decode(bytes.sublist(0, 4), allowInvalid: true) != 'RIFF' ||
+        ascii.decode(bytes.sublist(8, 12), allowInvalid: true) != 'WAVE') {
+      AssistantRemoteResponse._unavailable();
+    }
+    return AssistantRemoteAudio._(bytes: bytes);
+  }
+}
+
 abstract interface class AssistantRemoteGateway {
   Future<AssistantRemoteResponse> ask(AssistantRemoteRequest request);
 }
@@ -85,7 +128,11 @@ abstract interface class AssistantRemoteGateway {
 /// Resposta estrita da borda remota. A resposta fundamentada leva apenas
 /// texto seguro, aliases efêmeros, fonte e período civil já validados.
 final class AssistantRemoteResponse {
-  const AssistantRemoteResponse._({this.groundedResponse, this.clarification});
+  const AssistantRemoteResponse._({
+    this.groundedResponse,
+    this.clarification,
+    this.audio,
+  });
 
   static const String safeUnavailableStatus = 'safe_unavailable';
 
@@ -94,6 +141,7 @@ final class AssistantRemoteResponse {
 
   final AssistantGroundedResponse? groundedResponse;
   final AssistantRemoteClarification? clarification;
+  final AssistantRemoteAudio? audio;
 
   bool get isGrounded => groundedResponse != null;
   bool get requiresClarification => clarification != null;
@@ -107,12 +155,14 @@ final class AssistantRemoteResponse {
           data['contractVersion'] == AssistantRemoteRequest.contractVersion) {
         return safeUnavailable;
       }
-      if (_hasExactKeys(data, const <String>[
+      final bool hasAudio = data.containsKey('audio');
+      if (_hasExactKeys(data, <String>[
             'status',
             'contractVersion',
             'intent',
             'clarificationCode',
             'question',
+            if (hasAudio) 'audio',
           ]) &&
           data['status'] == 'clarification_required' &&
           data['contractVersion'] == AssistantRemoteRequest.contractVersion) {
@@ -120,8 +170,10 @@ final class AssistantRemoteResponse {
         final String code = _string(data['clarificationCode']);
         final String question = _string(data['question']);
         if (!AssistantRemoteContinuation._intents.contains(intent) ||
-            AssistantRemoteContinuation._clarificationQuestions[code] !=
-                question) {
+            !AssistantRemoteContinuation._clarificationQuestions.containsKey(
+              code,
+            ) ||
+            !_isSafeClarificationQuestion(question)) {
           _unavailable();
         }
         return AssistantRemoteResponse._(
@@ -130,15 +182,19 @@ final class AssistantRemoteResponse {
             clarificationCode: code,
             question: question,
           ),
+          audio: hasAudio
+              ? AssistantRemoteAudio.fromCallableData(data['audio'])
+              : null,
         );
       }
-      if (!_hasExactKeys(data, const <String>[
+      if (!_hasExactKeys(data, <String>[
         'schemaVersion',
         'status',
         'answer',
         'assertions',
         'missingData',
         'disclaimer',
+        if (hasAudio) 'audio',
       ])) {
         _unavailable();
       }
@@ -153,6 +209,9 @@ final class AssistantRemoteResponse {
           missingData: _missingData(data['missingData']),
           disclaimer: _string(data['disclaimer']),
         ),
+        audio: hasAudio
+            ? AssistantRemoteAudio.fromCallableData(data['audio'])
+            : null,
       );
     } on AssistantFailure {
       throw const AssistantFailure(AssistantFailureKind.unavailable);
@@ -170,6 +229,16 @@ final class AssistantRemoteResponse {
   static String _string(Object? value) {
     if (value is! String) _unavailable();
     return value;
+  }
+
+  static bool _isSafeClarificationQuestion(String value) {
+    final String trimmed = value.trim();
+    return value == trimmed &&
+        value.length >= 8 &&
+        value.length <= 240 &&
+        value.endsWith('?') &&
+        !RegExp(r'[\d$]').hasMatch(value) &&
+        AssistantContentSafety.isSafe(value);
   }
 
   static List<String> _missingData(Object? value) {
