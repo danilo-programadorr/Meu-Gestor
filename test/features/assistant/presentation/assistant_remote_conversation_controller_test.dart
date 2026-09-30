@@ -113,7 +113,10 @@ void main() {
       AssistantRemoteResponseMode.voice,
     );
     expect(
-      container.read(assistantRemoteConversationControllerProvider).audio?.bytes,
+      container
+          .read(assistantRemoteConversationControllerProvider)
+          .audio
+          ?.bytes,
       orderedEquals(wav),
     );
   });
