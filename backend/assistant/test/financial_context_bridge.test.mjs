@@ -20,7 +20,9 @@ const snapshots = Object.freeze({
   transactions: { confirmed: true, facts: [{ source: 'transactions', kind: 'moneyCentsBrl', value: -4500 }] },
   commitments: { confirmed: true, facts: [{ source: 'payables', kind: 'moneyCentsBrl', value: 9800 }] },
   financialCalendar: { confirmed: true, facts: [{ source: 'financialCalendar', kind: 'utcInstant', value: '2026-09-10T03:00:00.000Z' }] },
-  investments: { confirmed: true, facts: [{ source: 'investmentAssets', kind: 'safeLabel', value: 'Ativo listado' }] },
+  investmentPortfolios: { confirmed: true, facts: [{ source: 'investmentPortfolios', kind: 'integer', value: 1 }] },
+  investmentAssets: { confirmed: true, facts: [{ source: 'investmentAssets', kind: 'safeLabel', value: 'Ativo listado' }] },
+  investmentOperations: { confirmed: true, facts: [{ source: 'investmentOperations', kind: 'integer', value: 1 }] },
   income: { confirmed: true, facts: [{ source: 'investmentIncome', kind: 'moneyCentsBrl', value: 321 }] },
 });
 
@@ -39,10 +41,14 @@ const createBridge = (overrides = {}, now = '2026-09-03T12:00:00.000Z') => new A
 
 test('mapeia fontes próprias permitidas em fatos mínimos com aliases efêmeros', async () => {
   const context = await createBridge().buildOwnConfirmedContext({ actor: { uid: 'synthetic-owner' }, period });
-  assert.deepEqual(ASSISTANT_FINANCIAL_CONTEXT_SOURCE_READERS, ['accounts', 'transactions', 'commitments', 'financialCalendar', 'investments', 'income']);
+  assert.deepEqual(ASSISTANT_FINANCIAL_CONTEXT_SOURCE_READERS, [
+    'accounts', 'transactions', 'commitments', 'financialCalendar',
+    'investmentPortfolios', 'investmentAssets', 'investmentOperations', 'income',
+  ]);
   assert.deepEqual(context.facts.map((fact) => fact.evidenceId), [
     'ev_accounts_001', 'ev_transactions_002', 'ev_payables_003',
-    'ev_financialcalendar_004', 'ev_investmentassets_005', 'ev_investmentincome_006',
+    'ev_financialcalendar_004', 'ev_investmentportfolios_005',
+    'ev_investmentassets_006', 'ev_investmentoperations_007', 'ev_investmentincome_008',
   ]);
   assert.equal(context.facts[0].value, 125000);
   assert.deepEqual(context.civilPeriod, period);
@@ -70,13 +76,22 @@ test('executa somente os grupos de leitores autorizados pela ferramenta', async 
   assert.deepEqual(readers, ['accounts']);
   assert.deepEqual(context.facts.map((fact) => fact.source), ['accounts']);
   assert.doesNotThrow(() => assertConfirmedContext(context));
+
+  readers.length = 0;
+  const assets = await bridge.buildOwnConfirmedContext({
+    actor: { uid: 'synthetic-owner' },
+    period,
+    sources: ['investmentAssets'],
+  });
+  assert.deepEqual(readers, ['investmentAssets']);
+  assert.deepEqual(assets.facts.map((fact) => fact.source), ['investmentAssets']);
 });
 
 test('falha fechada quando uma fonte própria não está confirmada', async () => {
   await assert.rejects(
     createBridge({
     commitments: { confirmed: false, facts: [] },
-    investments: { confirmed: false, facts: [] },
+    investmentAssets: { confirmed: false, facts: [] },
     }).buildOwnConfirmedContext({ actor: { uid: 'synthetic-owner' }, period }),
     (error) => error instanceof AssistantContractError && error.code === 'assistant_invalid_context',
   );
@@ -85,7 +100,7 @@ test('falha fechada quando uma fonte própria não está confirmada', async () =
 for (const [name, override] of [
   ['ID persistido', { accounts: { confirmed: true, facts: [{ source: 'accounts', kind: 'moneyCentsBrl', value: 100, documentId: 'never-send' }] } }],
   ['valor flutuante', { transactions: { confirmed: true, facts: [{ source: 'transactions', kind: 'moneyCentsBrl', value: 1.5 }] } }],
-  ['texto sensível', { investments: { confirmed: true, facts: [{ source: 'investmentAssets', kind: 'safeLabel', value: 'token=never-send' }] } }],
+  ['texto sensível', { investmentAssets: { confirmed: true, facts: [{ source: 'investmentAssets', kind: 'safeLabel', value: 'token=never-send' }] } }],
   ['fonte de terceiro', { income: { confirmed: true, facts: [{ source: 'privateDirectory', kind: 'integer', value: 1 }] } }],
 ]) {
   test(`falha fechada com ${name}`, async () => {

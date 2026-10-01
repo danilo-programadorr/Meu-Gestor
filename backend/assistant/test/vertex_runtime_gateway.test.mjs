@@ -156,6 +156,45 @@ test('planejamento ambíguo pede esclarecimento sem selecionar leitor', async ()
   );
 });
 
+test('planejador admite listagem livre de nomes e tickers como intenção própria', async () => {
+  const calls = [];
+  const gateway = createVertexRuntimeGateway({
+    providerFeatureEnabled: true,
+    killSwitchActive: false,
+    projectIdReader: () => 'synthetic-project',
+    vertexAiFactory: async () => ({
+      models: {
+        generateContent: async (request) => {
+          calls.push(request);
+          return {
+            candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify({
+              schemaVersion: 1,
+              status: 'ready',
+              intent: 'investment_assets',
+              clarificationCode: 'none',
+              clarificationQuestion: '',
+              periodCode: 'today',
+              financialTool: 'investment_assets',
+            }) }] } }],
+          };
+        },
+      },
+    }),
+  });
+
+  const result = await gateway.plan({
+    execution: planningExecution,
+    maximumCostCents: 20,
+    request: { message: 'Quais são os nomes das coisas em que investi?' },
+  });
+
+  assert.equal(result.plan.intent, 'investment_assets');
+  assert.equal(result.plan.financialTool, 'investment_assets');
+  const prompt = JSON.parse(calls[0].contents[0].parts[0].text);
+  assert.ok(prompt.instructions.some((item) => item.includes('nomes ou seus tickers')));
+  assert.ok(ASSISTANT_VERTEX_PLAN_SCHEMA.properties.intent.enum.includes('investment_assets'));
+});
+
 test('serializa Gemini 3.8 Flash, esforço baixo e contrato estruturado completo', async () => {
   const calls = [];
   const result = await fakeGateway({ calls }).generate({ execution, maximumCostCents: 20, providerRequest });

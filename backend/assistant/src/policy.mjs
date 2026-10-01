@@ -123,7 +123,7 @@ export const assertConfirmedContext = (context) => {
       fact.kind === 'booleanValue' ? typeof fact.value === 'boolean' :
         fact.kind === 'utcInstant' ? typeof fact.value === 'string' && !Number.isNaN(Date.parse(fact.value)) :
           fact.kind === 'civilDate' ? /^\d{4}-\d{2}-\d{2}$/.test(fact.value) :
-          fact.kind === 'safeLabel' ? !unsafeText(fact.value) && fact.value.length <= 80 : false;
+          fact.kind === 'safeLabel' ? !unsafeText(fact.value) && fact.value.length <= 96 : false;
     if (!exactKeys(fact, ['evidenceId', 'source', 'kind', 'value', 'civilPeriod', 'evidence'])
         || !/^[a-z][a-z0-9_]{2,63}$/.test(fact.evidenceId)
         || ids.has(fact.evidenceId)

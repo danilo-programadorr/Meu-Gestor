@@ -236,6 +236,64 @@ test('rota futura falha fechada sem bearer do envelope autenticado', async () =>
   assert.equal(calls.context, 0);
 });
 
+test('lista ativos owner-scoped sem executar a segunda inferência', async () => {
+  const events = [];
+  const investmentContext = context();
+  const period = investmentContext.civilPeriod;
+  investmentContext.facts = [
+    {
+      evidenceId: 'ev_assets_001', source: 'investmentAssets', kind: 'integer', value: 2,
+      civilPeriod: period,
+      evidence: { alias: 'ev_assets_001', source: 'investmentAssets', period },
+    },
+    {
+      evidenceId: 'ev_assets_002', source: 'investmentAssets', kind: 'safeLabel',
+      value: 'PETR4 · Petrobras PN', civilPeriod: period,
+      evidence: { alias: 'ev_assets_002', source: 'investmentAssets', period },
+    },
+    {
+      evidenceId: 'ev_assets_003', source: 'investmentAssets', kind: 'safeLabel',
+      value: 'HGLG11 · CSHG Logística', civilPeriod: period,
+      evidence: { alias: 'ev_assets_003', source: 'investmentAssets', period },
+    },
+  ];
+  const { calls, invoke } = build({
+    killSwitchActive: false,
+    providerFeatureEnabled: true,
+    contextReader: async () => { calls.context += 1; return investmentContext; },
+    providerGateway: {
+      plan: async () => {
+        calls.provider += 1;
+        return {
+          plan: {
+            schemaVersion: 1, status: 'ready', intent: 'investment_assets',
+            clarificationCode: 'none', clarificationQuestion: '',
+            periodCode: 'today', financialTool: 'investment_assets',
+          },
+          durationMs: 1, confirmedCostCents: 1,
+          providerDiagnostics: { finishReason: 'STOP' },
+        };
+      },
+      generate: async () => { throw new Error('generate_must_not_run'); },
+    },
+    runtimeDiagnostics: { report: (event) => events.push(event) },
+  });
+
+  const response = await invoke(request({
+    data: { contractVersion: 'assist-remote-v1', message: 'Quais ativos eu possuo?' },
+  }));
+
+  assert.equal(response.status, 'grounded');
+  assert.match(response.answer, /PETR4 · Petrobras PN/u);
+  assert.match(response.answer, /HGLG11 · CSHG Logística/u);
+  assert.deepEqual(calls, {
+    authorization: 1, context: 1, usage: 2, reserve: 1, confirm: 1, provider: 1,
+  });
+  assert.deepEqual(events.at(-1), {
+    stage: 'authoritative_response', outcome: 'passed', finalStatus: 'grounded',
+  });
+});
+
 test('intenção não resolvida pede esclarecimento sem ler contexto financeiro', async () => {
   const events = [];
   const { calls, invoke } = build({

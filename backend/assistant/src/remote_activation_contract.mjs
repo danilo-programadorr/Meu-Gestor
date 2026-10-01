@@ -64,6 +64,7 @@ export const ASSISTANT_CONVERSATION_INTENTS = Object.freeze([
   'expenses',
   'commitments',
   'investments',
+  'investment_assets',
   'comparison',
   'cash_flow',
   'explanation',
@@ -89,6 +90,7 @@ export const ASSISTANT_FINANCIAL_TOOLS = Object.freeze([
   'expenses',
   'commitments',
   'investments',
+  'investment_assets',
   'comparison',
   'cash_flow',
 ]);
@@ -104,6 +106,7 @@ export const ASSISTANT_FINANCIAL_TOOL_SOURCES = Object.freeze({
   investments: Object.freeze([
     'investmentPortfolios', 'investmentAssets', 'investmentOperations', 'investmentIncome',
   ]),
+  investment_assets: Object.freeze(['investmentAssets']),
   comparison: DEFAULT_ASSISTANT_CONTEXT_SCOPE.sources,
   cash_flow: Object.freeze(['transactions', 'payables', 'receivables']),
 });

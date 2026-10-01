@@ -33,7 +33,10 @@ const collectionFieldMasks = Object.freeze({
   payables: Object.freeze(['ownerId', 'status', 'dueAt', 'amountCents']),
   receivables: Object.freeze(['ownerId', 'status', 'dueAt', 'amountCents']),
   investmentPortfolios: Object.freeze(['ownerId', 'isArchived']),
-  investmentAssets: Object.freeze(['ownerId', 'currencyCode', 'assetType', 'currentQuantityScaled']),
+  investmentAssets: Object.freeze([
+    'ownerId', 'ticker', 'name', 'currencyCode', 'assetType',
+    'currentQuantityScaled', 'isArchived', 'schemaVersion',
+  ]),
   investmentOperations: Object.freeze(['ownerId', 'kind', 'isVoided', 'occurredAt']),
   investmentIncomeEvents: Object.freeze(['ownerId', 'status', 'receivedDate', 'netAmountCents']),
 });
@@ -126,6 +129,21 @@ const asBoolean = (fields, name) => {
   const value = fields?.[name]?.booleanValue;
   if (typeof value !== 'boolean') throw invalidContext();
   return value;
+};
+
+// Responsabilidade: aceita somente a identidade pública e canônica do ativo;
+// IDs internos, observações e outros campos livres continuam fora do contexto.
+const asInvestmentAssetLabel = (fields) => {
+  const ticker = asString(fields, 'ticker');
+  const name = asString(fields, 'name');
+  if (!/^[A-Z]{4}[0-9]{1,2}$/u.test(ticker)
+      || name.trim() !== name
+      || name.length < 1
+      || name.length > 80
+      || /[\r\n\u0000-\u001F\u007F]/u.test(name)) {
+    throw invalidContext();
+  }
+  return `${ticker} · ${name}`;
 };
 
 const asTimestamp = (fields, name, { nullable = false } = {}) => {
@@ -310,25 +328,51 @@ const confirmedCalendar = (commitments) => Object.freeze({
   ]),
 });
 
-const confirmedInvestments = ({ portfolios, assets, operations, availableDataWindow }) => {
-  const activePortfolios = portfolios.filter(({ fields }) => !asBoolean(fields, 'isArchived'));
+const confirmedInvestmentPortfolios = (portfolios) => Object.freeze({
+  confirmed: true,
+  facts: Object.freeze([
+    fact(
+      'investmentPortfolios',
+      'integer',
+      portfolios.filter(({ fields }) => !asBoolean(fields, 'isArchived')).length,
+    ),
+  ]),
+});
+
+const confirmedInvestmentAssets = (assets) => {
   const activeAssets = assets.filter(({ fields }) => {
+    const schemaVersion = asInteger(fields, 'schemaVersion');
+    if (![1, 2].includes(schemaVersion)) throw invalidContext();
+    const isArchived = schemaVersion === 1
+      ? false
+      : asBoolean(fields, 'isArchived');
     if (asString(fields, 'currencyCode') !== 'BRL' || !['stock', 'fii'].includes(asString(fields, 'assetType'))) throw invalidContext();
-    return asInteger(fields, 'currentQuantityScaled') >= 0;
-  });
-  const activeOperations = operations.filter(({ fields }) => {
-    if (!['buy', 'sell'].includes(asString(fields, 'kind'))) throw invalidContext();
-    return !asBoolean(fields, 'isVoided') && isInsideWindow(asTimestamp(fields, 'occurredAt'), availableDataWindow);
+    asInvestmentAssetLabel(fields);
+    return !isArchived && asInteger(fields, 'currentQuantityScaled') >= 0;
   });
   return Object.freeze({
     confirmed: true,
     facts: Object.freeze([
-      fact('investmentPortfolios', 'integer', activePortfolios.length),
       fact('investmentAssets', 'integer', activeAssets.length),
-      fact('investmentOperations', 'integer', activeOperations.length),
+      ...activeAssets.map(({ fields }) => fact(
+        'investmentAssets',
+        'safeLabel',
+        asInvestmentAssetLabel(fields),
+      )),
     ]),
   });
 };
+
+const confirmedInvestmentOperations = (operations, availableDataWindow) => Object.freeze({
+  confirmed: true,
+  facts: Object.freeze([
+    fact('investmentOperations', 'integer', operations.filter(({ fields }) => {
+      if (!['buy', 'sell'].includes(asString(fields, 'kind'))) throw invalidContext();
+      return !asBoolean(fields, 'isVoided')
+        && isInsideWindow(asTimestamp(fields, 'occurredAt'), availableDataWindow);
+    }).length),
+  ]),
+});
 
 const confirmedIncome = (documents, availableDataWindow) => {
   const received = documents.filter(({ fields }) => {
@@ -385,19 +429,15 @@ export class OwnerScopedFirestoreSourceReaders {
           ? confirmedCommitments(commitments)
           : confirmedCalendar(commitments);
       }
-      case 'investments': {
-        const [portfolios, assets, operations] = await Promise.all([
-          this.#collection('investmentPortfolios'),
-          this.#collection('investmentAssets'),
-          this.#collection('investmentOperations'),
-        ]);
-        return confirmedInvestments({
-          portfolios,
-          assets,
-          operations,
+      case 'investmentPortfolios':
+        return confirmedInvestmentPortfolios(await this.#collection('investmentPortfolios'));
+      case 'investmentAssets':
+        return confirmedInvestmentAssets(await this.#collection('investmentAssets'));
+      case 'investmentOperations':
+        return confirmedInvestmentOperations(
+          await this.#collection('investmentOperations'),
           availableDataWindow,
-        });
-      }
+        );
       case 'income':
         return confirmedIncome(
           await this.#collection('investmentIncomeEvents'),

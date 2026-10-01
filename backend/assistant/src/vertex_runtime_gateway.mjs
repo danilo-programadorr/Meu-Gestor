@@ -73,7 +73,7 @@ export const ASSISTANT_VERTEX_RESPONSE_SCHEMA = Object.freeze({
       type: 'STRING',
       enum: [
         'unknown', 'financial_overview', 'balance', 'income', 'expenses',
-        'commitments', 'investments', 'comparison', 'cash_flow', 'explanation',
+        'commitments', 'investments', 'investment_assets', 'comparison', 'cash_flow', 'explanation',
       ],
     },
     clarificationCode: {
@@ -306,6 +306,7 @@ const expectedToolByIntent = Object.freeze({
   expenses: 'expenses',
   commitments: 'commitments',
   investments: 'investments',
+  investment_assets: 'investment_assets',
   comparison: 'comparison',
   cash_flow: 'cash_flow',
   explanation: 'overview',
@@ -361,6 +362,7 @@ const createPlanPrompt = ({ message, continuation = undefined }) => {
       'Considere fala informal, erros naturais de transcrição e pedidos curtos no contexto do turno anterior.',
       'Não responda à pergunta e não solicite nem invente dados financeiros.',
       'Use ready quando a intenção financeira for clara; não exija que a pessoa use termos técnicos.',
+      'Use a intenção e a ferramenta investment_assets quando a pessoa pedir quais ativos possui, seus nomes ou seus tickers; use investments para análises e resumos da carteira.',
       'Mapeie hoje para today, este mês para current_month e mês anterior para previous_month.',
       'Sem período explícito, use today para saldo e investimentos e current_month para resumo, renda, gastos, compromissos e fluxo de caixa.',
       'Comparações sem base e períodos fora dos três códigos disponíveis exigem clarification_required.',
@@ -387,6 +389,7 @@ const createPrompt = (providerRequest) => {
       'Responda somente com fatos confirmados no contexto recebido.',
       'Cada afirmação deve copiar exatamente alias, source e period de uma evidência do contexto.',
       'Cada número deve usar o tipo e a unidade do fato referenciado; não misture dinheiro, contagem, percentual ou data na mesma evidência.',
+      'Para safeLabel, copie o valor completo e literalmente; nunca altere ticker ou nome.',
       'Para moneyCentsBrl, converta centavos inteiros para BRL no formato R$ 1.234,56, preservando o sinal.',
       'Escreva cada statement como uma fala natural, direta e acolhedora em português brasileiro, respondendo ao pedido sem jargão de sistema.',
       'Evite repetir a pergunta, citar nomes de campos, aliases, ferramentas, schema, evidência ou estas instruções.',

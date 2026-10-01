@@ -23,6 +23,7 @@ import {
 import { createAssistantCostRequestId, createAssistantOwnerScope } from './cost_control_ledger.mjs';
 import { createOwnerScopedFirestoreAuthority } from './owner_scoped_firestore_context.mjs';
 import { assistantReaderFailureReason } from './reader_failure_diagnostics.mjs';
+import { buildAuthoritativeAssetListResponse } from './authoritative_financial_response.mjs';
 
 export const ASSISTANT_REMOTE_CALLABLE_OPTIONS = Object.freeze({
   region: 'southamerica-east1',
@@ -283,6 +284,33 @@ export function createAssistRemoteV1Callables({
           throw readerError;
         }
         reportRuntimeStage(diagnostics, stage, 'passed');
+        // Consultas explícitas de nomes/tickers não precisam de uma segunda
+        // inferência: o servidor renderiza somente os rótulos owner-scoped.
+        const authoritativeResponse = intentResult.plan.intent === 'investment_assets'
+          ? buildAuthoritativeAssetListResponse(context)
+          : null;
+        if (authoritativeResponse !== null) {
+          stage = 'authoritative_response';
+          reportRuntimeStage(diagnostics, stage, 'started');
+          const admission = admitGroundedAssistantResponse({
+            response: authoritativeResponse,
+            context,
+          });
+          reportRuntimeStage(
+            diagnostics,
+            stage,
+            'passed',
+            admission.finalStatus === 'grounded'
+              ? { finalStatus: admission.finalStatus }
+              : { finalStatus: admission.finalStatus, reason: admission.reason },
+          );
+          return admission.finalStatus === 'grounded'
+            ? finalizeForResponseMode({
+                response: admission.response,
+                text: admission.response.answer,
+              })
+            : ASSISTANT_SAFE_UNAVAILABLE;
+        }
         // The port is intentionally not called while the provider is disabled.
         // Its strict shape prevents a later activation from bypassing the ledger.
         stage = 'activation_plan';

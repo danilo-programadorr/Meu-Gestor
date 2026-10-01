@@ -134,7 +134,26 @@ const formatBrlCents = (value) => {
  * reformatado, sempre a partir do valor inteiro do fato server-side.
  */
 export const validateAndCanonicalizeGroundedText = ({ text, facts }) => {
-  const mentions = extractMentions(text);
+  // Rótulos textuais só são aceitos quando aparecem literalmente. Menções
+  // numéricas internas ao ticker pertencem ao rótulo e não são reclassificadas
+  // como quantidades financeiras independentes.
+  const extractedMentions = extractMentions(text);
+  const labelRanges = [];
+  for (const fact of facts.filter((candidate) => candidate.kind === 'safeLabel')) {
+    const index = text.toLocaleLowerCase('pt-BR').indexOf(
+      fact.value.toLocaleLowerCase('pt-BR'),
+    );
+    if (index < 0) {
+      return Object.freeze({
+        outcome: extractedMentions.length > 0 ? 'evidence_non_numeric' : 'value_mismatch',
+      });
+    }
+    labelRanges.push({ start: index, end: index + fact.value.length });
+  }
+  const mentions = extractedMentions.filter((mention) => !labelRanges.some(
+    (range) => mention.index >= range.start
+      && mention.index + mention.raw.length <= range.end,
+  ));
   if (mentions.length === 0) return Object.freeze({ outcome: 'passed', text });
   const comparableFacts = facts.filter((fact) => comparableKinds.has(fact.kind));
   if (comparableFacts.length === 0) {

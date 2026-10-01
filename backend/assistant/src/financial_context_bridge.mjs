@@ -12,10 +12,9 @@ const sourcePlans = Object.freeze([
   Object.freeze({ reader: 'transactions', sources: Object.freeze(['transactions']) }),
   Object.freeze({ reader: 'commitments', sources: Object.freeze(['payables', 'receivables']) }),
   Object.freeze({ reader: 'financialCalendar', sources: Object.freeze(['financialCalendar']) }),
-  Object.freeze({
-    reader: 'investments',
-    sources: Object.freeze(['investmentPortfolios', 'investmentAssets', 'investmentOperations']),
-  }),
+  Object.freeze({ reader: 'investmentPortfolios', sources: Object.freeze(['investmentPortfolios']) }),
+  Object.freeze({ reader: 'investmentAssets', sources: Object.freeze(['investmentAssets']) }),
+  Object.freeze({ reader: 'investmentOperations', sources: Object.freeze(['investmentOperations']) }),
   Object.freeze({ reader: 'income', sources: Object.freeze(['investmentIncome']) }),
 ]);
 
@@ -38,7 +37,7 @@ const exactKeys = (value, keys) =>
 const unsafeText = (value) =>
   typeof value !== 'string'
   || value.trim().length < 1
-  || value.length > 80
+  || value.length > 96
   || /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i.test(value)
   || /(?<!\d)(?:\d[ .-]?){11,19}(?!\d)/.test(value)
   || /(?:bearer\s+|api[_ -]?key|private[_ -]?key|password|senha|token\s*[:=])/i.test(value);
@@ -151,8 +150,11 @@ export class AssistantFinancialContextBridge {
       ? sourcePlans
       : sourcePlans.filter((plan) => plan.sources.some((source) => selectedSources.has(source)));
 
-    for (const plan of selectedPlans) {
-      const snapshot = validateSnapshot(
+    // Leitores independentes permanecem paralelos; qualquer falha rejeita o
+    // contexto inteiro e a ordem declarada dos fatos continua determinística.
+    const snapshots = await Promise.all(selectedPlans.map(async (plan) => Object.freeze({
+      plan,
+      snapshot: validateSnapshot(
         await this.sourceReaders.readOwnSource({
           ownerUid: actor.uid,
           reader: plan.reader,
@@ -160,7 +162,10 @@ export class AssistantFinancialContextBridge {
           availableDataWindow: normalizedPeriod.availableDataWindow,
         }),
         plan,
-      );
+      ),
+    })));
+
+    for (const { snapshot } of snapshots) {
       if (!snapshot.confirmed) {
         throw deny('assistant_invalid_context');
       }

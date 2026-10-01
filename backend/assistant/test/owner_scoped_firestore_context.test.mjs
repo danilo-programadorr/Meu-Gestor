@@ -71,8 +71,21 @@ const documents = Object.freeze({
   ]),
   investmentAssets: Object.freeze([
     document('investmentAssets', 'asset_1', {
+      ticker: string('PETR4'), name: string('Petrobras PN'),
       currencyCode: string('BRL'), assetType: string('stock'),
       currentQuantityScaled: integer(250000000),
+      isArchived: boolean(false), schemaVersion: integer(2),
+    }),
+    document('investmentAssets', 'asset_2', {
+      ticker: string('HGLG11'), name: string('CSHG Logística'),
+      currencyCode: string('BRL'), assetType: string('fii'),
+      currentQuantityScaled: integer(100000000), schemaVersion: integer(1),
+    }),
+    document('investmentAssets', 'asset_archived', {
+      ticker: string('VALE3'), name: string('Vale ON'),
+      currencyCode: string('BRL'), assetType: string('stock'),
+      currentQuantityScaled: integer(50000000),
+      isArchived: boolean(true), schemaVersion: integer(2),
     }),
   ]),
   investmentOperations: Object.freeze([
@@ -151,7 +164,7 @@ test('monta somente fatos confirmados do proprietário e não expõe token ou UI
   for (const call of calls) {
     assert.match(call.url, new RegExp(`/users/${ownerUid}/`));
     assert.match(call.url, /mask\.fieldPaths=ownerId/u);
-    assert.doesNotMatch(call.url, /description|note|name|email|uid/u);
+    assert.doesNotMatch(call.url, /description|note|email|uid/u);
     assert.equal(call.options.method, 'GET');
     assert.equal(call.options.headers.Authorization, ownerAuthority.authorizationHeader);
   }
@@ -159,10 +172,20 @@ test('monta somente fatos confirmados do proprietário e não expõe token ou UI
   assert.deepEqual(context.facts.map((item) => item.source), [
     'accounts', 'accounts', 'transactions', 'transactions', 'payables',
     'receivables', 'financialCalendar', 'financialCalendar',
-    'investmentPortfolios', 'investmentAssets', 'investmentOperations',
+    'investmentPortfolios', 'investmentAssets', 'investmentAssets', 'investmentAssets',
+    'investmentOperations',
     'investmentIncome',
   ]);
   assert.equal(context.facts.find((item) => item.source === 'accounts' && item.kind === 'moneyCentsBrl').value, 125000);
+  assert.equal(
+    context.facts.find((item) => item.source === 'investmentAssets' && item.kind === 'safeLabel').value,
+    'PETR4 · Petrobras PN',
+  );
+  assert.deepEqual(
+    context.facts.filter((item) => item.source === 'investmentAssets' && item.kind === 'safeLabel')
+      .map((item) => item.value),
+    ['PETR4 · Petrobras PN', 'HGLG11 · CSHG Logística'],
+  );
   assert.doesNotMatch(JSON.stringify(context), /synthetic-owner|synthetic\.runtime|uid|email|token|secret/i);
 });
 
@@ -182,6 +205,25 @@ test('recusa UID cruzado antes de ler qualquer coleção', async () => {
     /assistant_invalid_context/,
   );
   assert.equal(calls.length, 0);
+});
+
+test('listagem de ativos lê somente a coleção mínima e exclui arquivados', async () => {
+  const { transport, calls } = createTransport();
+  const readers = new OwnerScopedFirestoreSourceReaders({ authority: ownerAuthority, transport });
+  const snapshot = await readers.readOwnSource({
+    ownerUid,
+    reader: 'investmentAssets',
+    period,
+    availableDataWindow: {
+      start: '2026-09-01T03:00:00.000Z', endExclusive: '2026-10-01T03:00:00.000Z',
+    },
+  });
+
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].url, /\/investmentAssets\?/u);
+  assert.deepEqual(snapshot.facts.map((item) => item.value), [
+    2, 'PETR4 · Petrobras PN', 'HGLG11 · CSHG Logística',
+  ]);
 });
 
 test('recusa ausência de autorização, privacidade e fonte indisponível sem contexto parcial', async () => {
