@@ -180,6 +180,33 @@ test('diagnóstico Vertex preserva apenas término e estrutura sanitizados', () 
   assert.doesNotMatch(emitted[0], /message|stack|bearer|@|responseText|statement/iu);
 });
 
+test('diagnóstico torna planejamento e sua latência observáveis sem conteúdo', () => {
+  const emitted = [];
+  const diagnostics = createSanitizedAssistantRuntimeDiagnostics({ emit: (line) => emitted.push(line) });
+  diagnostics.report({ stage: 'intent_usage_reader', outcome: 'passed' });
+  diagnostics.report({ stage: 'intent_activation_plan', outcome: 'passed' });
+  diagnostics.report({ stage: 'intent_ledger_reserve', outcome: 'passed' });
+  diagnostics.report({
+    stage: 'intent_model',
+    outcome: 'passed',
+    finishReason: 'STOP',
+    candidateCount: 1,
+    textPartCount: 1,
+    nonTextPartCount: 0,
+    providerBlocked: false,
+  });
+  diagnostics.report({ stage: 'intent_ledger_confirm', outcome: 'passed' });
+
+  assert.deepEqual(emitted.map(JSON.parse).map(({ stage, outcome }) => ({ stage, outcome })), [
+    { stage: 'intent_usage_reader', outcome: 'passed' },
+    { stage: 'intent_activation_plan', outcome: 'passed' },
+    { stage: 'intent_ledger_reserve', outcome: 'passed' },
+    { stage: 'intent_model', outcome: 'passed' },
+    { stage: 'intent_ledger_confirm', outcome: 'passed' },
+  ]);
+  assert.doesNotMatch(emitted.join(''), /message|stack|bearer|@|responseText|statement/iu);
+});
+
 test('diagnóstico sanitizado rejeita campos ou valores fora do contrato', () => {
   const diagnostics = createSanitizedAssistantRuntimeDiagnostics({ emit: () => undefined });
   assert.throws(

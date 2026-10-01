@@ -188,7 +188,7 @@ void main() {
   );
 
   test(
-    'resposta fundamentada mantém somente a última pergunta para continuação',
+    'resposta válida mantém somente a última pergunta para continuação',
     () async {
       final _FakeGateway gateway = _FakeGateway(
         results: <AssistantRemoteResponse>[

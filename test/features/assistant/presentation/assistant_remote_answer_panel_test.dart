@@ -1,4 +1,4 @@
-// Intenção: mantém a resposta fundamentada automática legível e acessível no
+// Intenção: mantém a resposta automática legível e acessível no
 // modo de texto, sem esconder fonte, período ou indisponibilidade segura.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -17,7 +17,7 @@ void main() {
           body: AssistantRemoteAnswerPanel(
             state: AssistantRemoteConversationState(
               phase: AssistantRemoteConversationPhase.grounded,
-              message: 'Resposta fundamentada pronta para leitura.',
+              message: 'Aqui está a resposta.',
               response: _response(),
             ),
           ),
@@ -25,11 +25,18 @@ void main() {
       ),
     );
 
-    expect(find.text('Resposta fundamentada'), findsOneWidget);
+    expect(find.text('Resposta do assistente'), findsOneWidget);
     expect(find.text('Resumo confirmado.'), findsOneWidget);
     expect(find.textContaining('Fonte: Contas e carteiras'), findsOneWidget);
     expect(find.textContaining('America/Sao_Paulo'), findsOneWidget);
     expect(find.text('Consultar resposta fundamentada'), findsNothing);
+    expect(
+      find.textContaining(
+        RegExp('fundamentad', caseSensitive: false),
+        findRichText: true,
+      ),
+      findsNothing,
+    );
   });
 
   testWidgets('indisponibilidade segura não mostra resposta inventada', (
@@ -41,15 +48,17 @@ void main() {
           body: AssistantRemoteAnswerPanel(
             state: AssistantRemoteConversationState(
               phase: AssistantRemoteConversationPhase.safeUnavailable,
-              message:
-                  'A resposta fundamentada está indisponível com segurança neste momento.',
+              message: 'O assistente está indisponível neste momento.',
             ),
           ),
         ),
       ),
     );
 
-    expect(find.textContaining('indisponível com segurança'), findsOneWidget);
+    expect(
+      find.text('O assistente está indisponível neste momento.'),
+      findsOneWidget,
+    );
     expect(find.text('Resumo confirmado.'), findsNothing);
   });
 

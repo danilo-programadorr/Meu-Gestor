@@ -1110,7 +1110,10 @@ modelo, publicação, deploy, APK ou alteração de recurso externo.
   quando há plano pronto. No modo voz, uma terceira reserva cobre exclusivamente
   a síntese posterior à admissão; o modo texto permanece com no máximo duas
   inferências. O planejamento usa esforço baixo para reduzir latência sem
-  reduzir as validações da resposta. O Flutter aguarda 35 segundos para cobrir os 30
+  reduzir as validações da resposta. A composição usa esforço baixo em Flash e
+  médio em Pro porque o limite de saída inclui tokens internos; isso preserva
+  espaço para o JSON final e evita o fallback por truncamento observado com
+  esforço médio/alto. O Flutter aguarda 35 segundos para cobrir os 30
   segundos da callable e a margem de transporte, sem ampliar o tempo do
   backend, quotas ou orçamento.
 - A ADR-055 registra arquitetura, privacidade, custo e limites de validação.

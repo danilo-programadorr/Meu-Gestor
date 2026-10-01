@@ -124,7 +124,7 @@ const unsafeSerializedContext = (value) => /(?:\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-
 const assertExecution = (execution, { planning = false } = {}) => {
   const expectedThinkingLevel = planning
     ? 'LOW'
-    : (execution?.tier === 'flash' ? 'MEDIUM' : 'HIGH');
+    : (execution?.tier === 'flash' ? 'LOW' : 'MEDIUM');
   if (!exactKeys(execution, ['enabled', 'fallback', 'providerModel', 'thinkingLevel', 'tier'])
       || execution.enabled !== true
       || !['flash', 'pro'].includes(execution.tier)

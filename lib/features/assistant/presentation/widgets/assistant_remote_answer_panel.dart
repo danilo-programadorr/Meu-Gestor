@@ -1,5 +1,5 @@
-// Responsabilidade: apresenta uma resposta remota somente como informação
-// fundamentada, com fontes e período civil visíveis no modo de texto.
+// Responsabilidade: apresenta a resposta remota com fontes e período civil
+// visíveis no modo de texto, sem expor termos internos do contrato técnico.
 import 'package:flutter/material.dart';
 import 'package:meu_gestor_financeiro/app/theme/app_spacing.dart';
 import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_context.dart';
@@ -16,7 +16,7 @@ class AssistantRemoteAnswerPanel extends StatelessWidget {
     final String title = switch (state.phase) {
       AssistantRemoteConversationPhase.clarificationRequired =>
         'Vamos continuar',
-      AssistantRemoteConversationPhase.grounded => 'Resposta fundamentada',
+      AssistantRemoteConversationPhase.grounded => 'Resposta do assistente',
       _ => 'Assistente Financeiro',
     };
     return Semantics(

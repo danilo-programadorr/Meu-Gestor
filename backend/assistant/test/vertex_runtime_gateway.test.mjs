@@ -16,9 +16,9 @@ import { AssistantContractError } from '../src/errors.mjs';
 
 const execution = Object.freeze({
   enabled: true, tier: 'flash', providerModel: 'gemini-3.8-flash',
-  thinkingLevel: 'MEDIUM', fallback: 'safe_unavailable',
+  thinkingLevel: 'LOW', fallback: 'safe_unavailable',
 });
-const proExecution = Object.freeze({ ...execution, tier: 'pro', thinkingLevel: 'HIGH' });
+const proExecution = Object.freeze({ ...execution, tier: 'pro', thinkingLevel: 'MEDIUM' });
 const planningExecution = Object.freeze({ ...execution, thinkingLevel: 'LOW' });
 const providerRequest = Object.freeze({
   contractVersion: 'assist-remote-v1',
@@ -156,7 +156,7 @@ test('planejamento ambíguo pede esclarecimento sem selecionar leitor', async ()
   );
 });
 
-test('serializa Gemini 3.8 Flash, esforço médio e contrato estruturado completo', async () => {
+test('serializa Gemini 3.8 Flash, esforço baixo e contrato estruturado completo', async () => {
   const calls = [];
   const result = await fakeGateway({ calls }).generate({ execution, maximumCostCents: 20, providerRequest });
   assert.deepEqual(calls[0].configuration, {
@@ -166,7 +166,7 @@ test('serializa Gemini 3.8 Flash, esforço médio e contrato estruturado complet
   });
   const request = calls[1].request;
   assert.equal(request.model, 'gemini-3.8-flash');
-  assert.deepEqual(request.config.thinkingConfig, { thinkingLevel: 'MEDIUM', includeThoughts: false });
+  assert.deepEqual(request.config.thinkingConfig, { thinkingLevel: 'LOW', includeThoughts: false });
   assert.equal(request.config.responseMimeType, 'application/json');
   assert.deepEqual(request.config.responseSchema, ASSISTANT_VERTEX_RESPONSE_SCHEMA);
   assert.equal('candidateCount' in request.config, false);
@@ -188,13 +188,13 @@ test('serializa Gemini 3.8 Flash, esforço médio e contrato estruturado complet
   assert.equal(result.durationMs, 25);
 });
 
-test('tier complexo mantém o mesmo modelo e usa esforço alto sem ampliar saída', async () => {
+test('tier complexo mantém o mesmo modelo e usa esforço médio sem ampliar saída', async () => {
   const calls = [];
   await fakeGateway({ calls }).generate({ execution: proExecution, maximumCostCents: 100, providerRequest });
   assert.equal(calls[1].request.model, 'gemini-3.8-flash');
   assert.equal(calls[1].request.config.maxOutputTokens, 1_500);
   assert.deepEqual(calls[1].request.config.thinkingConfig, {
-    thinkingLevel: 'HIGH', includeThoughts: false,
+    thinkingLevel: 'MEDIUM', includeThoughts: false,
   });
 });
 

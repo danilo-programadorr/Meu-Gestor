@@ -15,6 +15,11 @@ const stages = new Set([
   'auth_app_check',
   'runtime_controls',
   'authorization_consent',
+  'intent_usage_reader',
+  'intent_activation_plan',
+  'intent_ledger_reserve',
+  'intent_model',
+  'intent_ledger_confirm',
   'owner_scoped_context_and_usage',
   'owner_scoped_context',
   'usage_reader',
@@ -37,7 +42,7 @@ const activationFailureCodes = new Set(ASSISTANT_ACTIVATION_FAILURE_CODES);
 const responseFallbackReasons = new Set(ASSISTANT_RESPONSE_FALLBACK_REASONS);
 const responseFinalStatuses = new Set(ASSISTANT_RESPONSE_FINAL_STATUSES);
 const vertexFinishReasons = new Set(ASSISTANT_VERTEX_FINISH_REASONS);
-const readerStages = new Set(['owner_scoped_context', 'usage_reader']);
+const readerStages = new Set(['intent_usage_reader', 'owner_scoped_context', 'usage_reader']);
 const usageDiagnosticStages = new Set([
   'usage_adc_credentials',
   'usage_firestore_begin_transaction',
@@ -62,7 +67,7 @@ const exactEvent = (event) => {
     return event.outcome === 'failed' && diagnosticStage && reasons.has(event.reason);
   }
   if (keys === 'code|outcome|stage') {
-    return event.stage === 'activation_plan'
+    return ['intent_activation_plan', 'activation_plan'].includes(event.stage)
       && event.outcome === 'failed'
       && activationFailureCodes.has(event.code);
   }
@@ -77,7 +82,7 @@ const exactEvent = (event) => {
       && event.finalStatus === 'grounded';
   }
   if (keys === 'candidateCount|finishReason|nonTextPartCount|outcome|providerBlocked|stage|textPartCount') {
-    return event.stage === 'vertex_model'
+    return ['intent_model', 'vertex_model'].includes(event.stage)
       && event.outcome === 'passed'
       && vertexFinishReasons.has(event.finishReason)
       && [event.candidateCount, event.textPartCount, event.nonTextPartCount]

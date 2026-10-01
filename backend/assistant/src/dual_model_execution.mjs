@@ -9,12 +9,16 @@ export const ASSISTANT_REAL_PROVIDER_FEATURE_ENABLED = false;
 export const MODEL_EXECUTION = Object.freeze({
   flash: Object.freeze({
     providerModel: 'gemini-3.8-flash',
-    thinkingLevel: 'MEDIUM',
+    // O teto de saída inclui tokens internos. LOW evita truncar o JSON de
+    // perguntas comuns e reduz a latência sem remover validações server-side.
+    thinkingLevel: 'LOW',
     fallback: 'safe_unavailable',
   }),
   pro: Object.freeze({
     providerModel: 'gemini-3.8-flash',
-    thinkingLevel: 'HIGH',
+    // Consultas complexas preservam esforço adicional, mas MEDIUM deixa
+    // espaço para o contrato estruturado dentro do limite Pro existente.
+    thinkingLevel: 'MEDIUM',
     fallback: 'safe_unavailable',
   }),
 });

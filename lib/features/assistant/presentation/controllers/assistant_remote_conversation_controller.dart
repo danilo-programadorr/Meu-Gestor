@@ -56,7 +56,7 @@ final class AssistantRemoteConversationState {
 
   const AssistantRemoteConversationState.initial()
     : phase = AssistantRemoteConversationPhase.idle,
-      message = 'Envie uma pergunta para receber uma resposta fundamentada.',
+      message = 'Envie uma pergunta para conversar com o assistente.',
       response = null,
       audio = null;
 
@@ -130,8 +130,7 @@ final class AssistantRemoteConversationController
         operation,
         const AssistantRemoteConversationState(
           phase: AssistantRemoteConversationPhase.consentRequired,
-          message:
-              'Confirme o consentimento de IA antes de consultar uma resposta fundamentada.',
+          message: 'Confirme o consentimento de IA antes de conversar.',
         ),
       );
       return;
@@ -154,8 +153,7 @@ final class AssistantRemoteConversationController
         operation,
         const AssistantRemoteConversationState(
           phase: AssistantRemoteConversationPhase.privacyBlocked,
-          message:
-              'A privacidade financeira bloqueia a consulta de resposta fundamentada.',
+          message: 'A privacidade financeira bloqueia esta consulta.',
         ),
       );
       return;
@@ -185,8 +183,7 @@ final class AssistantRemoteConversationController
         operation,
         const AssistantRemoteConversationState(
           phase: AssistantRemoteConversationPhase.safeUnavailable,
-          message:
-              'A resposta fundamentada está indisponível com segurança neste momento.',
+          message: 'O assistente está indisponível neste momento.',
         ),
       );
       return;
@@ -195,7 +192,7 @@ final class AssistantRemoteConversationController
       operation,
       const AssistantRemoteConversationState(
         phase: AssistantRemoteConversationPhase.preparing,
-        message: 'Preparando uma resposta fundamentada.',
+        message: 'Pensando na sua pergunta.',
       ),
     );
     try {
@@ -215,7 +212,7 @@ final class AssistantRemoteConversationController
           operation,
           AssistantRemoteConversationState(
             phase: AssistantRemoteConversationPhase.grounded,
-            message: 'Resposta fundamentada pronta para leitura.',
+            message: 'Aqui está a resposta.',
             response: response,
             audio: result.audio,
           ),
@@ -260,8 +257,7 @@ final class AssistantRemoteConversationController
     if (!_disposed) {
       state = const AssistantRemoteConversationState(
         phase: AssistantRemoteConversationPhase.privacyBlocked,
-        message:
-            'A privacidade financeira bloqueia a consulta de resposta fundamentada.',
+        message: 'A privacidade financeira bloqueia esta consulta.',
       );
     }
   }
@@ -273,8 +269,7 @@ final class AssistantRemoteConversationController
       operation,
       const AssistantRemoteConversationState(
         phase: AssistantRemoteConversationPhase.safeUnavailable,
-        message:
-            'A resposta fundamentada está indisponível com segurança neste momento.',
+        message: 'O assistente está indisponível neste momento.',
       ),
     );
   }

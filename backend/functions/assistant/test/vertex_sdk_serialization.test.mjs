@@ -43,7 +43,7 @@ test('SDK serializa MIME, schema e thinkingLevel na chamada unary', async (t) =>
     contents: [{ role: 'user', parts: [{ text: 'synthetic prompt' }] }],
     config: {
       maxOutputTokens: 800,
-      thinkingConfig: { thinkingLevel: 'MEDIUM', includeThoughts: false },
+      thinkingConfig: { thinkingLevel: 'LOW', includeThoughts: false },
       responseMimeType: 'application/json',
       responseSchema: ASSISTANT_VERTEX_RESPONSE_SCHEMA,
     },
@@ -55,7 +55,7 @@ test('SDK serializa MIME, schema e thinkingLevel na chamada unary', async (t) =>
   assert.equal('candidateCount' in capturedBody.generationConfig, false);
   assert.equal('temperature' in capturedBody.generationConfig, false);
   assert.deepEqual(capturedBody.generationConfig.thinkingConfig, {
-    thinkingLevel: 'MEDIUM',
+    thinkingLevel: 'LOW',
     includeThoughts: false,
   });
   assert.deepEqual(capturedBody.generationConfig.responseSchema, ASSISTANT_VERTEX_RESPONSE_SCHEMA);
