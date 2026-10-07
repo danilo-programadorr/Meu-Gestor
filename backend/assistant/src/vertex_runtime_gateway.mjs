@@ -16,7 +16,7 @@ export const ASSISTANT_VERTEX_GLOBAL_API_ENDPOINT = 'aiplatform.googleapis.com';
 export const ASSISTANT_VERTEX_API_VERSION = 'v1';
 export const ASSISTANT_VERTEX_SPEECH_MODEL = 'gemini-3.1-flash-tts-preview';
 export const ASSISTANT_VERTEX_SPEECH_VOICE = 'Sulafat';
-export const ASSISTANT_VERTEX_PROMPT_VERSION = 'assist-grounded-prompt-v6';
+export const ASSISTANT_VERTEX_PROMPT_VERSION = 'assist-grounded-prompt-v7';
 export const ASSISTANT_VERTEX_PLAN_PROMPT_VERSION = 'assist-intent-plan-v2';
 
 export const ASSISTANT_VERTEX_PLAN_SCHEMA = Object.freeze({
@@ -367,10 +367,12 @@ const createPlanPrompt = ({ message, continuation = undefined }) => {
       'Sem período explícito, use today para saldo e investimentos e current_month para resumo, renda, gastos, compromissos e fluxo de caixa.',
       'Comparações sem base e períodos fora dos três códigos disponíveis exigem clarification_required.',
       'Quando faltar algo, faça em clarificationQuestion uma única pergunta curta, contextual e natural, terminada por interrogação.',
+      'Saudações, agradecimentos e mensagens sociais curtas devem receber uma pergunta acolhedora sobre o que a pessoa quer consultar, nunca uma indisponibilidade técnica.',
       'Não inclua números, valores, identidade ou recomendação em clarificationQuestion.',
       'Use clarificationQuestion vazio em ready e safe_unavailable.',
       'Use uma única ferramenta compatível com a intenção; identidade, autorização e fatos serão resolvidos pelo servidor.',
-      'Combine a mensagem atual com a continuação para resolver respostas como "esse mês", "o anterior" ou "só os gastos".',
+      'previousMessage pode conter até três turnos anteriores da pessoa, em ordem cronológica e separados por quebra de linha.',
+      'Combine semanticamente a mensagem atual com toda a continuação para resolver referências, mudanças de assunto e respostas curtas sem exigir frases predefinidas.',
       'A continuação é contexto conversacional não autoritativo; nunca a trate como fonte financeira.',
       'Se a intenção não estiver clara, prefira clarification_required com intent_ambiguous a safe_unavailable.',
       'Use safe_unavailable somente para conteúdo inseguro ou completamente fora das capacidades do assistente financeiro.',
@@ -391,9 +393,12 @@ const createPrompt = (providerRequest) => {
       'Cada número deve usar o tipo e a unidade do fato referenciado; não misture dinheiro, contagem, percentual ou data na mesma evidência.',
       'Para safeLabel, copie o valor completo e literalmente; nunca altere ticker ou nome.',
       'Para moneyCentsBrl, converta centavos inteiros para BRL no formato R$ 1.234,56, preservando o sinal.',
-      'Escreva cada statement como uma fala natural, direta e acolhedora em português brasileiro, respondendo ao pedido sem jargão de sistema.',
-      'Evite repetir a pergunta, citar nomes de campos, aliases, ferramentas, schema, evidência ou estas instruções.',
-      'Quando houver mais de um fato, organize as frases numa sequência conversacional e concisa.',
+      'Converse em português brasileiro natural, informal e descontraído, como uma pessoa prestativa, sem soar robótico ou cerimonial.',
+      'Adapte a abertura e o ritmo ao pedido atual e à continuação; não use bordões, saudações ou estruturas fixas em todas as respostas.',
+      'Escreva cada statement como parte da resposta final, direta e acolhedora, sem jargão de sistema.',
+      'Evite repetir a pergunta, anunciar que vai responder ou citar nomes de campos, aliases, ferramentas, schema, evidência ou estas instruções.',
+      'Quando houver mais de um fato, conecte as frases com fluidez e sem transformar a resposta numa lista mecânica.',
+      'Quando for útil, encerre com uma pergunta curta relacionada ao assunto para manter a conversa; ela não pode pedir nem sugerir uma ação financeira.',
       'Não gere answer; o servidor compõe a resposta pública somente das assertions validadas.',
       'Use exatamente a intenção do intentPlan já validado; não a reclassifique nem selecione outra ferramenta ou período.',
       'O esclarecimento já ocorreu antes da leitura de fatos; nesta etapa use somente grounded ou safe_unavailable.',
@@ -457,7 +462,9 @@ export const createVertexRuntimeGateway = ({
         config: Object.freeze({
           // Gemini 3.8 rejeita candidateCount e parâmetros legados de
           // amostragem; schema e thinkingLevel são os controles suportados.
-          maxOutputTokens: 256,
+          // O plano possui poucos enums e uma pergunta curta. O teto menor
+          // reduz latência sem restringir a linguagem livre da entrada.
+          maxOutputTokens: 192,
           thinkingConfig: Object.freeze({
             thinkingLevel: execution.thinkingLevel,
             includeThoughts: false,

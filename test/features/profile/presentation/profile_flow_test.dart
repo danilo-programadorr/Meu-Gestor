@@ -114,6 +114,15 @@ void main() {
     expect(find.text('Claro'), findsOneWidget);
     expect(find.text('Escuro'), findsOneWidget);
 
+    await tester.scrollUntilVisible(
+      find.text('Luma'),
+      220,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(find.text('Usar Pessoa'), findsOneWidget);
+    expect(find.text('Usar apelido'), findsOneWidget);
+    expect(find.text('Não usar meu nome'), findsOneWidget);
+
     await _tapVisible(tester, find.text('Privacidade e consentimentos'));
     await tester.pumpAndSettle();
     expect(find.textContaining('terms-dev-1.0.0'), findsOneWidget);
@@ -161,7 +170,11 @@ void main() {
         context.router.routerDelegate.currentConfiguration.uri.path,
         AppRoutes.assistantConversation,
       );
-      expect(find.text('Modo de conversa'), findsOneWidget);
+      expect(find.text('Conversa com Luma'), findsOneWidget);
+      expect(
+        find.textContaining('O que você quer conversar sobre suas finanças?'),
+        findsOneWidget,
+      );
       expect(find.text('Ativar Assistente Financeiro'), findsOneWidget);
     },
   );

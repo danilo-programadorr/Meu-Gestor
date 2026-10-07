@@ -5,6 +5,7 @@ import 'package:meu_gestor_financeiro/app/routing/app_routes.dart';
 import 'package:meu_gestor_financeiro/app/theme/app_spacing.dart';
 import 'package:meu_gestor_financeiro/app/theme/app_theme_preference_selector.dart';
 import 'package:meu_gestor_financeiro/core/environment/app_environment.dart';
+import 'package:meu_gestor_financeiro/features/assistant/presentation/widgets/assistant_personalization_selector.dart';
 import 'package:meu_gestor_financeiro/features/authentication/presentation/controllers/auth_controller.dart';
 import 'package:meu_gestor_financeiro/features/owner_access/presentation/controllers/master_access_controller.dart';
 import 'package:meu_gestor_financeiro/features/owner_access/presentation/widgets/owner_access_badge.dart';
@@ -171,6 +172,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         ],
         const SizedBox(height: AppSpacing.lg),
         const AppThemePreferenceSelector(),
+        const SizedBox(height: AppSpacing.lg),
+        AssistantPersonalizationSelector(profile: profile),
         if (action.message case final String message) ...<Widget>[
           const SizedBox(height: AppSpacing.md),
           ProfileMessage(

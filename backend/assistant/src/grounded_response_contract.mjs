@@ -23,9 +23,9 @@ const conversationIntents = new Set(ASSISTANT_CONVERSATION_INTENTS);
 const clarificationCodes = new Set(ASSISTANT_CLARIFICATION_CODES);
 
 export const ASSISTANT_CANONICAL_CLARIFICATION_QUESTIONS = Object.freeze({
-  intent_ambiguous: 'O que você gostaria de consultar nas suas finanças?',
-  period_required: 'Qual período você quer analisar?',
-  scope_required: 'Qual parte das suas finanças você quer incluir?',
+  intent_ambiguous: 'Me conta: o que você quer ver nas suas finanças?',
+  period_required: 'Qual período você quer olhar?',
+  scope_required: 'Que parte das suas finanças você quer consultar?',
   comparison_basis_required: 'O que você quer comparar e com qual período?',
 });
 

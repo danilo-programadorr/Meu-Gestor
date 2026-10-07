@@ -2,8 +2,8 @@
 
 ## Status
 
-Validada localmente; publicação e confirmação runtime permanecem pendentes de
-autorização específica.
+Aceita para development. Produção não foi autorizada; a apresentação de uma
+resposta real permanece sujeita à confirmação runtime pelo aplicativo.
 
 ## Contexto
 
@@ -22,9 +22,13 @@ antes de consultar o backend.
 - Somente um plano completo autoriza leitores owner-scoped. Cada ferramenta
   limita as fontes consultadas; o servidor continua sendo a autoridade sobre
   identidade, período, valores, evidências, fontes e admissão da resposta.
-- O mesmo `gemini-3.8-flash` atende os dois tiers internos. Perguntas comuns e
-  planejamento usa `thinkingLevel: LOW`, respostas comuns usam `MEDIUM` e análises complexas usam
-  `thinkingLevel: HIGH`, sem
+- Toda intenção fundamentada, inclusive listagem de ativos, passa pela mesma
+  composição conversacional. Não existe resposta pública montada por frase
+  fixa: o modelo controla somente a linguagem, enquanto cada nome e grandeza
+  continua vinculado a uma evidência owner-scoped e é revalidado pelo servidor.
+- O mesmo `gemini-3.8-flash` atende os dois tiers internos. Planejamento e
+  respostas comuns usam `thinkingLevel: LOW`; análises complexas usam
+  `thinkingLevel: MEDIUM`, sem
   ampliar os tetos existentes de saída ou custo. A requisição não envia
   `candidateCount`, `temperature` ou outros parâmetros incompatíveis com esse
   modelo; schema e nível de raciocínio são os controles autoritativos. O SDK
@@ -36,21 +40,33 @@ antes de consultar o backend.
 - `clarification_required` pode usar uma pergunta contextual curta do
   planejador, admitida pelo servidor sem números, identidade, valores ou
   recomendações. Conteúdo fora desse contrato volta para uma pergunta canônica.
-- O Flutter mantém no máximo a última pergunta em memória e a envia apenas no
-  turno seguinte. Respostas e fatos financeiros não são reenviados. A memória
-  é apagada ao sair da conversa, trocar conta, ativar privacidade ou descartar
-  o estado; no modo de voz, a interface mostra somente áudio. A síntese neural
-  ocorre depois da admissão e tem reserva de custo própria; texto não a executa.
+- O Flutter mantém no máximo as três mensagens recentes da própria pessoa em
+  memória e as envia em ordem no turno seguinte. Respostas e fatos financeiros
+  não são reenviados. A memória é apagada ao sair da conversa, trocar conta,
+  ativar privacidade ou descartar o estado; no modo de voz, a interface mostra
+  somente áudio. A síntese neural ocorre depois da admissão e tem reserva de
+  custo própria; texto não a executa.
+- A janela inteira é interpretada semanticamente pelo planejador; não existe
+  catálogo de frases para reconhecer continuações. Como a saída contém somente
+  enums e uma pergunta curta, o teto do planejamento é 192 tokens.
 - A lista rígida de frases deixa de bloquear perguntas. Entrada não vazia e
   segura segue ao planejador, que pode entender linguagem livre ou solicitar a
   informação ausente.
+- A interface mostra a fala aprovada uma única vez, com fontes e períodos
+  compactos abaixo dela. Mensagens de transição e frases das evidências não
+  duplicam a resposta; a continuação aceita também o contexto de ativos.
+- A identidade pública da assistente é Luma. O tratamento pelo primeiro nome,
+  por um apelido ou sem nome é uma preferência local, isolada pelo proprietário
+  e aplicada apenas ao cumprimento da sessão; ela não é enviada ao modelo,
+  à callable, aos logs ou ao serviço de voz.
 
 ## Verificação
 
 Os testes cobrem planejamento sem fatos financeiros, seleção mínima de fontes,
 períodos relativos em `America/Sao_Paulo`, esclarecimento sem leitura de dados,
 duas reservas de quota, composição fundamentada, contrato servidor → Flutter,
-continuação efêmera e descarte por privacidade, conta, saída e operação tardia.
+continuação efêmera, listagem conversacional de ativos, apresentação sem
+duplicação e descarte por privacidade, conta, saída e operação tardia.
 O SDK é inspecionado sem rede para confirmar modelo, endpoint, schema,
 `thinkingLevel`, candidato unary e tratamento fechado de truncamento, bloqueio
 e JSON inválido.
@@ -62,8 +78,10 @@ anterior permanece por compatibilidade, sem alteração ampla de dependências.
 
 ## Consequências
 
-O contrato público `grounded` permanece compatível e ganha o estado fechado
-`clarification_required`. As barreiras de Auth, App Check, consentimento,
+O contrato público `grounded` permanece compatível e mantém o estado fechado
+`clarification_required`. A remoção da resposta fixa para ativos faz esse fluxo
+usar a segunda reserva e inferência já previstas para as demais intenções. As
+barreiras de Auth, App Check, consentimento,
 isolamento por proprietário, ledger e admissão numérica não são reduzidas. A
 validação local não comprova latência, permissões runtime nem apresentação de
 uma resposta real; isso depende de publicação development e de um único teste

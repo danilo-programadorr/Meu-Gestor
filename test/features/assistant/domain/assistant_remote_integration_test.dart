@@ -77,6 +77,14 @@ void main() {
     expect(response.requiresClarification, isTrue);
     expect(response.clarification?.intent, 'financial_overview');
 
+    final AssistantRemoteContinuation investmentContinuation =
+        AssistantRemoteContinuation(
+          intent: 'investment_assets',
+          clarificationCode: 'scope_required',
+          previousMessage: 'Quais ativos eu tenho?',
+        );
+    expect(investmentContinuation.intent, 'investment_assets');
+
     expect(
       () => AssistantRemoteResponse.fromCallableData(<String, Object?>{
         'status': 'clarification_required',

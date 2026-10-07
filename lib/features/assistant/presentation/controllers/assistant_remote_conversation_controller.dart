@@ -100,6 +100,7 @@ final class AssistantRemoteConversationController
   int _operation = 0;
   bool _disposed = false;
   AssistantRemoteContinuation? _pendingContinuation;
+  final List<String> _recentUserMessages = <String>[];
 
   @override
   AssistantRemoteConversationState build() {
@@ -108,7 +109,7 @@ final class AssistantRemoteConversationController
     ref.onDispose(() {
       _disposed = true;
       _operation += 1;
-      _pendingContinuation = null;
+      _clearConversationMemory();
     });
     return const AssistantRemoteConversationState.initial();
   }
@@ -125,7 +126,7 @@ final class AssistantRemoteConversationController
     if (state.isPreparing) return;
     final int operation = ++_operation;
     if (!aiConsentEnabled) {
-      _pendingContinuation = null;
+      _clearConversationMemory();
       _setIfCurrent(
         operation,
         const AssistantRemoteConversationState(
@@ -136,7 +137,7 @@ final class AssistantRemoteConversationController
       return;
     }
     if (!remoteContextConsentAllowed) {
-      _pendingContinuation = null;
+      _clearConversationMemory();
       _setIfCurrent(
         operation,
         const AssistantRemoteConversationState(
@@ -148,7 +149,7 @@ final class AssistantRemoteConversationController
       return;
     }
     if (!financialValuesVisible) {
-      _pendingContinuation = null;
+      _clearConversationMemory();
       _setIfCurrent(
         operation,
         const AssistantRemoteConversationState(
@@ -158,17 +159,18 @@ final class AssistantRemoteConversationController
       );
       return;
     }
+    final AssistantRemoteContinuation? sentContinuation = _pendingContinuation;
     late final AssistantRemoteRequest request;
     try {
       request = AssistantRemoteRequest(
         message: message,
-        continuation: _pendingContinuation,
+        continuation: sentContinuation,
         responseMode: voiceOnly
             ? AssistantRemoteResponseMode.voice
             : AssistantRemoteResponseMode.text,
       );
     } on AssistantFailure {
-      _pendingContinuation = null;
+      _clearConversationMemory();
       _setIfCurrent(
         operation,
         const AssistantRemoteConversationState(
@@ -200,19 +202,20 @@ final class AssistantRemoteConversationController
       if (result.groundedResponse
           case final AssistantGroundedResponse response) {
         if (!_isCurrent(operation)) return;
-        // Mantém somente a última pergunta, sem resposta ou valor financeiro.
-        // Isso permite continuações naturais como “e no mês passado?” sem
-        // transformar memória do cliente em fonte autoritativa.
+        // Mantém somente os últimos turnos escritos pela própria pessoa, sem
+        // resposta, evidência ou valor recuperado do servidor. O modelo recebe
+        // contexto linguístico, mas os fatos continuam não autoritativos.
+        _rememberUserMessage(message);
         _pendingContinuation = AssistantRemoteContinuation(
-          intent: 'unknown',
+          intent: sentContinuation?.intent ?? 'unknown',
           clarificationCode: 'intent_ambiguous',
-          previousMessage: message,
+          previousMessage: _serializedRecentMessages(),
         );
         _setIfCurrent(
           operation,
           AssistantRemoteConversationState(
             phase: AssistantRemoteConversationPhase.grounded,
-            message: 'Aqui está a resposta.',
+            message: 'Resposta pronta.',
             response: response,
             audio: result.audio,
           ),
@@ -220,10 +223,11 @@ final class AssistantRemoteConversationController
       } else if (result.clarification
           case final AssistantRemoteClarification clarification) {
         if (!_isCurrent(operation)) return;
+        _rememberUserMessage(message);
         _pendingContinuation = AssistantRemoteContinuation(
           intent: clarification.intent,
           clarificationCode: clarification.clarificationCode,
-          previousMessage: message,
+          previousMessage: _serializedRecentMessages(),
         );
         _setIfCurrent(
           operation,
@@ -246,14 +250,14 @@ final class AssistantRemoteConversationController
   /// Remove resposta e invalida a operação antes de expor outra conta ou tela.
   void discard() {
     _operation += 1;
-    _pendingContinuation = null;
+    _clearConversationMemory();
     if (!_disposed) state = const AssistantRemoteConversationState.initial();
   }
 
   /// A privacidade remove qualquer resposta carregada e bloqueia nova consulta.
   void blockForFinancialPrivacy() {
     _operation += 1;
-    _pendingContinuation = null;
+    _clearConversationMemory();
     if (!_disposed) {
       state = const AssistantRemoteConversationState(
         phase: AssistantRemoteConversationPhase.privacyBlocked,
@@ -264,7 +268,7 @@ final class AssistantRemoteConversationController
 
   void _setUnavailable(int operation) {
     if (!_isCurrent(operation)) return;
-    _pendingContinuation = null;
+    _clearConversationMemory();
     _setIfCurrent(
       operation,
       const AssistantRemoteConversationState(
@@ -275,6 +279,24 @@ final class AssistantRemoteConversationController
   }
 
   bool _isCurrent(int operation) => operation == _operation && !_disposed;
+
+  // A janela curta evita retenção de conversa e permanece dentro do limite já
+  // validado pelo contrato remoto. Não armazena respostas nem fatos financeiros.
+  void _rememberUserMessage(String message) {
+    final String normalized = message.trim();
+    _recentUserMessages.add(normalized);
+    while (_recentUserMessages.length > 3 ||
+        _serializedRecentMessages().length > 2000) {
+      _recentUserMessages.removeAt(0);
+    }
+  }
+
+  String _serializedRecentMessages() => _recentUserMessages.join('\n');
+
+  void _clearConversationMemory() {
+    _pendingContinuation = null;
+    _recentUserMessages.clear();
+  }
 
   void _setIfCurrent(int operation, AssistantRemoteConversationState next) {
     if (_isCurrent(operation)) state = next;

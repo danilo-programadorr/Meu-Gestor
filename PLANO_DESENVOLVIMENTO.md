@@ -1118,6 +1118,46 @@ modelo, publicação, deploy, APK ou alteração de recurso externo.
   backend, quotas ou orçamento.
 - A ADR-055 registra arquitetura, privacidade, custo e limites de validação.
 
+## 74. ASSIST-CONVERSATIONAL-VOICE-1 — resposta natural sem renderização rígida
+
+Situação: implementação validada e autorizada para development; produção não
+foi autorizada.
+
+- Todas as intenções fundamentadas usam a composição conversacional. A
+  listagem de ativos não possui mais texto público fixo, mas nomes e tickers
+  continuam copiados literalmente de fatos owner-scoped e validados antes da
+  entrega.
+- O prompt orienta linguagem natural, informal e contextual, sem bordões ou
+  estrutura repetida. Ambiguidade, saudação e fala social curta produzem uma
+  pergunta de continuidade segura em vez de indisponibilidade técnica.
+- O Flutter conserva em memória somente até três mensagens recentes da própria
+  pessoa, reconhece a intenção `investment_assets` e apaga a continuação nas
+  fronteiras de privacidade, conta e ciclo de vida já existentes. Respostas e
+  fatos financeiros nunca são reenviados como memória.
+- O planejador interpreta semanticamente a janela inteira, sem catálogo de
+  frases. Seu teto de saída cai de 256 para 192 tokens porque o resultado é
+  apenas um plano enumerado, reduzindo trabalho sem limitar a entrada livre.
+- A resposta aparece uma única vez; fonte e período permanecem visíveis sem
+  repetir cada afirmação. Auth, App Check, consentimento, quotas, isolamento,
+  evidências e validação numérica não foram flexibilizados.
+
+## 75. ASSIST-PERSONALIZATION-1 — identidade local e tratamento opcional
+
+Situação: implementação validada e incluída no APK development local; produção
+não foi alterada.
+
+- A assistente passa a se apresentar como Luma na conversa e nos cartões de
+  resposta, sem alterar o contrato remoto nem o conteúdo financeiro validado.
+- A pessoa escolhe no Perfil entre primeiro nome, apelido local validado ou
+  nenhum tratamento. A preferência é isolada pelo proprietário e persistida
+  somente no dispositivo.
+- Nome, apelido e preferência não entram no payload da callable, nos prompts,
+  nos logs ou na síntese remota. O tratamento aparece apenas no cumprimento da
+  sessão e é omitido quando a pessoa assim escolher.
+- Testes cobrem normalização e limites do apelido, isolamento por proprietário,
+  persistência, ausência de tratamento e composição determinística do
+  cumprimento.
+
 ## 68. ASSIST-USAGE-COMMIT-FIX-1 — resource name canônico no commit
 
 - `documents:commit` preserva o identificador de `beginTransaction` e um

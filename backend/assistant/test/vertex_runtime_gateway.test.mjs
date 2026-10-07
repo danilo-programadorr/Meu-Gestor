@@ -116,9 +116,11 @@ test('planeja intenção, período e ferramenta sem receber contexto financeiro'
   assert.equal(result.plan.periodCode, 'current_month');
   assert.equal(result.plan.financialTool, 'overview');
   assert.deepEqual(calls[0].config.responseSchema, ASSISTANT_VERTEX_PLAN_SCHEMA);
-  assert.equal(calls[0].config.maxOutputTokens, 256);
+  assert.equal(calls[0].config.maxOutputTokens, 192);
   const prompt = JSON.parse(calls[0].contents[0].parts[0].text);
   assert.equal('context' in prompt.request, false);
+  assert.ok(prompt.instructions.some((item) => item.includes('até três turnos anteriores')));
+  assert.ok(prompt.instructions.some((item) => item.includes('sem exigir frases predefinidas')));
   assert.doesNotMatch(JSON.stringify(prompt), /moneyCentsBrl|evidenceId/u);
 });
 
@@ -218,6 +220,9 @@ test('serializa Gemini 3.8 Flash, esforço baixo e contrato estruturado completo
     'periodCode', 'schemaVersion', 'status',
   ]);
   const prompt = JSON.parse(request.contents[0].parts[0].text);
+  assert.ok(prompt.instructions.some((item) => item.includes('informal e descontraído')));
+  assert.ok(prompt.instructions.some((item) => item.includes('não use bordões')));
+  assert.ok(prompt.instructions.some((item) => item.includes('pergunta curta relacionada')));
   assert.equal(prompt.promptVersion, ASSISTANT_VERTEX_PROMPT_VERSION);
   assert.deepEqual(prompt.request, providerRequest);
   assert.ok(prompt.instructions.some((instruction) => instruction.includes('intentPlan')));

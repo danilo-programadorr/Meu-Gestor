@@ -153,6 +153,7 @@ void main() {
             'question': 'Qual período você quer analisar?',
           }),
           AssistantRemoteResponse.fromCallableData(_groundedCallable()),
+          AssistantRemoteResponse.fromCallableData(_groundedCallable()),
         ],
       );
       final ProviderContainer container = _container(
@@ -184,14 +185,22 @@ void main() {
         container.read(assistantRemoteConversationControllerProvider).phase,
         AssistantRemoteConversationPhase.grounded,
       );
+
+      await _request(container, message: 'E como isso se compara?');
+      expect(gateway.requests[2].continuation?.intent, 'financial_overview');
+      expect(
+        gateway.requests[2].continuation?.previousMessage,
+        'Prepare um relatório.\nDeste mês.',
+      );
     },
   );
 
   test(
-    'resposta válida mantém somente a última pergunta para continuação',
+    'resposta válida mantém uma janela curta sem respostas do servidor',
     () async {
       final _FakeGateway gateway = _FakeGateway(
         results: <AssistantRemoteResponse>[
+          AssistantRemoteResponse.fromCallableData(_groundedCallable()),
           AssistantRemoteResponse.fromCallableData(_groundedCallable()),
           AssistantRemoteResponse.fromCallableData(_groundedCallable()),
         ],
@@ -210,6 +219,50 @@ void main() {
       expect(continuation?.previousMessage, 'Como estão meus gastos?');
       expect(continuation?.intent, 'unknown');
       expect(continuation?.clarificationCode, 'intent_ambiguous');
+
+      await _request(container, message: 'Agora explica de outro jeito.');
+      expect(
+        gateway.requests[2].continuation?.previousMessage,
+        'Como estão meus gastos?\nE no mês passado?',
+      );
+    },
+  );
+
+  test(
+    'memória efêmera limita o histórico aos três turnos anteriores',
+    () async {
+      final _FakeGateway gateway = _FakeGateway(
+        results: List<AssistantRemoteResponse>.generate(
+          5,
+          (_) => AssistantRemoteResponse.fromCallableData(_groundedCallable()),
+        ),
+      );
+      final ProviderContainer container = _container(
+        gateway: gateway,
+        enabled: true,
+      );
+      addTearDown(container.dispose);
+
+      for (final String message in <String>[
+        'Primeiro assunto financeiro.',
+        'Segundo detalhe relacionado.',
+        'Terceira observação da conversa.',
+        'Quarta pergunta na mesma sessão.',
+        'Quinta pergunta para conferir a janela.',
+      ]) {
+        await _request(container, message: message);
+      }
+
+      expect(
+        gateway.requests[4].continuation?.previousMessage,
+        'Segundo detalhe relacionado.\n'
+        'Terceira observação da conversa.\n'
+        'Quarta pergunta na mesma sessão.',
+      );
+      expect(
+        gateway.requests[4].continuation?.previousMessage,
+        isNot(contains('Primeiro assunto')),
+      );
     },
   );
 
@@ -240,6 +293,10 @@ void main() {
       container.read(assistantRemoteConversationControllerProvider).phase,
       AssistantRemoteConversationPhase.privacyBlocked,
     );
+
+    await _request(container, message: 'Começar uma nova conversa.');
+    expect(gateway.calls, 2);
+    expect(gateway.requests[1].continuation, isNull);
   });
 
   test('resposta tardia não restaura conteúdo depois da privacidade', () async {

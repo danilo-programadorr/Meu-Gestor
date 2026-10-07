@@ -25,8 +25,10 @@ void main() {
       ),
     );
 
-    expect(find.text('Resposta do assistente'), findsOneWidget);
+    expect(find.text('Luma'), findsOneWidget);
     expect(find.text('Resumo confirmado.'), findsOneWidget);
+    expect(find.text('Aqui está a resposta.'), findsNothing);
+    expect(find.textContaining('Há uma evidência confirmada.'), findsNothing);
     expect(find.textContaining('Fonte: Contas e carteiras'), findsOneWidget);
     expect(find.textContaining('America/Sao_Paulo'), findsOneWidget);
     expect(find.text('Consultar resposta fundamentada'), findsNothing);

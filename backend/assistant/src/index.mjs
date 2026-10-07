@@ -1,5 +1,4 @@
 export { AssistantContractError } from './errors.mjs';
-export { buildAuthoritativeAssetListResponse } from './authoritative_financial_response.mjs';
 export {
   ASSISTANT_READER_FAILURE_REASONS,
   AssistantReaderFailure,

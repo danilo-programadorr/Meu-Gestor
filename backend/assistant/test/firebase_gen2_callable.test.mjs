@@ -236,7 +236,7 @@ test('rota futura falha fechada sem bearer do envelope autenticado', async () =>
   assert.equal(calls.context, 0);
 });
 
-test('lista ativos owner-scoped sem executar a segunda inferência', async () => {
+test('lista ativos owner-scoped com composição conversacional e validação integral', async () => {
   const events = [];
   const investmentContext = context();
   const period = investmentContext.civilPeriod;
@@ -274,7 +274,34 @@ test('lista ativos owner-scoped sem executar a segunda inferência', async () =>
           providerDiagnostics: { finishReason: 'STOP' },
         };
       },
-      generate: async () => { throw new Error('generate_must_not_run'); },
+      generate: async ({ providerRequest }) => {
+        calls.provider += 1;
+        assert.equal(providerRequest.intentPlan.intent, 'investment_assets');
+        assert.equal(providerRequest.context, investmentContext);
+        return {
+          response: {
+            schemaVersion: 1,
+            status: 'grounded',
+            intent: 'investment_assets',
+            clarificationCode: 'none',
+            answer: 'Você tem PETR4 · Petrobras PN por aqui. Também aparece HGLG11 · CSHG Logística. Quer que eu detalhe algum deles?',
+            assertions: [
+              {
+                statement: 'Você tem PETR4 · Petrobras PN por aqui.',
+                evidence: investmentContext.facts[1].evidence,
+              },
+              {
+                statement: 'Também aparece HGLG11 · CSHG Logística. Quer que eu detalhe algum deles?',
+                evidence: investmentContext.facts[2].evidence,
+              },
+            ],
+            missingData: [],
+          },
+          durationMs: 1,
+          confirmedCostCents: 1,
+          providerDiagnostics: { finishReason: 'STOP' },
+        };
+      },
     },
     runtimeDiagnostics: { report: (event) => events.push(event) },
   });
@@ -287,10 +314,10 @@ test('lista ativos owner-scoped sem executar a segunda inferência', async () =>
   assert.match(response.answer, /PETR4 · Petrobras PN/u);
   assert.match(response.answer, /HGLG11 · CSHG Logística/u);
   assert.deepEqual(calls, {
-    authorization: 1, context: 1, usage: 2, reserve: 1, confirm: 1, provider: 1,
+    authorization: 1, context: 1, usage: 2, reserve: 2, confirm: 2, provider: 2,
   });
   assert.deepEqual(events.at(-1), {
-    stage: 'authoritative_response', outcome: 'passed', finalStatus: 'grounded',
+    stage: 'response_validation', outcome: 'passed', finalStatus: 'grounded',
   });
 });
 
@@ -328,7 +355,7 @@ test('intenção não resolvida pede esclarecimento sem ler contexto financeiro'
     contractVersion: 'assist-remote-v1',
     intent: 'unknown',
     clarificationCode: 'intent_ambiguous',
-    question: 'O que você gostaria de consultar nas suas finanças?',
+    question: 'Me conta: o que você quer ver nas suas finanças?',
   });
   assert.equal(calls.context, 0);
   assert.equal(calls.reserve, 1);

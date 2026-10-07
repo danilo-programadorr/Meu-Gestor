@@ -114,8 +114,8 @@ export const ASSISTANT_FINANCIAL_TOOL_SOURCES = Object.freeze({
 const conversationIntents = new Set(ASSISTANT_CONVERSATION_INTENTS);
 const clarificationCodes = new Set(ASSISTANT_CLARIFICATION_CODES);
 
-// O histórico remoto contém no máximo o turno que originou a pergunta de
-// esclarecimento. Ele é não autoritativo e nunca substitui contexto do servidor.
+// O histórico remoto contém no máximo três mensagens recentes da própria
+// pessoa. Ele é não autoritativo e nunca substitui contexto do servidor.
 const validateConversationContinuation = (value) => {
   if (!exactKeys(value, ['intent', 'clarificationCode', 'previousMessage'])
       || !conversationIntents.has(value.intent)

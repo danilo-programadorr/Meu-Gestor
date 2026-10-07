@@ -16,12 +16,26 @@ class AssistantRemoteAnswerPanel extends StatelessWidget {
     final String title = switch (state.phase) {
       AssistantRemoteConversationPhase.clarificationRequired =>
         'Vamos continuar',
-      AssistantRemoteConversationPhase.grounded => 'Resposta do assistente',
-      _ => 'Assistente Financeiro',
+      AssistantRemoteConversationPhase.grounded => 'Luma',
+      _ => 'Luma',
     };
+    final AssistantGroundedResponse? response = state.response;
+    final Map<String, AssistantResponseEvidenceReference> evidenceByPeriod =
+        <String, AssistantResponseEvidenceReference>{};
+    if (response != null) {
+      for (final AssistantGroundedAssertion assertion in response.assertions) {
+        final AssistantResponseEvidenceReference evidence = assertion.evidence;
+        evidenceByPeriod.putIfAbsent(
+          '${evidence.source.name}|${evidence.period.startDate}|'
+          '${evidence.period.endDateExclusive}|${evidence.period.timeZone}',
+          () => evidence,
+        );
+      }
+    }
+    final String semanticMessage = response?.answer ?? state.message;
     return Semantics(
       liveRegion: true,
-      label: '$title: ${state.message}',
+      label: '$title: $semanticMessage',
       child: Card(
         color: const Color(0xFF1B252D),
         child: Padding(
@@ -36,25 +50,25 @@ class AssistantRemoteAnswerPanel extends StatelessWidget {
                 ).textTheme.titleMedium?.copyWith(color: Colors.white),
               ),
               const SizedBox(height: AppSpacing.xs),
-              Text(
-                state.message,
-                style: const TextStyle(color: Color(0xFFD5DEE7)),
-              ),
+              if (state.phase != AssistantRemoteConversationPhase.grounded)
+                Text(
+                  state.message,
+                  style: const TextStyle(color: Color(0xFFD5DEE7)),
+                ),
               if (state.isPreparing) ...<Widget>[
                 const SizedBox(height: AppSpacing.sm),
                 const LinearProgressIndicator(),
               ],
-              if (state.response
-                  case final AssistantGroundedResponse response) ...<Widget>[
+              if (response != null) ...<Widget>[
                 const SizedBox(height: AppSpacing.sm),
                 Text(
                   response.answer,
                   style: const TextStyle(color: Colors.white),
                 ),
                 const SizedBox(height: AppSpacing.sm),
-                for (final AssistantGroundedAssertion assertion
-                    in response.assertions)
-                  _EvidenceLine(assertion: assertion),
+                for (final AssistantResponseEvidenceReference evidence
+                    in evidenceByPeriod.values)
+                  _EvidenceLine(evidence: evidence),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
                   response.disclaimer,
@@ -70,17 +84,16 @@ class AssistantRemoteAnswerPanel extends StatelessWidget {
 }
 
 class _EvidenceLine extends StatelessWidget {
-  const _EvidenceLine({required this.assertion});
+  const _EvidenceLine({required this.evidence});
 
-  final AssistantGroundedAssertion assertion;
+  final AssistantResponseEvidenceReference evidence;
 
   @override
   Widget build(BuildContext context) {
-    final AssistantResponseEvidenceReference evidence = assertion.evidence;
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.xs),
       child: Text(
-        '${assertion.statement}\nFonte: ${_sourceLabel(evidence.source)} · '
+        'Fonte: ${_sourceLabel(evidence.source)} · '
         'Período: ${evidence.period.startDate} até antes de '
         '${evidence.period.endDateExclusive} (${evidence.period.timeZone})',
         style: const TextStyle(color: Color(0xFFD5DEE7)),

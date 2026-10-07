@@ -184,7 +184,7 @@ final class AssistantConversationController
     if (_disposed || operation != _operation) return;
     state = state.copyWith(
       phase: AssistantConversationPhase.ready,
-      message: 'Consulta concluída. O resultado está disponível abaixo.',
+      message: 'Pode mandar a próxima.',
       voiceIntensity: 0,
     );
   }

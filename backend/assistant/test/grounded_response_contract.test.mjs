@@ -219,7 +219,7 @@ test('converte esclarecimento válido em pergunta canônica sem evidência finan
     contractVersion: 'assist-remote-v1',
     intent: 'financial_overview',
     clarificationCode: 'period_required',
-    question: 'Qual período você quer analisar?',
+    question: 'Qual período você quer olhar?',
   });
 });
 
@@ -236,7 +236,7 @@ test('admite pergunta contextual segura e rejeita conteúdo financeiro livre', (
     clarificationCode: 'period_required',
     clarificationQuestion: 'Você quer analisar R$ 100?',
   });
-  assert.equal(unsafe.response.question, 'Qual período você quer analisar?');
+  assert.equal(unsafe.response.question, 'Qual período você quer olhar?');
 });
 
 test('monta contexto somente após admissão e sem expor identidade na saída', async () => {

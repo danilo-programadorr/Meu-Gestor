@@ -8,10 +8,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:meu_gestor_financeiro/app/theme/app_spacing.dart';
 import 'package:meu_gestor_financeiro/core/privacy/financial_privacy_controller.dart';
 import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_conversation.dart';
+import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_personalization.dart';
 import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_remote_integration.dart';
 import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_voice.dart';
 import 'package:meu_gestor_financeiro/features/assistant/presentation/controllers/assistant_conversation_consent_controller.dart';
 import 'package:meu_gestor_financeiro/features/assistant/presentation/controllers/assistant_conversation_controller.dart';
+import 'package:meu_gestor_financeiro/features/assistant/presentation/controllers/assistant_personalization_controller.dart';
 import 'package:meu_gestor_financeiro/features/assistant/presentation/controllers/assistant_remote_consent_controller.dart';
 import 'package:meu_gestor_financeiro/features/assistant/presentation/controllers/assistant_remote_conversation_controller.dart';
 import 'package:meu_gestor_financeiro/features/assistant/presentation/controllers/assistant_voice_controller.dart';
@@ -131,15 +133,21 @@ class _AssistantConversationPageState
     final ProfileGateState? gate = ref
         .watch(profileGateControllerProvider)
         .value;
-    final bool consent =
-        gate is ProfileGateValid && gate.profile.aiConsentEnabled;
+    final UserProfile? profile = gate is ProfileGateValid ? gate.profile : null;
+    final bool consent = profile?.aiConsentEnabled ?? false;
     final AssistantConversationConsentState consentState = ref.watch(
       assistantConversationConsentControllerProvider,
     );
     final bool effectiveRemoteConsent = consent && consentState.isReady;
-    if (gate case ProfileGateValid(:final profile)) {
+    if (profile != null) {
       _scheduleConsentCheck(profile);
     }
+    final AssistantPersonalization? personalization = ref
+        .watch(assistantPersonalizationControllerProvider)
+        .value;
+    final String? addressName = profile == null || personalization == null
+        ? null
+        : personalization.addressName(profileDisplayName: profile.displayName);
     final AssistantConversationState state = ref.watch(
       assistantConversationControllerProvider,
     );
@@ -155,7 +163,7 @@ class _AssistantConversationPageState
         appBar: AppBar(
           backgroundColor: const Color(0xFF101418),
           foregroundColor: Colors.white,
-          title: const Text('Modo de conversa'),
+          title: const Text('Conversa com Luma'),
           actions: <Widget>[
             IconButton(
               tooltip: valuesVisible ? 'Ocultar valores' : 'Mostrar valores',
@@ -200,7 +208,10 @@ class _AssistantConversationPageState
                         Semantics(
                           liveRegion: true,
                           label: 'Estado do modo de conversa: ${state.message}',
-                          child: _ConversationStatus(state: state),
+                          child: _ConversationStatus(
+                            state: state,
+                            addressName: addressName,
+                          ),
                         ),
                         const SizedBox(height: AppSpacing.md),
                         if (!effectiveRemoteConsent)
@@ -712,25 +723,36 @@ class _ConversationCorePainter extends CustomPainter {
 }
 
 class _ConversationStatus extends StatelessWidget {
-  const _ConversationStatus({required this.state});
+  const _ConversationStatus({required this.state, required this.addressName});
   final AssistantConversationState state;
+  final String? addressName;
   @override
-  Widget build(BuildContext context) => Column(
-    children: <Widget>[
-      Text(
-        _phaseLabel(state.phase),
-        style: Theme.of(
-          context,
-        ).textTheme.titleLarge?.copyWith(color: Colors.white),
-      ),
-      const SizedBox(height: AppSpacing.xs),
-      Text(
-        state.message,
-        style: const TextStyle(color: Color(0xFFD5DEE7)),
-        textAlign: TextAlign.center,
-      ),
-    ],
-  );
+  Widget build(BuildContext context) {
+    final bool isInitialGreeting =
+        state.phase == AssistantConversationPhase.ready &&
+        state.message == 'Pronto para uma pergunta por voz.';
+    final String message = isInitialGreeting
+        ? assistantSessionGreeting(addressName)
+        : state.message;
+    return Column(
+      children: <Widget>[
+        Text(
+          isInitialGreeting
+              ? AssistantPersonalization.assistantName
+              : _phaseLabel(state.phase),
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(color: Colors.white),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          message,
+          style: const TextStyle(color: Color(0xFFD5DEE7)),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
 }
 
 class _BlockedCard extends StatelessWidget {
@@ -775,7 +797,7 @@ class _ConsentPendingCard extends StatelessWidget {
     child: Padding(
       padding: EdgeInsets.all(AppSpacing.md),
       child: Text(
-        'O Assistente Financeiro permanece desativado nesta conversa. Escolha uma opção no aviso para liberar perguntas remotas.',
+        'A Luma permanece desativada nesta conversa. Escolha uma opção no aviso para liberar perguntas remotas.',
         style: TextStyle(color: Color(0xFFD5DEE7)),
         textAlign: TextAlign.center,
       ),
@@ -803,7 +825,7 @@ class AssistantConversationConsentDialog extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         const Text(
-          'Para responder nesta conversa, o Assistente precisa do seu consentimento geral para IA e da permissão canônica para contexto financeiro remoto.',
+          'Para responder nesta conversa, a Luma precisa do seu consentimento geral para IA e da permissão canônica para contexto financeiro remoto.',
         ),
         if (state.message case final String message) ...<Widget>[
           const SizedBox(height: AppSpacing.sm),
