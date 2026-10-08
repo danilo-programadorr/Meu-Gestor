@@ -71,6 +71,7 @@ export const ASSISTANT_CONVERSATION_INTENTS = Object.freeze([
 ]);
 
 export const ASSISTANT_CLARIFICATION_CODES = Object.freeze([
+  'social_conversation',
   'intent_ambiguous',
   'period_required',
   'scope_required',

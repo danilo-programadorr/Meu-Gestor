@@ -48,17 +48,27 @@ antes de consultar o backend.
   custo própria; texto não a executa.
 - A janela inteira é interpretada semanticamente pelo planejador; não existe
   catálogo de frases para reconhecer continuações. Como a saída contém somente
-  enums e uma pergunta curta, o teto do planejamento é 192 tokens.
+  enums e uma pergunta curta, o teto do planejamento é 384 tokens para impedir
+  truncamento da estrutura e do raciocínio interno sem ampliar o teto da
+  resposta financeira ou o limite de custo da chamada.
 - A lista rígida de frases deixa de bloquear perguntas. Entrada não vazia e
   segura segue ao planejador, que pode entender linguagem livre ou solicitar a
   informação ausente.
 - A interface mostra a fala aprovada uma única vez, com fontes e períodos
   compactos abaixo dela. Mensagens de transição e frases das evidências não
   duplicam a resposta; a continuação aceita também o contexto de ativos.
-- A identidade pública da assistente é Luma. O tratamento pelo primeiro nome,
+- A identidade pública da assistente é Luma e faz parte das instruções do
+  planejador. Perguntas sociais sobre nome, identidade ou capacidades recebem
+  resposta natural e segura antes de qualquer leitura financeira. O tratamento pelo primeiro nome,
   por um apelido ou sem nome é uma preferência local, isolada pelo proprietário
   e aplicada apenas ao cumprimento da sessão; ela não é enviada ao modelo,
   à callable, aos logs ou ao serviço de voz.
+- Indisponibilidade admitida no modo de voz usa uma fala neural canônica do
+  servidor. Se não houver WAV neural válido, o Flutter permanece silencioso e
+  não substitui a identidade da Luma pelo TTS local do Android.
+- Depois do consentimento efetivo, cada conta vê uma apresentação local única
+  da Luma e de seus limites. Esse marcador fica somente no aparelho, isolado
+  pelo proprietário, e não integra a consulta remota.
 
 ## Verificação
 
@@ -67,6 +77,8 @@ períodos relativos em `America/Sao_Paulo`, esclarecimento sem leitura de dados,
 duas reservas de quota, composição fundamentada, contrato servidor → Flutter,
 continuação efêmera, listagem conversacional de ativos, apresentação sem
 duplicação e descarte por privacidade, conta, saída e operação tardia.
+Também cobrem identidade e capacidades da Luma, áudio neural do fallback sem
+promoção para `grounded`, ausência de TTS Android e apresentação única por conta.
 O SDK é inspecionado sem rede para confirmar modelo, endpoint, schema,
 `thinkingLevel`, candidato unary e tratamento fechado de truncamento, bloqueio
 e JSON inválido.

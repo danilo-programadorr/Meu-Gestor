@@ -6,6 +6,7 @@ import {
   AssistantReaderFailure,
   ASSISTANT_REMOTE_CALLABLE_OPTIONS,
   ASSISTANT_SAFE_UNAVAILABLE,
+  ASSISTANT_SAFE_UNAVAILABLE_VOICE_TEXT,
   createAssistRemoteV1Callables,
 } from '../src/index.mjs';
 
@@ -428,6 +429,79 @@ test('modo voz sintetiza somente após admitir o esclarecimento e contabiliza a 
     { stage: 'voice_ledger_confirm', outcome: 'started' },
     { stage: 'voice_ledger_confirm', outcome: 'passed' },
   ]);
+});
+
+test('fallback seguro em voz usa áudio neural controlado e não lê contexto', async () => {
+  const audio = {
+    mimeType: 'audio/wav',
+    dataBase64: Buffer.concat([
+      Buffer.from('RIFF'), Buffer.alloc(4), Buffer.from('WAVE'), Buffer.alloc(512),
+    ]).toString('base64'),
+  };
+  const { calls, invoke } = build({
+    killSwitchActive: false,
+    providerFeatureEnabled: true,
+    providerGateway: {
+      plan: async () => {
+        calls.provider += 1;
+        return {
+          plan: null,
+          providerOutputIssue: 'provider_output_max_tokens',
+          durationMs: 2,
+          confirmedCostCents: 1,
+          providerDiagnostics: { finishReason: 'MAX_TOKENS' },
+        };
+      },
+      generate: async () => { throw new Error('generate_must_not_run'); },
+      synthesize: async ({ text }) => {
+        calls.provider += 1;
+        assert.equal(text, ASSISTANT_SAFE_UNAVAILABLE_VOICE_TEXT);
+        return { audio, durationMs: 3, confirmedCostCents: 2 };
+      },
+    },
+  });
+
+  const response = await invoke(request({
+    data: {
+      contractVersion: 'assist-remote-v1',
+      message: 'Pergunta sintética segura.',
+      responseMode: 'voice',
+    },
+  }));
+
+  assert.equal(response.status, 'safe_unavailable');
+  assert.deepEqual(response.audio, audio);
+  assert.equal(calls.context, 0);
+  assert.equal(calls.reserve, 2);
+  assert.equal(calls.confirm, 2);
+  assert.equal(calls.provider, 2);
+});
+
+test('fallback seguro em texto permanece mínimo e não sintetiza voz', async () => {
+  const { calls, invoke } = build({
+    killSwitchActive: false,
+    providerFeatureEnabled: true,
+    providerGateway: {
+      plan: async () => {
+        calls.provider += 1;
+        return {
+          plan: null,
+          providerOutputIssue: 'provider_output_max_tokens',
+          durationMs: 2,
+          confirmedCostCents: 1,
+          providerDiagnostics: { finishReason: 'MAX_TOKENS' },
+        };
+      },
+      generate: async () => { throw new Error('generate_must_not_run'); },
+      synthesize: async () => { throw new Error('synthesize_must_not_run'); },
+    },
+  });
+
+  assert.deepEqual(await invoke(request()), ASSISTANT_SAFE_UNAVAILABLE);
+  assert.equal(calls.context, 0);
+  assert.equal(calls.reserve, 1);
+  assert.equal(calls.confirm, 1);
+  assert.equal(calls.provider, 1);
 });
 
 test('falha do plano é atribuída ao estágio correto com código sanitizado', async () => {

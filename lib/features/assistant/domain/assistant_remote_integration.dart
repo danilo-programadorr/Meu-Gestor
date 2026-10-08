@@ -70,6 +70,8 @@ final class AssistantRemoteContinuation {
   };
 
   static const Map<String, String> _clarificationQuestions = <String, String>{
+    'social_conversation':
+        'Eu sou a Luma, sua assistente financeira. Posso consultar e explicar seus dados autorizados, comparar períodos e mostrar compromissos e investimentos. O que você quer saber?',
     'intent_ambiguous': 'Me conta: o que você quer ver nas suas finanças?',
     'period_required': 'Qual período você quer olhar?',
     'scope_required': 'Que parte das suas finanças você quer consultar?',
@@ -151,12 +153,20 @@ final class AssistantRemoteResponse {
     try {
       if (value is! Map<Object?, Object?>) _unavailable();
       final Map<Object?, Object?> data = value;
-      if (_hasExactKeys(data, const <String>['status', 'contractVersion']) &&
+      final bool hasAudio = data.containsKey('audio');
+      if (_hasExactKeys(data, <String>[
+            'status',
+            'contractVersion',
+            if (hasAudio) 'audio',
+          ]) &&
           data['status'] == safeUnavailableStatus &&
           data['contractVersion'] == AssistantRemoteRequest.contractVersion) {
-        return safeUnavailable;
+        return hasAudio
+            ? AssistantRemoteResponse._(
+                audio: AssistantRemoteAudio.fromCallableData(data['audio']),
+              )
+            : safeUnavailable;
       }
-      final bool hasAudio = data.containsKey('audio');
       if (_hasExactKeys(data, <String>[
             'status',
             'contractVersion',

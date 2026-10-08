@@ -54,6 +54,7 @@ export {
   ASSISTANT_MAXIMUM_VERTEX_COST_CENTS,
   ASSISTANT_REMOTE_CALLABLE_OPTIONS,
   ASSISTANT_SAFE_UNAVAILABLE,
+  ASSISTANT_SAFE_UNAVAILABLE_VOICE_TEXT,
   createAssistRemoteV1Callables,
 } from './firebase_gen2_callable.mjs';
 export {

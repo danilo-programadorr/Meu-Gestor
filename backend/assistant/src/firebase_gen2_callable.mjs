@@ -39,6 +39,11 @@ export const ASSISTANT_SAFE_UNAVAILABLE = Object.freeze({
   contractVersion: ASSISTANT_FLUTTER_CONTRACT_VERSION,
 });
 
+// Fala controlada pelo servidor para falhas seguras no modo de voz. Ela não
+// contém fatos, valores ou uma falsa confirmação de resposta financeira.
+export const ASSISTANT_SAFE_UNAVAILABLE_VOICE_TEXT =
+  'Não consegui concluir essa resposta agora. Quer tentar de outro jeito?';
+
 export const ASSISTANT_MAXIMUM_VERTEX_COST_CENTS = Object.freeze({
   flash: 20,
   pro: 100,
@@ -224,7 +229,10 @@ export function createAssistRemoteV1Callables({
             finalStatus: 'safe_unavailable',
             reason: intentResult.providerOutputIssue ?? 'provider_reported_insufficient_evidence',
           });
-          return ASSISTANT_SAFE_UNAVAILABLE;
+          return finalizeForResponseMode({
+            response: ASSISTANT_SAFE_UNAVAILABLE,
+            text: ASSISTANT_SAFE_UNAVAILABLE_VOICE_TEXT,
+          });
         }
         // Uma intenção não resolvida é uma conversa incompleta, não uma falha
         // técnica. O servidor pede contexto sem tocar dados financeiros.
@@ -369,7 +377,10 @@ export function createAssistRemoteV1Callables({
                 ? admission.response.answer
                 : admission.response.question,
             })
-          : ASSISTANT_SAFE_UNAVAILABLE;
+          : finalizeForResponseMode({
+              response: ASSISTANT_SAFE_UNAVAILABLE,
+              text: ASSISTANT_SAFE_UNAVAILABLE_VOICE_TEXT,
+            });
       } catch (error) {
         reportRuntimeStage(
           diagnostics,

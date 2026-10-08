@@ -116,12 +116,52 @@ test('planeja intenção, período e ferramenta sem receber contexto financeiro'
   assert.equal(result.plan.periodCode, 'current_month');
   assert.equal(result.plan.financialTool, 'overview');
   assert.deepEqual(calls[0].config.responseSchema, ASSISTANT_VERTEX_PLAN_SCHEMA);
-  assert.equal(calls[0].config.maxOutputTokens, 192);
+  assert.equal(calls[0].config.maxOutputTokens, 384);
   const prompt = JSON.parse(calls[0].contents[0].parts[0].text);
   assert.equal('context' in prompt.request, false);
   assert.ok(prompt.instructions.some((item) => item.includes('até três turnos anteriores')));
   assert.ok(prompt.instructions.some((item) => item.includes('sem exigir frases predefinidas')));
   assert.doesNotMatch(JSON.stringify(prompt), /moneyCentsBrl|evidenceId/u);
+});
+
+test('planejador conhece a identidade Luma sem lista rígida de frases', async () => {
+  const calls = [];
+  const gateway = createVertexRuntimeGateway({
+    providerFeatureEnabled: true,
+    killSwitchActive: false,
+    projectIdReader: () => 'synthetic-project',
+    vertexAiFactory: async () => ({
+      models: {
+        generateContent: async (request) => {
+          calls.push(request);
+          return {
+            candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify({
+              schemaVersion: 1,
+              status: 'clarification_required',
+              intent: 'unknown',
+              clarificationCode: 'social_conversation',
+              clarificationQuestion: 'Eu sou a Luma, sua assistente financeira. Como posso ajudar você hoje?',
+              periodCode: 'none',
+              financialTool: 'none',
+            }) }] } }],
+          };
+        },
+      },
+    }),
+  });
+
+  const result = await gateway.plan({
+    execution: planningExecution,
+    maximumCostCents: 20,
+    request: { message: 'Olá, tudo bem? Qual é o seu nome?' },
+  });
+
+  assert.equal(result.plan.clarificationCode, 'social_conversation');
+  assert.match(result.plan.clarificationQuestion, /Luma/u);
+  const prompt = JSON.parse(calls[0].contents[0].parts[0].text);
+  assert.ok(prompt.instructions.some((item) => item.includes('Você é Luma')));
+  assert.ok(prompt.instructions.some((item) => item.includes('o que você faz')));
+  assert.ok(prompt.instructions.some((item) => item.includes('semanticamente')));
 });
 
 test('planejamento ambíguo pede esclarecimento sem selecionar leitor', async () => {

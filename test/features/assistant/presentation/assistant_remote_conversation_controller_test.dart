@@ -121,6 +121,36 @@ void main() {
     );
   });
 
+  test('fallback seguro preserva áudio neural sem inventar resposta', () async {
+    final Uint8List wav = Uint8List(524)
+      ..setRange(0, 4, ascii.encode('RIFF'))
+      ..setRange(8, 12, ascii.encode('WAVE'));
+    final _FakeGateway gateway = _FakeGateway(
+      result: AssistantRemoteResponse.fromCallableData(<String, Object?>{
+        'status': 'safe_unavailable',
+        'contractVersion': 'assist-remote-v1',
+        'audio': <String, Object?>{
+          'mimeType': 'audio/wav',
+          'dataBase64': base64Encode(wav),
+        },
+      }),
+    );
+    final ProviderContainer container = _container(
+      gateway: gateway,
+      enabled: true,
+    );
+    addTearDown(container.dispose);
+
+    await _request(container, voiceOnly: true);
+
+    final AssistantRemoteConversationState state = container.read(
+      assistantRemoteConversationControllerProvider,
+    );
+    expect(state.phase, AssistantRemoteConversationPhase.safeUnavailable);
+    expect(state.response, isNull);
+    expect(state.audio?.bytes, orderedEquals(wav));
+  });
+
   test('indisponibilidade e falha de contrato não inventam resposta', () async {
     final _FakeGateway gateway = _FakeGateway(
       failure: const AssistantFailure(AssistantFailureKind.unavailable),

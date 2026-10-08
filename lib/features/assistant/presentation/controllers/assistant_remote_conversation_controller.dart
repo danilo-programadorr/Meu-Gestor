@@ -238,7 +238,7 @@ final class AssistantRemoteConversationController
           ),
         );
       } else {
-        _setUnavailable(operation);
+        _setUnavailable(operation, audio: result.audio);
       }
     } on AssistantFailure {
       _setUnavailable(operation);
@@ -266,14 +266,15 @@ final class AssistantRemoteConversationController
     }
   }
 
-  void _setUnavailable(int operation) {
+  void _setUnavailable(int operation, {AssistantRemoteAudio? audio}) {
     if (!_isCurrent(operation)) return;
     _clearConversationMemory();
     _setIfCurrent(
       operation,
-      const AssistantRemoteConversationState(
+      AssistantRemoteConversationState(
         phase: AssistantRemoteConversationPhase.safeUnavailable,
         message: 'O assistente está indisponível neste momento.',
+        audio: audio,
       ),
     );
   }

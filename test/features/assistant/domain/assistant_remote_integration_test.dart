@@ -77,6 +77,17 @@ void main() {
     expect(response.requiresClarification, isTrue);
     expect(response.clarification?.intent, 'financial_overview');
 
+    final AssistantRemoteResponse
+    social = AssistantRemoteResponse.fromCallableData(<String, Object?>{
+      'status': 'clarification_required',
+      'contractVersion': 'assist-remote-v1',
+      'intent': 'unknown',
+      'clarificationCode': 'social_conversation',
+      'question':
+          'Eu sou a Luma, sua assistente financeira. Posso consultar e explicar seus dados autorizados. O que você quer saber?',
+    });
+    expect(social.clarification?.question, contains('Luma'));
+
     final AssistantRemoteContinuation investmentContinuation =
         AssistantRemoteContinuation(
           intent: 'investment_assets',
@@ -92,6 +103,35 @@ void main() {
         'intent': 'financial_overview',
         'clarificationCode': 'period_required',
         'question': r'Você quer analisar R$ 100?',
+      }),
+      throwsA(isA<AssistantFailure>()),
+    );
+  });
+
+  test('fallback seguro aceita somente áudio WAV neural opcional', () {
+    final Uint8List wav = Uint8List(524)
+      ..setRange(0, 4, ascii.encode('RIFF'))
+      ..setRange(8, 12, ascii.encode('WAVE'));
+    final AssistantRemoteResponse response =
+        AssistantRemoteResponse.fromCallableData(<String, Object?>{
+          'status': 'safe_unavailable',
+          'contractVersion': 'assist-remote-v1',
+          'audio': <String, Object?>{
+            'mimeType': 'audio/wav',
+            'dataBase64': base64Encode(wav),
+          },
+        });
+
+    expect(response.isGrounded, isFalse);
+    expect(response.audio?.bytes, orderedEquals(wav));
+    expect(
+      () => AssistantRemoteResponse.fromCallableData(<String, Object?>{
+        'status': 'safe_unavailable',
+        'contractVersion': 'assist-remote-v1',
+        'audio': <String, Object?>{
+          'mimeType': 'audio/wav',
+          'dataBase64': base64Encode(Uint8List(524)),
+        },
       }),
       throwsA(isA<AssistantFailure>()),
     );

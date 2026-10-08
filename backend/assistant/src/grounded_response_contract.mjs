@@ -23,6 +23,8 @@ const conversationIntents = new Set(ASSISTANT_CONVERSATION_INTENTS);
 const clarificationCodes = new Set(ASSISTANT_CLARIFICATION_CODES);
 
 export const ASSISTANT_CANONICAL_CLARIFICATION_QUESTIONS = Object.freeze({
+  social_conversation:
+    'Eu sou a Luma, sua assistente financeira. Posso consultar e explicar seus dados autorizados, comparar períodos e mostrar compromissos e investimentos. O que você quer saber?',
   intent_ambiguous: 'Me conta: o que você quer ver nas suas finanças?',
   period_required: 'Qual período você quer olhar?',
   scope_required: 'Que parte das suas finanças você quer consultar?',

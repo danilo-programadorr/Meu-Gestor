@@ -132,8 +132,7 @@ final class AssistantConversationController
     if (!_disposed) {
       state = state.copyWith(
         phase: AssistantConversationPhase.ready,
-        message:
-            'Não há dados confirmados suficientes para responder por voz. A limitação foi mantida em texto.',
+        message: 'Não consegui concluir essa resposta por voz agora.',
       );
     }
   }

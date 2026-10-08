@@ -13,6 +13,7 @@ import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_remote
 import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_voice.dart';
 import 'package:meu_gestor_financeiro/features/assistant/presentation/controllers/assistant_conversation_consent_controller.dart';
 import 'package:meu_gestor_financeiro/features/assistant/presentation/controllers/assistant_conversation_controller.dart';
+import 'package:meu_gestor_financeiro/features/assistant/presentation/controllers/assistant_introduction_controller.dart';
 import 'package:meu_gestor_financeiro/features/assistant/presentation/controllers/assistant_personalization_controller.dart';
 import 'package:meu_gestor_financeiro/features/assistant/presentation/controllers/assistant_remote_consent_controller.dart';
 import 'package:meu_gestor_financeiro/features/assistant/presentation/controllers/assistant_remote_conversation_controller.dart';
@@ -46,6 +47,7 @@ class _AssistantConversationPageState
   bool _conversationEnabled = false;
   bool _activationInProgress = false;
   bool _consentPromptOpen = false;
+  bool _introductionPromptOpen = false;
   bool _consentChecked = false;
   final TextEditingController _textController = TextEditingController();
   bool _textMode = false;
@@ -141,6 +143,12 @@ class _AssistantConversationPageState
     final bool effectiveRemoteConsent = consent && consentState.isReady;
     if (profile != null) {
       _scheduleConsentCheck(profile);
+    }
+    final AsyncValue<bool> introduction = ref.watch(
+      assistantIntroductionControllerProvider,
+    );
+    if (effectiveRemoteConsent && introduction.value == false) {
+      _scheduleIntroductionPrompt();
     }
     final AssistantPersonalization? personalization = ref
         .watch(assistantPersonalizationControllerProvider)
@@ -260,7 +268,7 @@ class _AssistantConversationPageState
                           ),
                         const SizedBox(height: AppSpacing.md),
                         const Text(
-                          'O app não persiste o áudio do microfone. No modo de voz, a transcrição é descartada antes da resposta. Depois da validação financeira, somente o texto aprovado é enviado ao Google Gemini-TTS e a voz retornada é reproduzida sem mostrar a resposta escrita. Se a voz neural estiver indisponível, o Android pode usar a voz local. Este modo nunca altera dados financeiros.',
+                          'O app não persiste o áudio do microfone. No modo de voz, a transcrição é descartada antes da resposta. Depois da validação financeira, somente o texto aprovado é enviado ao Google Gemini-TTS e a voz neural retornada é reproduzida sem mostrar a resposta escrita. Este modo nunca altera dados financeiros.',
                           style: TextStyle(color: Color(0xFFD5DEE7)),
                           textAlign: TextAlign.center,
                         ),
@@ -409,6 +417,51 @@ class _AssistantConversationPageState
     _consentPromptOpen = false;
   }
 
+  void _scheduleIntroductionPrompt() {
+    if (_introductionPromptOpen) return;
+    _introductionPromptOpen = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) {
+        _introductionPromptOpen = false;
+        return;
+      }
+      final ProfileGateState? currentGate = ref
+          .read(profileGateControllerProvider)
+          .value;
+      final bool stillAuthorized =
+          currentGate is ProfileGateValid &&
+          currentGate.profile.aiConsentEnabled &&
+          ref.read(assistantConversationConsentControllerProvider).isReady &&
+          ref.read(assistantIntroductionControllerProvider).value == false;
+      if (!stillAuthorized) {
+        _introductionPromptOpen = false;
+        return;
+      }
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext dialogContext) => AssistantIntroductionDialog(
+          onContinue: () async {
+            try {
+              await ref
+                  .read(assistantIntroductionControllerProvider.notifier)
+                  .markSeen();
+              if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+            } on Object {
+              if (!mounted || !dialogContext.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Não foi possível salvar esta apresentação.'),
+                ),
+              );
+            }
+          },
+        ),
+      );
+      _introductionPromptOpen = false;
+    });
+  }
+
   Future<bool?> _showMicrophoneExplanation() => showDialog<bool>(
     context: context,
     builder: (BuildContext context) => AlertDialog(
@@ -451,10 +504,10 @@ class _AssistantConversationPageState
     if (remoteState.audio case final AssistantRemoteAudio audio) {
       await _voice.playAudio(audio.bytes, valuesVisible: true);
     } else {
-      await _voice.speak(
-        remoteState.response?.answer ?? remoteState.message,
-        valuesVisible: true,
-      );
+      // Sem áudio neural validado, o app permanece silencioso: a voz local do
+      // Android não deve substituir a identidade vocal da Luma.
+      await _voice.stop(clearLastText: true);
+      _conversation.noConfirmedAnswer();
     }
   }
 
@@ -473,6 +526,27 @@ class _AssistantConversationPageState
       _activationInProgress = false;
     }
   }
+}
+
+class AssistantIntroductionDialog extends StatelessWidget {
+  const AssistantIntroductionDialog({required this.onContinue, super.key});
+
+  final Future<void> Function() onContinue;
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Prazer, eu sou a Luma'),
+    content: const Text(
+      'Posso conversar sobre seus dados financeiros autorizados, explicar resultados e pedir detalhes quando algo não estiver claro. Não faço movimentações nem recomendações financeiras.',
+    ),
+    actions: <Widget>[
+      FilledButton(
+        key: const ValueKey<String>('assistant-introduction-continue-action'),
+        onPressed: () => unawaited(onContinue()),
+        child: const Text('Começar'),
+      ),
+    ],
+  );
 }
 
 class _VoiceAction extends StatelessWidget {

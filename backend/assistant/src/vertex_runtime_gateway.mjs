@@ -17,7 +17,7 @@ export const ASSISTANT_VERTEX_API_VERSION = 'v1';
 export const ASSISTANT_VERTEX_SPEECH_MODEL = 'gemini-3.1-flash-tts-preview';
 export const ASSISTANT_VERTEX_SPEECH_VOICE = 'Sulafat';
 export const ASSISTANT_VERTEX_PROMPT_VERSION = 'assist-grounded-prompt-v7';
-export const ASSISTANT_VERTEX_PLAN_PROMPT_VERSION = 'assist-intent-plan-v2';
+export const ASSISTANT_VERTEX_PLAN_PROMPT_VERSION = 'assist-intent-plan-v3';
 
 export const ASSISTANT_VERTEX_PLAN_SCHEMA = Object.freeze({
   type: 'OBJECT',
@@ -79,7 +79,7 @@ export const ASSISTANT_VERTEX_RESPONSE_SCHEMA = Object.freeze({
     clarificationCode: {
       type: 'STRING',
       enum: [
-        'none', 'intent_ambiguous', 'period_required', 'scope_required',
+        'none', 'social_conversation', 'intent_ambiguous', 'period_required', 'scope_required',
         'comparison_basis_required',
       ],
     },
@@ -368,7 +368,10 @@ const createPlanPrompt = ({ message, continuation = undefined }) => {
       'Comparações sem base e períodos fora dos três códigos disponíveis exigem clarification_required.',
       'Quando faltar algo, faça em clarificationQuestion uma única pergunta curta, contextual e natural, terminada por interrogação.',
       'Saudações, agradecimentos e mensagens sociais curtas devem receber uma pergunta acolhedora sobre o que a pessoa quer consultar, nunca uma indisponibilidade técnica.',
-      'Não inclua números, valores, identidade ou recomendação em clarificationQuestion.',
+      'Você é Luma, uma assistente financeira. Perguntas sobre seu nome, identidade ou capacidades devem usar clarification_required, intent unknown e clarificationCode social_conversation.',
+      'Em social_conversation, responda diretamente ao conteúdo social e termine com uma pergunta curta e natural; não finja ter consultado dados financeiros.',
+      'Ao perguntarem o que você faz, explique naturalmente que pode consultar e explicar dados financeiros autorizados, comparar períodos e mostrar compromissos e investimentos; deixe claro que não movimenta dinheiro nem recomenda operações.',
+      'Não inclua números, valores, identidade da pessoa ou recomendação em clarificationQuestion.',
       'Use clarificationQuestion vazio em ready e safe_unavailable.',
       'Use uma única ferramenta compatível com a intenção; identidade, autorização e fatos serão resolvidos pelo servidor.',
       'previousMessage pode conter até três turnos anteriores da pessoa, em ordem cronológica e separados por quebra de linha.',
@@ -462,9 +465,10 @@ export const createVertexRuntimeGateway = ({
         config: Object.freeze({
           // Gemini 3.8 rejeita candidateCount e parâmetros legados de
           // amostragem; schema e thinkingLevel são os controles suportados.
-          // O plano possui poucos enums e uma pergunta curta. O teto menor
-          // reduz latência sem restringir a linguagem livre da entrada.
-          maxOutputTokens: 192,
+          // O plano possui poucos enums e uma pergunta curta. O teto cobre a
+          // saída estruturada e o raciocínio interno sem aumentar a resposta
+          // financeira nem alterar os limites de custo da chamada.
+          maxOutputTokens: 384,
           thinkingConfig: Object.freeze({
             thinkingLevel: execution.thinkingLevel,
             includeThoughts: false,

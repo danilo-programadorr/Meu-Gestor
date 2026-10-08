@@ -1034,6 +1034,26 @@ Situação: codebase `assistant` preparado somente localmente; não há Function
 - A identidade runtime é `defineString` sem valor versionado. Sem o parâmetro no processo de deploy, a configuração não pode ser materializada; nenhum `.env`, e-mail ou projeto entra no repositório.
 - Enquanto o kill switch estiver ativo e o provedor real desligado, a callable exige Auth/e-mail verificado/App Check e retorna somente `safe_unavailable`, sem consultar perfil, contexto, custos, ledger ou qualquer banco. Flash/Pro continuam contratos internos para ativação futura autorizada.
 
+## 76. ASSIST-LUMA-RESILIENCE-INTRO-1 — identidade, voz e apresentação
+
+Situação: implementado e validado localmente. Publicação development, deploy e
+novo APK permanecem pendentes de autorização específica.
+
+- O teto do planejador passa de 192 para 384 tokens para evitar o truncamento
+  estruturado observado, sem alterar quotas, custo máximo ou a saída da resposta
+  financeira.
+- O planejamento sem dados financeiros conhece a identidade Luma e responde
+  semanticamente a perguntas sociais sobre nome e capacidades, sem catálogo de
+  frases e sem ler contexto owner-scoped.
+- `safe_unavailable` em voz pode transportar somente WAV neural sintetizado a
+  partir de texto canônico do servidor. Sem esse áudio, o Flutter fica
+  silencioso e não usa a voz local do Android.
+- Uma apresentação curta da Luma aparece uma única vez por conta, depois do
+  consentimento efetivo. O marcador permanece local, isolado pelo proprietário,
+  e não é enviado à callable ou ao modelo.
+- Evidências, fontes, períodos, isolamento, consentimento, App Check, ledger e
+  admissão fail-closed permanecem inalterados.
+
 ## 69. ASSIST-ACTIVATION-PLAN-FIX-1 — capacidade do plano e diagnóstico
 
 Situação: corrigido e validado localmente antes do checkpoint development.
@@ -1281,7 +1301,8 @@ privacidade financeira e à revalidação do backend.
   estado visual e reproduz somente a resposta ou indisponibilidade segura em
   áudio; ela não mostra cartão de resposta escrita nesse modo.
 - A reprodução remota usa voz feminina pt-BR `Sulafat` do Gemini-TTS somente
-  depois da admissão do texto; o TTS Android permanece fallback. O núcleo visual passa a representar um
+  depois da admissão do texto; o TTS Android não substitui a voz neural quando
+  o áudio remoto está ausente. O núcleo visual passa a representar um
   pulso elétrico com quatro ondas e noventa partículas menores, preservando a
   preferência de redução de movimento do sistema.
 - Privacidade e consentimentos só permitem editar o aceite remoto depois de o
