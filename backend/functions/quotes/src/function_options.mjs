@@ -1,9 +1,9 @@
-import { defineString } from 'firebase-functions/params';
+import { defineSecret, defineString } from 'firebase-functions/params';
 
 /// Valores específicos de ambiente são parâmetros de deploy, nunca valores
-/// versionados. Os segredos de provedor e chamada interna ainda não existem;
-/// por isso, este bootstrap não os declara nem os vincula ao artefato.
+/// versionados. O token é lido exclusivamente do Secret Manager pelo runtime.
 export const quotesRuntimeServiceAccount = defineString('QUOTES_RUNTIME_SERVICE_ACCOUNT');
+export const brapiApiToken = defineSecret('BRAPI_API_TOKEN');
 
 export const QUOTE_FUNCTION_OPTIONS = Object.freeze({
   region: 'southamerica-east1',
@@ -14,4 +14,5 @@ export const QUOTE_FUNCTION_OPTIONS = Object.freeze({
   minInstances: 0,
   concurrency: 1,
   invoker: 'private',
+  secrets: [brapiApiToken],
 });

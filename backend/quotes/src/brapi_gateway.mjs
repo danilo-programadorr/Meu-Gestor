@@ -7,21 +7,31 @@ import {
 import { QuoteStatus } from './quote_mapper.mjs';
 
 const BRAPI_ENDPOINT = 'https://brapi.dev/api/quote/';
+export const BRAPI_FREE_PLAN_MAX_TARGETS = 1;
 
 /// Adapter BRAPI isolado: a resposta externa jamais sai deste arquivo como
 /// preço decimal/floating point ou contrato da aplicação.
 export class BrapiDelayedQuoteGateway {
-  constructor({ fetchImpl = globalThis.fetch, token = () => null, clock }) {
+  constructor({ fetchImpl = globalThis.fetch, token = () => null, clock, timeoutMs = 10000 }) {
     if (typeof fetchImpl !== 'function' || typeof token !== 'function' || typeof clock !== 'function') {
       throw new TypeError('quote_invalid_brapi_dependencies');
+    }
+    if (!Number.isInteger(timeoutMs) || timeoutMs < 1000 || timeoutMs > 15000) {
+      throw new TypeError('quote_invalid_provider_timeout');
     }
     this.fetchImpl = fetchImpl;
     this.token = token;
     this.clock = clock;
+    this.timeoutMs = timeoutMs;
   }
 
   async fetchBatch(targets) {
     const normalizedTargets = normalizeTargets(targets);
+    // O plano Gratuito permite somente um ticker por requisição. Este bloqueio
+    // impede que expansão administrativa do catálogo aumente consumo em silêncio.
+    if (normalizedTargets.length > BRAPI_FREE_PLAN_MAX_TARGETS) {
+      fail('quote_provider_plan_limit_exceeded');
+    }
     const apiToken = this.token();
     if (typeof apiToken !== 'string' || apiToken.trim().length === 0) {
       fail('quote_provider_not_configured');
@@ -32,14 +42,26 @@ export class BrapiDelayedQuoteGateway {
     url.searchParams.set('interval', '1d');
     url.searchParams.set('fundamental', 'false');
     url.searchParams.set('token', apiToken);
-    const response = await this.fetchImpl(url, {
-      method: 'GET',
-      headers: { Accept: 'application/json' },
-    });
+    let response;
+    try {
+      response = await this.fetchImpl(url, {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+        signal: AbortSignal.timeout(this.timeoutMs),
+      });
+    } catch (error) {
+      fail(error?.name === 'TimeoutError' || error?.name === 'AbortError'
+        ? 'quote_provider_timeout' : 'quote_provider_unavailable');
+    }
     if (!response || response.ok !== true) {
       fail('quote_provider_unavailable');
     }
-    const payload = await response.json();
+    let payload;
+    try {
+      payload = await response.json();
+    } catch {
+      fail('quote_provider_invalid_payload');
+    }
     return mapBrapiPayload({ payload, targets: normalizedTargets, capturedAt: this.clock() });
   }
 }

@@ -96,10 +96,71 @@ describe('PersistentQuoteRefreshService', () => {
       clock: () => new Date('2026-08-18T12:05:00.000Z'),
       logger: { info() {}, warn(entry) { entries.push(entry); } },
     });
-    await service.refresh({ requestId, targets: [target] });
+    await assert.rejects(service.refresh({ requestId, targets: [target] }), {
+      message: 'quote_provider_unavailable',
+    });
     assert.equal(storage.failures.get('PETR4'), 'quote_provider_unavailable');
     assert.deepEqual(entries, [{
       event: 'quote_refresh_failed', requestId, targetCount: 1, code: 'quote_provider_unavailable',
     }]);
+  });
+
+  test('concorrência mantém uma única chamada ao provedor', async () => {
+    const storage = new FakeQuoteStorage();
+    let release;
+    const blocked = new Promise((resolve) => { release = resolve; });
+    let calls = 0;
+    const service = new PersistentQuoteRefreshService({
+      storage,
+      gateway: { async fetchBatch() { calls += 1; await blocked; return [quote()]; } },
+      clock: () => new Date('2026-08-18T12:05:00.000Z'),
+    });
+    const first = service.refresh({ requestId, targets: [target] });
+    const second = service.refresh({ requestId, targets: [target] });
+    release();
+    await Promise.all([first, second]);
+    assert.equal(calls, 1);
+  });
+
+  test('ticker omitido falha fechado e uma execução posterior pode recuperar', async () => {
+    const storage = new FakeQuoteStorage();
+    let available = false;
+    const service = new PersistentQuoteRefreshService({
+      storage,
+      gateway: { async fetchBatch() { return available ? [quote()] : []; } },
+      clock: () => new Date('2026-08-18T12:05:00.000Z'),
+    });
+    await assert.rejects(service.refresh({ requestId, targets: [target] }), {
+      message: 'quote_provider_missing_ticker',
+    });
+    assert.equal(storage.failures.get('PETR4'), 'quote_provider_missing_ticker');
+    storage.failures.delete('PETR4');
+    available = true;
+    const recovered = await service.refresh({
+      requestId: 'request_synthetic_recovery_20260818',
+      targets: [target],
+    });
+    assert.equal(recovered.length, 1);
+  });
+
+  test('valida o lote inteiro antes de persistir qualquer snapshot', async () => {
+    const storage = new FakeQuoteStorage();
+    const service = new PersistentQuoteRefreshService({
+      storage,
+      gateway: {
+        async fetchBatch() {
+          return [
+            quote(),
+            quote({ ticker: 'HGLG11', priceScaled: 0, variationBasisPoints: 10 }),
+          ];
+        },
+      },
+      clock: () => new Date('2026-08-18T12:05:00.000Z'),
+    });
+    await assert.rejects(service.refresh({
+      requestId: 'request_synthetic_atomic_validation',
+      targets: [target, { ticker: 'HGLG11', assetType: 'fii' }],
+    }), { message: 'quote_status_price_mismatch' });
+    assert.equal(storage.snapshots.size, 0);
   });
 });

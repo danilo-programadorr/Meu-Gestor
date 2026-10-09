@@ -29,6 +29,9 @@
       "source": "backend/functions/quotes",
       "codebase": "quotes",
       "runtime": "nodejs22",
+      "predeploy": [
+        "npm --prefix backend/functions/quotes run prepare:shared"
+      ],
       "ignore": [
         "node_modules",
         ".git",

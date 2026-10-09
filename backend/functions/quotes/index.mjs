@@ -1,20 +1,25 @@
+import { getApps, initializeApp } from 'firebase-admin/app';
+import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { onRequest } from 'firebase-functions/v2/https';
 
-import { QUOTE_FUNCTION_OPTIONS } from './src/function_options.mjs';
+import { brapiApiToken, QUOTE_FUNCTION_OPTIONS } from './src/function_options.mjs';
 import { createQuoteRefreshHttp } from './src/quote_refresh_http.mjs';
+import { createQuoteRuntime } from './src/quote_runtime.mjs';
 
-// O bootstrap development não carrega gateway nem storage. A integração real
-// só poderá ser conectada após segredos, regras e ativação próprios aprovados.
-const disabledRefreshService = Object.freeze({
-  async refresh() {
-    throw new Error('quote_refresh_not_configured');
-  },
+/// Bootstrap operacional development. A abertura deste bloco compõe somente
+/// catálogo global, snapshots globais e segredo de runtime; não lê usuários.
+if (getApps().length === 0) initializeApp();
+const runtime = createQuoteRuntime({
+  firestore: getFirestore(),
+  Timestamp,
+  token: () => brapiApiToken.value(),
+  logger: console,
 });
 
 export const refreshDelayedMarketQuotes = createQuoteRefreshHttp({
   onRequest,
   options: QUOTE_FUNCTION_OPTIONS,
-  refreshService: disabledRefreshService,
-  sharedSecret: () => null,
+  catalog: runtime.catalog,
+  refreshService: runtime.refreshService,
   logger: console,
 });

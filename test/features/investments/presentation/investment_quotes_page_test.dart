@@ -49,6 +49,14 @@ void main() {
     await tester.drag(find.byType(Scrollable).first, const Offset(0, -500));
     await tester.pumpAndSettle();
     expect(find.text('Cotações indisponíveis'), findsOneWidget);
+    expect(
+      find.text('Ainda não há snapshots de mercado confirmados para exibir.'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('não existe um provedor autorizado'),
+      findsNothing,
+    );
     expect(find.text('Indisponível'), findsNWidgets(3));
     expect(tester.takeException(), isNull);
   });

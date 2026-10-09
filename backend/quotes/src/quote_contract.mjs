@@ -9,8 +9,8 @@ export const QUOTE_SCHEMA_VERSION = 1;
 export const QUOTE_MARKET = 'B3';
 export const QUOTE_SOURCE = 'brapi';
 export const MAX_BATCH_SIZE = 50;
-export const DEFAULT_DECLARED_DELAY_SECONDS = 15 * 60;
-export const DEFAULT_STALE_AFTER_SECONDS = 30 * 60;
+export const DEFAULT_DECLARED_DELAY_SECONDS = 30 * 60;
+export const DEFAULT_STALE_AFTER_SECONDS = 60 * 60;
 
 const tickerExpression = /^[A-Z]{4}[0-9]{1,2}$/;
 

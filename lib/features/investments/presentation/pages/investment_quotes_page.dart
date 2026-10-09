@@ -301,7 +301,7 @@ class _Unavailable extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.xs),
           const Text(
-            'Ainda não existe um provedor autorizado nem snapshots de mercado confirmados para exibir.',
+            'Ainda não há snapshots de mercado confirmados para exibir.',
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: AppSpacing.md),

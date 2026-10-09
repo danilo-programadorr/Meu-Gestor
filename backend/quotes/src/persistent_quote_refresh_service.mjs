@@ -45,6 +45,7 @@ export class PersistentQuoteRefreshService {
       const raw = await this.gateway.fetchBatch(accepted);
       if (!Array.isArray(raw)) fail('quote_gateway_invalid_batch');
       const received = new Set();
+      const normalizedQuotes = [];
       for (const item of raw) {
         const target = accepted.find((candidate) => candidate.ticker === item?.ticker);
         if (!target || received.has(target.ticker)) fail('quote_gateway_duplicate_or_unrequested');
@@ -62,8 +63,7 @@ export class PersistentQuoteRefreshService {
           capturedAt,
           staleAfter: new Date(capturedAt.getTime() + DEFAULT_STALE_AFTER_SECONDS * 1000),
         });
-        await this.storage.complete({
-          requestId: normalizedRequestId,
+        normalizedQuotes.push({
           target,
           quote: quoteSnapshotDocument({
             ...quote,
@@ -71,13 +71,19 @@ export class PersistentQuoteRefreshService {
                 ? item.declaredDelaySeconds : DEFAULT_DECLARED_DELAY_SECONDS,
             staleAfter: item.staleAfter ?? quote.staleAfter,
           }),
+        });
+      }
+      if (accepted.some((target) => !received.has(target.ticker))) {
+        fail('quote_provider_missing_ticker');
+      }
+      for (const normalized of normalizedQuotes) {
+        await this.storage.complete({
+          requestId: normalizedRequestId,
+          target: normalized.target,
+          quote: normalized.quote,
           now: this.clock(),
         });
       }
-      for (const target of accepted.filter((target) => !received.has(target.ticker))) {
-        await this.storage.fail({ requestId: normalizedRequestId, target, now: this.clock(), code: 'quote_provider_missing_ticker' });
-      }
-      this.logger.info({ event: 'quote_refresh_completed', requestId: normalizedRequestId, targetCount: accepted.length });
     } catch (error) {
       const code = safeErrorCode(error);
       await Promise.all(accepted.map((target) => this.storage.fail({
@@ -89,9 +95,17 @@ export class PersistentQuoteRefreshService {
         maximumCircuitDelayMs,
       })));
       this.logger.warn({ event: 'quote_refresh_failed', requestId: normalizedRequestId, targetCount: accepted.length, code });
+      throw safeFailure(code);
     }
+    this.logger.info({ event: 'quote_refresh_completed', requestId: normalizedRequestId, targetCount: accepted.length });
     return this.storage.read(normalizedTargets.map((target) => target.ticker));
   }
+}
+
+function safeFailure(code) {
+  const error = new Error(code);
+  error.code = code;
+  return error;
 }
 
 function safeErrorCode(error) {

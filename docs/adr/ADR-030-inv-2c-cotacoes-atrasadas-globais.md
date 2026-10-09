@@ -1,5 +1,9 @@
 # ADR-030 — INV-2C: snapshots globais de cotações atrasadas
 
+> Atualização: a composição operacional local, o catálogo server-only, a BRAPI
+> aprovada e o FREE-1 são regidos pela ADR-056. As barreiras de snapshot,
+> persistência global e ausência de dados de usuário continuam vigentes.
+
 ## Contexto
 
 O INV-2B definiu o contrato de cotação e da rentabilidade estimada sem persistência ou provedor. O aplicativo precisa consumir somente snapshots confirmados, sem consultar mercado por usuário, sem alterar posições manuais e sem fazer da cotação uma recomendação financeira.

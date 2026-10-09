@@ -23,8 +23,8 @@ Estado: implementada e validada exclusivamente localmente. As regras não foram 
 |---|---|---|
 | carteiras, ativos e operações | `investmentsManual` | `investmentsManual` integral |
 | proventos | `investmentIncome` | `investmentIncome` integral |
-| cotações | não implementada | `investmentQuotes` não cria funcionalidade |
-| calculadoras e análises | não implementadas | capabilities reservadas não criam funcionalidade |
+| cotações | FREE-1: leitura gratuita sujeita às barreiras financeiras comuns | escrita exclusivamente server-side |
+| calculadoras e análises | FREE-1: uso gratuito | não persistem resultado nem exigem capability |
 
 ## Defesas
 

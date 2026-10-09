@@ -2282,6 +2282,12 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Catálogo global é administrado exclusivamente pelo backend. Nem a lista
+    // de tickers nem seus controles operacionais são expostos ao aplicativo.
+    match /_marketQuoteCatalog/{document=**} {
+      allow read, write: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

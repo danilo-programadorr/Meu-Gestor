@@ -4,7 +4,7 @@
 
 O módulo acompanha ações e fundos imobiliários em BRL a partir de operações inseridas manualmente. Ele não movimenta dinheiro no núcleo financeiro: contas, saldo, receitas, despesas, compromissos, saldo inicial e resumo mensal permanecem inalterados.
 
-Não há cotações, APIs externas, corretoras, Open Finance, agenda automática, cálculo tributário, desdobramentos, bonificações, subscrições, transferências de custódia ou dados simulados. O INV-PROV-1 aceita somente proventos informados manualmente e imposto retido conhecido pelo usuário.
+O acompanhamento e os lançamentos permanecem manuais. Cotações atrasadas BRAPI são um recurso global separado, sem alterar operações; não há corretoras, Open Finance, agenda automática, cálculo tributário, desdobramentos, bonificações, subscrições, transferências de custódia ou dados simulados. O INV-PROV-1 aceita somente proventos informados manualmente e imposto retido conhecido pelo usuário.
 
 ## Camadas
 
@@ -50,7 +50,7 @@ Leituras e alterações relevantes exigem confirmação do servidor. Timeout, in
 
 ## Experiência e privacidade
 
-Investimentos são acessados pelo grupo Patrimônio no Menu da Home e não ocupam uma seção do dashboard. A interface explica que o acompanhamento não altera saldo e que não existe cotação. Estados de carregamento, vazio, falha e retry são explícitos.
+Investimentos são acessados pelo grupo Patrimônio no Menu da Home e não ocupam uma seção do dashboard. A interface explica que o acompanhamento não altera saldo e separa a cotação atrasada do custo manual. Estados de carregamento, vazio, falha e retry são explícitos.
 
 Valores e quantidades seguem a privacidade global compartilhada com a Home. Layouts cobrem temas claro/escuro, 320 px, fonte ampliada, rolagem, alvos de toque, tooltips e texto equivalente a indicadores visuais.
 
@@ -64,7 +64,7 @@ O FAIR-VALUE-0 acrescenta a rota interna Investimentos > Análises > Preço just
 
 O redesign UI-INV-1B permanece integralmente na apresentação. A área usa seletor de carteira e abas Resumo, Ativos, Lançamentos e Proventos. Evolução de compras/vendas é agregada das operações ativas; alocação usa o custo canônico das posições abertas. Busca, filtros e ordenação não gravam estado remoto.
 
-A prévia do formulário não cria uma segunda regra financeira: quantidade e preço continuam escalados, valor bruto e possível média usam `InvestmentArithmetic`, e a confirmação persiste o mesmo `InvestmentOperationDraft` validado pelo fluxo original. O INV-2C acrescenta snapshots globais `marketQuoteSnapshots/{ticker}` e leitor Firestore server-only: cada documento estrito tem ticker, classe, BRL, mercado B3, fonte, preço escalado, variação em pontos-base, horário observado, captura, atraso, validade, estado e versão. O app só faz `get` por ticker conhecido com `investmentQuotes` integral; não há listagem, escrita cliente, cache como autoridade ou bypass owner. O backend Gen 2 local usa lote interno, cache global, lease, idempotência, circuito e observabilidade sanitizada; BRAPI é adaptador opcional sem token/configuração/chamada real. Valor estimado, resultado não realizado, realizado e proventos são decompostos; total e evolução não aparecem com cobertura parcial ou histórico inexistente. Cotações não alteram nenhuma operação ou dado financeiro.
+A prévia do formulário não cria uma segunda regra financeira: quantidade e preço continuam escalados, valor bruto e possível média usam `InvestmentArithmetic`, e a confirmação persiste o mesmo `InvestmentOperationDraft` validado pelo fluxo original. O INV-2C acrescenta snapshots globais `marketQuoteSnapshots/{ticker}` e leitor Firestore server-only: cada documento estrito tem ticker, classe, BRL, mercado B3, fonte, preço escalado, variação em pontos-base, horário observado, captura, atraso, validade, estado e versão. Pelo FREE-1, o app faz somente `get` por ticker conhecido após as barreiras financeiras comuns; não há entitlement, listagem, escrita cliente, cache como autoridade ou bypass owner. O backend Gen 2 lê catálogo global server-only, rejeita listas do aplicativo e usa lote limitado, lease, idempotência, circuito e observabilidade sanitizada. A BRAPI foi aprovada, mas token, identidade, Scheduler, catálogo inicial e deploy permanecem externos ao código. Valor estimado, resultado não realizado, realizado e proventos são decompostos; total e evolução não aparecem com cobertura parcial ou histórico inexistente. Cotações não alteram nenhuma operação ou dado financeiro.
 
 ## INV-PROV-1 — proventos manuais
 

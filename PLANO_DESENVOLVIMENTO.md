@@ -880,7 +880,7 @@ Situação: implementado localmente, sem API, cotação, Firebase ou escrita na 
 
 ## 42. INV-2B — Cotações atrasadas e rentabilidade estimada
 
-Situação: implementação local preparada, sem provedor escolhido, API, chave, Firebase, Scheduler, Function, coleção ou cotação real.
+Situação: contrato e experiência local preparados; BRAPI aprovada como provedor independente. A ativação development ainda depende de segredo, identidade, catálogo inicial, Scheduler e publicação autorizados separadamente.
 
 - Cotações são snapshots globais de ação/FII em BRL por ticker, com preço escalado, horário da fonte, captura, atraso e validade declarados. Estados indisponível, inválido, mercado fechado, atrasado e possível evento corporativo são explícitos; resposta sem horário, preço não positivo ou mais antiga é recusada.
 - O gateway local é independente de provedor e trabalha em lotes deduplicados, cache global, lease, retry idempotente e circuit breaker. Não há consulta por usuário, chamada de API nem dado fictício no aplicativo.
@@ -890,14 +890,14 @@ Situação: implementação local preparada, sem provedor escolhido, API, chave,
 
 ## 43. INV-2C-A + INV-2C-B — Implementação local de cotações atrasadas
 
-Situação: preparada localmente, sem deploy, publicação de Rules, Function, Scheduler, Secret Manager, API, IAM, provedor contratado ou chamada real.
+Situação: composição operacional local concluída com BRAPI aprovada, sem deploy, publicação de Rules, Function, Scheduler, Secret Manager, IAM ou chamada real.
 
-- `backend/quotes` mantém o contrato provider-neutral, o gateway BRAPI opcional e o processador de lote global. O adaptador usa somente `fetch` nativo Node 22, converte preço/variação para inteiros escalados e falha fechada sem token de runtime.
-- `backend/functions/quotes` prepara uma Function Gen 2 interna com região `southamerica-east1`, Node 22, 256 MiB, timeout de 30 segundos, concorrência 1, mínimo 0 e máximo 1 instância. A identidade runtime e os segredos são parâmetros não versionados; o endpoint não é chamado pelo aplicativo.
-- Os documentos globais `marketQuoteSnapshots/{ticker}` e internos de lease/request/circuit não incluem usuário, carteira, posição, operação, custo, preço médio ou token. Requisições internas usam lote máximo de 50, idempotência, lease e monotonicidade por horário observado.
+- `backend/quotes` mantém o contrato provider-neutral, o gateway BRAPI aprovado e o processador de lote global. O adaptador usa somente `fetch` nativo Node 22, converte preço/variação para inteiros escalados e falha fechada sem token de runtime.
+- `backend/functions/quotes` compõe uma Function Gen 2 interna com região `southamerica-east1`, Node 22, 256 MiB, timeout de 30 segundos, concorrência 1, mínimo 0 e máximo 1 instância. O endpoint privado deriva idempotência do Scheduler, lê catálogo global server-only e rejeita listas fornecidas no payload. Enquanto vigorar o plano BRAPI Gratuito, a composição falha fechada acima de um ticker ativo. A identidade runtime e o token BRAPI são parâmetros não versionados; o endpoint não é chamado pelo aplicativo.
+- Os documentos globais `marketQuoteSnapshots/{ticker}` e internos de lease/request/circuit não incluem usuário, carteira, posição, operação, custo, preço médio ou token. O contrato interno mantém lote máximo provider-neutral de 50, mas o adaptador Gratuito aceita somente um alvo, com idempotência, lease e monotonicidade por horário observado.
 - Rules locais permitem somente `get` por ticker a usuário autenticado, com e-mail confirmado e perfil jurídico atual; listagem, escrita e acesso a internos são negados, inclusive para owner. Nenhuma capability comercial é consultada. Não há índice composto porque a consulta atual é por ID; qualquer índice futuro será guiado por consulta aprovada.
 - A tela recebe somente snapshots server-only já confirmados e preserva estados atrasado, fechado, indisponível, inválido, possível evento corporativo e cobertura parcial. Patrimônio/resultado estimados não substituem custo, operação, provento, conta, saldo ou resumo mensal.
-- Antes de ativar: aprovar licença/cobertura e limite do provedor, criar segredo no cofre, configurar identidade runtime e Scheduler interno, revisar custos, publicar Function/Rules em autorização independente e validar com dados não pessoais. B3 e corretoras seguem canceladas como integração.
+- Antes de ativar: materializar somente o escopo já aprovado de cobertura, atraso e limites da BRAPI; criar segredo no cofre, configurar identidade runtime e Scheduler interno, cadastrar o catálogo inicial, revisar custos, publicar Function/Rules em autorização independente e validar com tickers públicos. B3 e corretoras seguem canceladas como integração.
 
 ## 44. CRUD-AUDIT-1 + INV-CALC-2 — ações completas e calculadoras inequívocas
 

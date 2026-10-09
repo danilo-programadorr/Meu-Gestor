@@ -346,18 +346,18 @@
 | INV-2B-002 | Não consultar por usuário | P0 | INV-2B | gateway recebe somente lotes de tickers; cache, lease e circuit breaker são globais | implementado localmente | job backend futuro | crítico | reduz chamadas |
 | INV-2B-003 | Separar rentabilidade | P0 | INV-2B | valor estimado, não realizado, realizado e proventos são decompostos; total exige cobertura completa | implementado localmente | snapshots confirmados | alto | CPU local |
 | INV-2B-004 | Não inventar histórico | P0 | INV-2B | cobertura parcial e ausência mostram indisponibilidade; evolução exige snapshot real | implementado localmente | persistência futura | crítico | baixo |
-| INV-2B-005 | Proteger serviço Premium | P0 | INV-2B | rota usa `investmentQuotes` e confirmação server-side; cache não concede acesso | implementado localmente | entitlement confirmado | alto | evita consumo indevido |
+| INV-2B-005 | Proteger leitura gratuita | P0 | INV-2B | FREE-1 remove entitlement, mas mantém autenticação, e-mail confirmado, perfil jurídico, leitura server-only e cache sem autoridade | implementado localmente | snapshots confirmados | alto | evita consumo e dado não confirmado |
 
 ## Incremento INV-2C-A + INV-2C-B — Cotações atrasadas globais
 
 | ID | Requisito | Prioridade | Incremento | Critério de aceite | Situação atual | Dependências | Impacto de segurança | Impacto de custo |
 |---|---|---:|---:|---|---|---|---|---|
-| INV-2C-001 | Isolar provedor | P0 | INV-2C-A | adaptador BRAPI fica atrás do gateway provider-neutral, sem token/versionamento de chave ou consulta por usuário | implementado localmente | aprovação comercial futura | crítico | chamada futura por lote |
+| INV-2C-001 | Isolar provedor | P0 | INV-2C-A | adaptador BRAPI aprovado fica atrás do gateway provider-neutral, com token somente server-side e sem consulta por usuário | implementado localmente | ativação development separada | crítico | plano Gratuito limitado a um ticker ativo por chamada; contrato interno permanece provider-neutral |
 | INV-2C-002 | Persistir snapshot global estrito | P0 | INV-2C-A | `marketQuoteSnapshots/{ticker}` usa preço escalado, BRL, B3, tempos, atraso, estado e campos exatos | implementado localmente | Firestore backend futuro | crítico | uma escrita global por ticker atualizado |
 | INV-2C-003 | Proteger atualização | P0 | INV-2C-A | lote deduplicado, lease, requestId, resposta monotônica e circuit breaker impedem repetição/concorrência/retrocesso | implementado localmente e coberto | Function/Scheduler futuros | crítico | leituras transacionais globais |
-| INV-2C-004 | Expor somente serviço Premium vigente | P0 | INV-2C-B | Rules permitem `get` por ticker e negam list, escrita, internos, expirado e owner especial | local e coberto pelo Emulator | publicação separada de Rules | crítico | leitura direta por ticker |
+| INV-2C-004 | Expor somente leitura financeira válida | P0 | INV-2C-B | FREE-1 permite `get` por ticker a usuário financeiro válido; Rules negam listagem, escrita, catálogo, internos e bypass owner | local e coberto pelo Emulator | publicação separada de Rules | crítico | leitura direta por ticker |
 | INV-2C-005 | Preservar estimativas honestas | P0 | INV-2C-B | stale, indisponível, fechado e cobertura parcial não geram patrimônio/total/histórico fictício | implementado e coberto | snapshots confirmados | alto | neutro |
-| INV-2C-006 | Preparar operação sem recurso externo | P0 | INV-2C-B | Gen 2 Node 22, segredo/agenda parametrizados e logs sanitizados falham fechados sem Secret Manager/Scheduler/deploy | implementado localmente | autorização externa própria | crítico | mínimo 0; máximo 1 instância |
+| INV-2C-006 | Compor operação controlada | P0 | INV-2C-B | Gen 2 Node 22 usa catálogo server-only, Secret Manager parametrizado, IAM privado, idempotência por horário do Scheduler e logs sanitizados | implementado e testado localmente | recursos development ainda não criados | crítico | mínimo 0; máximo 1 instância |
 
 ## Incremento UI-INV-1B — Redesign visual de investimentos
 
@@ -392,7 +392,7 @@
 | SUB-001-1A | Modelar planos e entitlement puro | P0 | SUB-1A | gratuito é ausência; mensal/anual não têm preço e compartilham capabilities; entidade não importa Flutter/Firebase/pagamentos | implementado e coberto unitariamente | nenhuma dependência nova | alto | neutro |
 | SUB-002-1A | Representar ciclo completo | P0 | SUB-1A | dez estados canônicos validam período, carência, cancelamento, expiração, revogação e reembolso | implementado e coberto | instante UTC injetado | crítico | neutro |
 | SUB-003-1A | Decidir acesso explicitamente | P0 | SUB-1A | resultado informa integral/somente leitura/negado, motivo, validade, carência, cancelamento e releitura | implementado e coberto nos limites exatos | entidade válida | crítico | neutro |
-| SUB-004-1A | Preservar dados após expiração | P0 | SUB-1A | carteira, ativos, operações e proventos permanecem legíveis; mutações e cotação são negadas; nenhum saldo muda | política aplicada localmente pelo SUB-1C | SUB-1B/SUB-1C | crítico | reduz consumo de cotação |
+| SUB-004-1A | Preservar dados após expiração | P0 | SUB-1A | FREE-1 torna carteira, ativos, operações, proventos e cotações independentes de assinatura; nenhum saldo muda | substituído pelo FREE-1 | barreiras financeiras comuns | crítico | neutro |
 | SUB-005-1A | Reconciliar eventos determinísticos | P0 | SUB-1A | revisão antiga/repetida, período regressivo, owner/ambiente divergente e restauração terminal são negados | implementado em política de transição | backend futuro | crítico | neutro |
 | SUB-006-1A | Restringir contrato cliente | P0 | SUB-1A | repositório prevê somente leitura, observação confirmada, releitura e diagnóstico sanitizado; nenhuma mutação | interface pura criada, sem implementação | backend/persistência futuros | crítico | neutro |
 | SUB-007-1A | Manter fronteiras operacionais | P0 | SUB-1A | sem Billing, produto, backend, persistência, regras, paywall, grant owner ou bloqueio atual | confirmado por auditoria e hash das regras | autorização futura | crítico | nenhum serviço externo |
@@ -442,7 +442,7 @@
 | SUB-003-1E | Manter compra e restauração falha-fechadas | P0 | SUB-1E-1 | pendente, cancelamento, timeout, perda de conexão, resposta tardia e restauração sem verificação não concedem entitlement | autorizado para testes locais | verificador futuro | crítico | neutro |
 | SUB-004-1E | Preparar verificação e RTDN sem rede | P0 | SUB-1E-1 | contratos estritos, fakes e fixtures sintéticas isolam futura Google Play Developer API/RTDN; token não é persistido de forma durável nem logado, e a fixture o mantém somente de modo transitório até acknowledgement/limpeza | autorizado para implementação local | backend futuro | crítico | zero externo nesta etapa |
 | SUB-005-1E | Informar preço e margem com precisão | P1 | SUB-1E-1 | preços aprovados são parâmetros Play Brasil; margem líquida depende de taxa Play, impostos, reembolsos e custos Cloud | documentado | contabilidade operacional futura | alto | neutro |
-| SUB-006-1E | Preservar escopo gratuito e investimentos | P0 | SUB-1E-1 | investimentos/proventos Premium, núcleo financeiro gratuito, sem B3, corretora, cotação ou dados fictícios | autorizado | SUB-1C e políticas Premium | crítico | neutro |
+| SUB-006-1E | Preservar escopo gratuito e investimentos | P0 | FREE-1 | investimentos, proventos, calculadoras, análises e leitura de cotações são gratuitos; sem B3, corretora ou dados fictícios | autorizado | barreiras financeiras comuns | crítico | cotação global limitada |
 
 ## Incremento SUB-1E-2 — Concessão segura de teste fechado local
 

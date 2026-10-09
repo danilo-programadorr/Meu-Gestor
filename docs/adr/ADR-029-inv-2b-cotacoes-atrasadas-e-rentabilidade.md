@@ -1,5 +1,10 @@
 # ADR-029 — INV-2B: cotações atrasadas e rentabilidade estimada
 
+> Atualização: a seleção operacional da BRAPI e o acesso gratuito pelo FREE-1
+> são regidos pela ADR-056. O contrato financeiro e de cobertura desta ADR
+> permanece válido; as referências a provedor não escolhido e Premium são
+> históricas.
+
 ## Contexto
 
 O acompanhamento manual já registra custo, operações, resultado realizado e proventos. O aplicativo não pode preencher preço de mercado, rentabilidade ou série histórica sem uma fonte autorizada, e a integração B3/corretora permanece cancelada.

@@ -1,4 +1,6 @@
-import { QUOTE_COLLECTIONS, QUOTE_SCHEMA_VERSION } from '../../../quotes/src/quote_contract.mjs';
+import { QUOTE_COLLECTIONS, QUOTE_SCHEMA_VERSION } from '../shared/quote_contract.mjs';
+
+const requestRetentionMs = 30 * 24 * 60 * 60 * 1000;
 
 /// Adaptador Admin: todas as transações usam apenas coleções globais de
 /// mercado; UID, carteira, posição, operação e valor do usuário não entram.
@@ -109,6 +111,8 @@ export function createFirestoreQuoteStorage({ firestore, Timestamp }) {
 }
 
 function requestDocument({ requestId, target, now, status, code = null, snapshotWritten = null }) {
+  // Metadado técnico sem conteúdo financeiro; a política TTL externa continua
+  // desativada até autorização e mantém a idempotência por trinta dias.
   return {
     requestId,
     ticker: target.ticker,
@@ -117,6 +121,7 @@ function requestDocument({ requestId, target, now, status, code = null, snapshot
     ...(code === null ? {} : { code }),
     ...(snapshotWritten === null ? {} : { snapshotWritten }),
     updatedAt: now,
+    expiresAt: new Date(now.getTime() + requestRetentionMs),
     schemaVersion: QUOTE_SCHEMA_VERSION,
   };
 }

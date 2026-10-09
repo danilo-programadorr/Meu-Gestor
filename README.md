@@ -57,7 +57,7 @@ Limites atuais:
 
 - não existem ambiente de produção, assinatura real, cobrança, paywall, produto criado no Play Console, entitlement no Firebase real, backend implantado, Google Play Billing ativo, Stripe ou Mercado Pago;
 - não existem consumo real de IA, memória do assistente, API de provedor, transferências, cartões, faturas, recorrências ou parcelamentos;
-- investimentos não possuem cotação, integração com corretora, Open Finance, agenda automática de proventos, cálculo tributário ou recomendação;
+- investimentos possuem acompanhamento manual; cotações atrasadas via BRAPI estão preparadas para ativação controlada em development, sem integração com corretora, Open Finance, agenda automática de proventos, cálculo tributário ou recomendação;
 - notificações, relatórios completos, projeções e integração Open Finance ainda não foram implementados;
 - os documentos jurídicos presentes são provisórios e exclusivos de desenvolvimento;
 - não existe versão de produção publicada.
@@ -211,7 +211,7 @@ O papel `owner` recebe capabilities centralizadas para módulos implementados, r
 - [x] Infraestrutura histórica de entitlement e backend development, inativa pelo FREE-1
 - [x] FREE-1: investimentos, proventos, calculadoras e análises gratuitos
 - [-] Catálogo e cobrança Google Play preservados somente como histórico reversível, sem runtime ativo
-- [ ] Cotações atrasadas por provedor independente, condicionadas a licenciamento e SUB-1
+- [-] Cotações atrasadas BRAPI aprovadas e compostas localmente; ativação controlada em development ainda pendente
 - [ ] Projeções
 - [ ] Cartões e faturas
 - [ ] Dívidas
