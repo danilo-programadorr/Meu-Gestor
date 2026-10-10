@@ -51,6 +51,12 @@ export class PersistentQuoteRefreshService {
         if (!target || received.has(target.ticker)) fail('quote_gateway_duplicate_or_unrequested');
         received.add(target.ticker);
         const capturedAt = this.clock();
+        // Abertura da validação temporal: a composição não confia em
+        // staleAfter fornecido por adaptadores sem revalidá-lo no domínio.
+        const staleAfter = item?.staleAfter == null
+            ? new Date(capturedAt.getTime() + DEFAULT_STALE_AFTER_SECONDS * 1000)
+            : new Date(item.staleAfter);
+        if (Number.isNaN(staleAfter.getTime())) fail('quote_gateway_invalid_stale_after');
         const quote = mapProviderQuote({
           ticker: item.ticker,
           assetType: target.assetType,
@@ -61,7 +67,7 @@ export class PersistentQuoteRefreshService {
           status: item.status,
         }, {
           capturedAt,
-          staleAfter: new Date(capturedAt.getTime() + DEFAULT_STALE_AFTER_SECONDS * 1000),
+          staleAfter,
         });
         normalizedQuotes.push({
           target,
@@ -69,7 +75,7 @@ export class PersistentQuoteRefreshService {
             ...quote,
             declaredDelaySeconds: Number.isInteger(item.declaredDelaySeconds)
                 ? item.declaredDelaySeconds : DEFAULT_DECLARED_DELAY_SECONDS,
-            staleAfter: item.staleAfter ?? quote.staleAfter,
+            staleAfter: quote.staleAfter,
           }),
         });
       }

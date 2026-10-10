@@ -1,7 +1,8 @@
 # Plano de ativação development — cotações BRAPI
 
-Estado: proposta concreta, ainda não executada. Nenhum recurso descrito abaixo
-existe por força deste documento.
+Estado em 10/10/2026: recursos de development criados, Function implantada e
+Scheduler mantido pausado até uma atualização acompanhada produzir snapshot
+válido. Produção permanece inalterada.
 
 ## Recursos propostos
 
@@ -66,6 +67,11 @@ development e não autoriza redistribuição como feed nem uso em produção.
 Referências: <https://brapi.dev/faq/quais-as-limitacoes>,
 <https://brapi.dev/faq/o-plano-gratuito-tem-limitacoes-importantes> e
 <https://brapi.dev/legal/terms-of-use>.
+
+O schema oficial da rota de ações não oferece `marketState`; a integração não
+inventa esse estado. Cotações válidas são classificadas como atrasadas e vencem
+60 minutos após `regularMarketTime`. Referência:
+<https://brapi.dev/docs/acoes>.
 
 Proposta conservadora: `*/30 10-18 * * 1-5`, timezone
 `America/Sao_Paulo`, sem retry automático. O circuit breaker interno trata

@@ -163,4 +163,17 @@ describe('PersistentQuoteRefreshService', () => {
     }), { message: 'quote_status_price_mismatch' });
     assert.equal(storage.snapshots.size, 0);
   });
+
+  test('rejeita vencimento inválido do adaptador antes de persistir', async () => {
+    const storage = new FakeQuoteStorage();
+    const service = new PersistentQuoteRefreshService({
+      storage,
+      gateway: { async fetchBatch() { return [quote({ staleAfter: 'invalid' })]; } },
+      clock: () => new Date('2026-08-18T12:05:00.000Z'),
+    });
+    await assert.rejects(service.refresh({ requestId, targets: [target] }), {
+      message: 'quote_gateway_invalid_stale_after',
+    });
+    assert.equal(storage.snapshots.size, 0);
+  });
 });

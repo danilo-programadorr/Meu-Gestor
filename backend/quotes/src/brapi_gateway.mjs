@@ -84,6 +84,13 @@ export function mapBrapiPayload({ payload, targets, capturedAt }) {
     const target = targetsByTicker.get(ticker);
     if (!target || seen.has(ticker)) fail('quote_provider_unexpected_result');
     seen.add(ticker);
+    // A resposta oficial da BRAPI não declara marketState. A abertura deste
+    // bloco usa somente o instante observado para classificar e vencer dados.
+    const observedAt = requireObservedAt(result.regularMarketTime, capturedAt);
+    const staleAfter = new Date(
+      new Date(observedAt).getTime() + DEFAULT_STALE_AFTER_SECONDS * 1000,
+    );
+    if (staleAfter <= capturedAt) fail('quote_provider_stale_quote');
     output.push(Object.freeze({
       ticker,
       assetType: target.assetType,
@@ -95,11 +102,11 @@ export function mapBrapiPayload({ payload, targets, capturedAt }) {
         'quote_provider_invalid_variation',
         { allowNegative: true },
       ),
-      observedAt: requireObservedAt(result.regularMarketTime, capturedAt),
+      observedAt,
       capturedAt: capturedAt.toISOString(),
       declaredDelaySeconds: DEFAULT_DECLARED_DELAY_SECONDS,
-      staleAfter: new Date(capturedAt.getTime() + DEFAULT_STALE_AFTER_SECONDS * 1000).toISOString(),
-      status: marketStatus(result.marketState),
+      staleAfter: staleAfter.toISOString(),
+      status: QuoteStatus.DELAYED,
     }));
   }
   return Object.freeze(output);
@@ -109,13 +116,6 @@ function requireObservedAt(value, capturedAt) {
   const parsed = typeof value === 'string' ? new Date(value) : new Date(Number(value) * 1000);
   if (Number.isNaN(parsed.getTime()) || parsed > capturedAt) fail('quote_provider_invalid_observed_at');
   return parsed.toISOString();
-}
-
-function marketStatus(value) {
-  if (typeof value !== 'string') fail('quote_provider_invalid_market_state');
-  if (value === 'CLOSED') return QuoteStatus.MARKET_CLOSED;
-  if (value === 'REGULAR') return QuoteStatus.DELAYED;
-  fail('quote_provider_unavailable_market_state');
 }
 
 function decimalToScaled(value, scale, errorCode, { allowNegative = false } = {}) {

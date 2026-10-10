@@ -13,7 +13,6 @@ function payload(overrides = {}) {
       regularMarketPrice: 31.45,
       regularMarketChangePercent: -1.23,
       regularMarketTime: '2026-08-18T14:45:00.000Z',
-      marketState: 'REGULAR',
       ...overrides,
     }],
   };
@@ -26,13 +25,10 @@ describe('BRAPI delayed quote adapter', () => {
     assert.equal(quote.variationBasisPoints, -123);
     assert.equal(quote.status, 'delayed');
     assert.equal(quote.observedAt, '2026-08-18T14:45:00.000Z');
+    assert.equal(quote.staleAfter, '2026-08-18T15:45:00.000Z');
   });
 
-  test('reporta mercado fechado e recusa preço, tempo ou ticker inválidos', () => {
-    const [closed] = mapBrapiPayload({
-      payload: payload({ marketState: 'CLOSED' }), targets, capturedAt,
-    });
-    assert.equal(closed.status, 'marketClosed');
+  test('não exige estado de mercado ausente no schema oficial e recusa dados inválidos', () => {
     assert.throws(() => mapBrapiPayload({
       payload: payload({ regularMarketPrice: 0 }), targets, capturedAt,
     }), { message: 'quote_provider_invalid_price' });
@@ -42,6 +38,9 @@ describe('BRAPI delayed quote adapter', () => {
     assert.throws(() => mapBrapiPayload({
       payload: payload({ symbol: 'UNKN3' }), targets, capturedAt,
     }), { message: 'quote_provider_unexpected_result' });
+    assert.throws(() => mapBrapiPayload({
+      payload: payload({ regularMarketTime: '2026-08-18T13:59:59.000Z' }), targets, capturedAt,
+    }), { message: 'quote_provider_stale_quote' });
   });
 
   test('não chama sandbox sem token configurado', async () => {

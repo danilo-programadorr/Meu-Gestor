@@ -30,6 +30,10 @@ artefato do codebase.
 - Falha de transporte, timeout, resposta inválida ou ticker omitido falha
   fechada, registra apenas código enumerado e mantém circuit breaker. Snapshot
   anterior pode continuar visível somente conforme seu próprio `staleAfter`.
+- O schema oficial da rota `/api/quote/{tickers}` não declara `marketState`.
+  O adaptador não infere sessão da B3: toda cotação válida é `delayed`, e
+  `staleAfter` deriva de `regularMarketTime` mais 60 minutos. Observação já
+  vencida falha fechada como `quote_provider_stale_quote`.
 - Os contratos compartilhados são copiados de forma determinística no
   predeploy; dependências, segredos e configuração privada não são copiados.
 - Os documentos técnicos de requisição recebem `expiresAt` por 30 dias. A
@@ -48,6 +52,7 @@ artefato do codebase.
   reproduzível e a auditoria do artefato são gates obrigatórios.
 - O catálogo inicial e a frequência precisam reproduzir exatamente cobertura,
   atraso e limites contratados. Não há descoberta a partir de carteiras.
-- O atraso declarado é 30 minutos e o snapshot vence após 60 minutos. O limite
+- O atraso declarado é 30 minutos e o snapshot vence 60 minutos após a
+  observação do provedor, não após a coleta. O limite
   operacional não é apresentado como cota garantida: execuções manuais também
   consomem a franquia e devem permanecer excepcionais e acompanhadas.
