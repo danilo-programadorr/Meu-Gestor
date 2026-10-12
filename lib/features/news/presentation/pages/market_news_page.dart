@@ -302,11 +302,14 @@ class _ArticleThumbnail extends StatelessWidget {
                     int? frame,
                     bool wasSynchronouslyLoaded,
                   ) => frame != null || wasSynchronouslyLoaded
-                      ? child
-                      : _CategoryVisual(category: category, expanded: true),
+                  ? child
+                  : _CategoryVisual(category: category, expanded: true),
               errorBuilder:
-                  (BuildContext context, Object error, StackTrace? stackTrace) =>
-                      _CategoryVisual(category: category, expanded: true),
+                  (
+                    BuildContext context,
+                    Object error,
+                    StackTrace? stackTrace,
+                  ) => _CategoryVisual(category: category, expanded: true),
             ),
     ),
   );
