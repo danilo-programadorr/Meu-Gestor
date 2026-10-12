@@ -212,7 +212,7 @@ class _ArticleCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            _CategoryVisual(category: category),
+            _ArticleThumbnail(article: article, category: category),
             const SizedBox(width: AppSpacing.md),
             Expanded(
               child: Column(
@@ -249,9 +249,10 @@ class _ArticleCard extends StatelessWidget {
 }
 
 class _CategoryVisual extends StatelessWidget {
-  const _CategoryVisual({required this.category});
+  const _CategoryVisual({required this.category, this.expanded = false});
 
   final MarketNewsCategory category;
+  final bool expanded;
 
   @override
   Widget build(BuildContext context) {
@@ -261,8 +262,8 @@ class _CategoryVisual extends StatelessWidget {
       MarketNewsCategory.international => Icons.public_rounded,
     };
     return Container(
-      width: 56,
-      height: 56,
+      width: expanded ? double.infinity : 56,
+      height: expanded ? double.infinity : 56,
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.primaryContainer,
         borderRadius: BorderRadius.circular(14),
@@ -273,6 +274,42 @@ class _CategoryVisual extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ArticleThumbnail extends StatelessWidget {
+  const _ArticleThumbnail({required this.article, required this.category});
+
+  final MarketNewsArticle article;
+  final MarketNewsCategory category;
+
+  @override
+  Widget build(BuildContext context) => ClipRRect(
+    borderRadius: BorderRadius.circular(14),
+    child: SizedBox(
+      key: ValueKey<String>('news-thumbnail-${article.id}'),
+      width: 104,
+      height: 88,
+      child: article.imageUrl == null
+          ? _CategoryVisual(category: category, expanded: true)
+          : Image.network(
+              article.imageUrl.toString(),
+              fit: BoxFit.cover,
+              excludeFromSemantics: true,
+              frameBuilder:
+                  (
+                    BuildContext context,
+                    Widget child,
+                    int? frame,
+                    bool wasSynchronouslyLoaded,
+                  ) => frame != null || wasSynchronouslyLoaded
+                      ? child
+                      : _CategoryVisual(category: category, expanded: true),
+              errorBuilder:
+                  (BuildContext context, Object error, StackTrace? stackTrace) =>
+                      _CategoryVisual(category: category, expanded: true),
+            ),
+    ),
+  );
 }
 
 class _PartialCoverageNotice extends StatelessWidget {

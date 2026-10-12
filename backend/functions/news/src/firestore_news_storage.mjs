@@ -163,6 +163,7 @@ function firestoreFeed(feed, toTimestamp) {
       title: article.title,
       source: article.source,
       articleUrl: article.articleUrl,
+      imageUrl: article.imageUrl,
       publishedAt: toTimestamp(article.publishedAt),
     })),
     schemaVersion: feed.schemaVersion,

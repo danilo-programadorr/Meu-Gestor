@@ -14,6 +14,7 @@ function article(overrides = {}) {
     title: 'Mercado acompanha a decisão de juros',
     source: 'example.com',
     url: 'https://example.com/mercado/juros',
+    image_url: 'https://cdn.example.com/mercado/juros.jpg',
     published_at: '2026-10-11T14:30:00.000Z',
     ...overrides,
   };
@@ -68,11 +69,20 @@ test('mapeia somente campos públicos permitidos e normaliza texto', () => {
   assert.deepEqual(Object.keys(feed.articles[0]).sort(), [
     'articleUrl',
     'id',
+    'imageUrl',
     'publishedAt',
     'source',
     'title',
   ]);
   assert.equal(feed.articles[0].title, 'Inflação desacelera no mês');
+  assert.equal(feed.articles[0].imageUrl, 'https://cdn.example.com/mercado/juros.jpg');
+
+  const withoutImage = mapMarketauxPayload({
+    category: 'economy',
+    fetchedAt: now,
+    payload: { data: [article({ image_url: null })] },
+  });
+  assert.equal(withoutImage.articles[0].imageUrl, null);
 });
 
 test('prioriza até sete horas e rejeita matéria acima de doze horas', () => {
@@ -110,6 +120,14 @@ test('rejeita payload, URL e quantidade incompatíveis', () => {
       category: 'market',
       fetchedAt: now,
       payload: { data: [article({ url: 'http://example.com/noticia' })] },
+    }),
+    { message: 'news_article_url_invalid' },
+  );
+  assert.throws(
+    () => mapMarketauxPayload({
+      category: 'market',
+      fetchedAt: now,
+      payload: { data: [article({ image_url: 'http://cdn.example.com/noticia.jpg' })] },
     }),
     { message: 'news_article_url_invalid' },
   );

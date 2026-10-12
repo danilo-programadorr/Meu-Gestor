@@ -12,12 +12,16 @@ abstract final class FirestoreMarketNewsMapper {
     'articles',
     'schemaVersion',
   };
-  static const Set<String> _articleFields = <String>{
+  static const Set<String> _articleFieldsV1 = <String>{
     'id',
     'title',
     'source',
     'articleUrl',
     'publishedAt',
+  };
+  static const Set<String> _articleFieldsV2 = <String>{
+    ..._articleFieldsV1,
+    'imageUrl',
   };
 
   static MarketNewsFeed fromMap({
@@ -27,7 +31,8 @@ abstract final class FirestoreMarketNewsMapper {
     try {
       if (data.keys.toSet().difference(_feedFields).isNotEmpty ||
           _feedFields.difference(data.keys.toSet()).isNotEmpty ||
-          data['schemaVersion'] != 1 ||
+          data['schemaVersion'] is! int ||
+          !<int>{1, 2}.contains(data['schemaVersion']) ||
           data['category'] != documentId ||
           data['articles'] is! List<Object?>) {
         throw StateError('news_feed_contract_invalid');
@@ -37,7 +42,12 @@ abstract final class FirestoreMarketNewsMapper {
       );
       final List<MarketNewsArticle> articles =
           (data['articles'] as List<Object?>)
-              .map(_article)
+              .map(
+                (Object? value) => _article(
+                  value,
+                  schemaVersion: data['schemaVersion'] as int,
+                ),
+              )
               .toList(growable: false);
       return MarketNewsFeed(
         category: category,
@@ -56,10 +66,16 @@ abstract final class FirestoreMarketNewsMapper {
     }
   }
 
-  static MarketNewsArticle _article(Object? value) {
+  static MarketNewsArticle _article(
+    Object? value, {
+    required int schemaVersion,
+  }) {
+    final Set<String> expectedFields = schemaVersion == 2
+        ? _articleFieldsV2
+        : _articleFieldsV1;
     if (value is! Map<String, dynamic> ||
-        value.keys.toSet().difference(_articleFields).isNotEmpty ||
-        _articleFields.difference(value.keys.toSet()).isNotEmpty) {
+        value.keys.toSet().difference(expectedFields).isNotEmpty ||
+        expectedFields.difference(value.keys.toSet()).isNotEmpty) {
       throw StateError('news_article_contract_invalid');
     }
     return MarketNewsArticle(
@@ -67,6 +83,7 @@ abstract final class FirestoreMarketNewsMapper {
       title: _string(value, 'title'),
       source: _string(value, 'source'),
       articleUrl: Uri.parse(_string(value, 'articleUrl')),
+      imageUrl: schemaVersion == 2 ? _optionalUri(value, 'imageUrl') : null,
       publishedAt: _timestamp(value, 'publishedAt'),
     );
   }
@@ -81,5 +98,12 @@ abstract final class FirestoreMarketNewsMapper {
     final Object? value = data[field];
     if (value is! Timestamp) throw StateError('news_timestamp_invalid');
     return value.toDate().toUtc();
+  }
+
+  static Uri? _optionalUri(Map<String, dynamic> data, String field) {
+    final Object? value = data[field];
+    if (value == null) return null;
+    if (value is! String) throw StateError('news_uri_invalid');
+    return Uri.parse(value);
   }
 }

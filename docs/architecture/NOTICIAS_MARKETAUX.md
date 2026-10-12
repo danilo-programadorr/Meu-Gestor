@@ -19,9 +19,11 @@ qualquer dado financeiro ficam fora da integração.
 
 Cada snapshot contém somente categoria, provedor, instante de captura,
 validade e até três itens com identificador opaco, título, domínio da fonte,
-URL HTTPS e publicação. O texto integral e imagens de terceiros não são
-armazenados nem carregados dentro do app. A matéria abre externamente na fonte
-original.
+URL HTTPS, publicação e URL HTTPS opcional da miniatura informada pelo
+Marketaux. O texto integral e o arquivo da imagem não são armazenados. O app
+carrega diretamente a miniatura pública, sem anexar UID, carteira ou dado
+financeiro, e a matéria abre externamente na fonte original. Falha ou ausência
+da imagem mantém um ícone local seguro.
 
 O plano Free consultado em 11/10/2026 informa 100 requisições diárias, três
 matérias por requisição, notícias globais e metadados completos. A interface

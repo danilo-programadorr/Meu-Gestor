@@ -8,12 +8,14 @@ void main() {
     String id = 'article_12345678',
     String title = 'Mercado acompanha a decisão de juros',
     String url = 'https://example.com/noticia',
+    String? imageUrl,
     DateTime? publishedAt,
   }) => MarketNewsArticle(
     id: id,
     title: title,
     source: 'example.com',
     articleUrl: Uri.parse(url),
+    imageUrl: imageUrl == null ? null : Uri.parse(imageUrl),
     publishedAt: publishedAt ?? fetchedAt.subtract(const Duration(minutes: 20)),
   );
 
@@ -36,6 +38,10 @@ void main() {
   });
 
   test('rejeita URL insegura, duplicata e publicação futura', () {
+    expect(
+      () => article(imageUrl: 'http://cdn.example.com/noticia.jpg'),
+      throwsA(isA<MarketNewsFailure>()),
+    );
     expect(
       () => article(url: 'http://example.com/noticia'),
       throwsA(isA<MarketNewsFailure>()),

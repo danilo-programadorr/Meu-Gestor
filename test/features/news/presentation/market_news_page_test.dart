@@ -21,6 +21,10 @@ void main() {
     expect(find.text('Internacional'), findsOneWidget);
     expect(find.text('Política'), findsNothing);
     expect(find.text('Mercado acompanha os juros'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('news-thumbnail-article_12345678')),
+      findsOneWidget,
+    );
 
     await tester.tap(
       find.byKey(const ValueKey<String>('news-category-economy')),
@@ -131,6 +135,9 @@ MarketNewsReadResult _result(DateTime now) {
             title: title,
             source: 'example.com',
             articleUrl: Uri.parse('https://example.com/$id'),
+            imageUrl: category == MarketNewsCategory.market
+                ? Uri.parse('https://cdn.example.com/$id.jpg')
+                : null,
             publishedAt: now.subtract(const Duration(minutes: 30)),
           ),
         ],

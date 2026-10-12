@@ -95,6 +95,7 @@ export function mapMarketauxPayload({ category, payload, fetchedAt }) {
       title: article.title,
       source: article.source,
       articleUrl: article.url,
+      imageUrl: article.image_url ?? null,
       publishedAt: article.published_at,
     };
   });

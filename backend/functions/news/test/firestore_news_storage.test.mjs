@@ -56,9 +56,10 @@ function feeds(now) {
       title: `Notícia ${index}`,
       source: 'example.com',
       articleUrl: `https://example.com/${index}`,
+      imageUrl: `https://cdn.example.com/${index}.jpg`,
       publishedAt: now.toISOString(),
     }],
-    schemaVersion: 1,
+    schemaVersion: 2,
   }));
 }
 
@@ -86,6 +87,10 @@ describe('Firestore news storage', () => {
     assert.equal(firestore.documents.has('_marketNewsLeases/current'), false);
     assert.equal(firestore.documents.get('marketNewsFeeds/market').provider, 'marketaux');
     assert.equal(firestore.documents.get('marketNewsFeeds/economy').articles.length, 1);
+    assert.equal(
+      firestore.documents.get('marketNewsFeeds/market').articles[0].imageUrl,
+      'https://cdn.example.com/0.jpg',
+    );
     assert.equal(
       firestore.documents.get('_marketNewsRefreshRequests/schedule_20261011150000000').status,
       'completed',

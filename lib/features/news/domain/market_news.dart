@@ -23,6 +23,7 @@ final class MarketNewsArticle {
     required this.title,
     required this.source,
     required this.articleUrl,
+    this.imageUrl,
     required this.publishedAt,
   }) {
     if (!_identifier.hasMatch(id) ||
@@ -32,7 +33,8 @@ final class MarketNewsArticle {
         source.trim() != source ||
         source.isEmpty ||
         source.length > 120 ||
-        !_isSafeArticleUrl(articleUrl)) {
+        !_isSafeArticleUrl(articleUrl) ||
+        (imageUrl != null && !_isSafeArticleUrl(imageUrl!))) {
       throw const MarketNewsFailure(
         code: 'news_article_invalid',
         safeMessage: 'Uma notícia recebida não pôde ser validada.',
@@ -46,6 +48,7 @@ final class MarketNewsArticle {
   final String title;
   final String source;
   final Uri articleUrl;
+  final Uri? imageUrl;
   final DateTime publishedAt;
 
   static bool _isSafeArticleUrl(Uri value) =>

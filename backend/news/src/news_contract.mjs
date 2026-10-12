@@ -1,5 +1,5 @@
 export const NEWS_PROVIDER = 'marketaux';
-export const NEWS_SCHEMA_VERSION = 1;
+export const NEWS_SCHEMA_VERSION = 2;
 export const NEWS_ARTICLES_PER_CATEGORY = 3;
 export const NEWS_REQUESTS_PER_REFRESH = 3;
 export const NEWS_DAILY_REQUEST_LIMIT = 90;
@@ -75,6 +75,7 @@ function articleDocument(article, fetchedAt) {
   const title = requireText(article.title, 'news_article_title_invalid', 1, 220);
   const source = requireText(article.source, 'news_article_source_invalid', 1, 120);
   const articleUrl = requireHttpsUrl(article.articleUrl);
+  const imageUrl = requireOptionalHttpsUrl(article.imageUrl);
   const publishedAt = new Date(article.publishedAt);
   if (Number.isNaN(publishedAt.getTime()) ||
       publishedAt.getTime() > fetchedAt.getTime() + 5 * 60 * 1000 ||
@@ -86,6 +87,7 @@ function articleDocument(article, fetchedAt) {
     title,
     source,
     articleUrl,
+    imageUrl,
     publishedAt: publishedAt.toISOString(),
   });
 }
@@ -120,6 +122,12 @@ function requireHttpsUrl(value) {
     fail('news_article_url_invalid');
   }
   return parsed.toString();
+}
+
+// Imagem é decorativa e opcional; quando presente, segue o mesmo contrato HTTPS do artigo.
+function requireOptionalHttpsUrl(value) {
+  if (value === null || value === undefined) return null;
+  return requireHttpsUrl(value);
 }
 
 export function fail(code) {
