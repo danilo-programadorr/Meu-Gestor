@@ -1,5 +1,6 @@
 import {
   NEWS_ARTICLES_PER_CATEGORY,
+  NEWS_MAX_ARTICLE_AGE_MS,
   fail,
   feedDocument,
   requireCategory,
@@ -30,9 +31,19 @@ export class MarketauxNewsGateway {
       fail('news_provider_not_configured');
     }
     const url = new URL(MARKET_AUX_ENDPOINT);
+    const requestedAt = this.clock();
+    if (!(requestedAt instanceof Date) || Number.isNaN(requestedAt.getTime())) {
+      fail('news_capture_time_invalid');
+    }
+
+    // Force recency because search queries default to relevance in Marketaux.
     url.searchParams.set('api_token', token);
     url.searchParams.set('language', 'pt');
     url.searchParams.set('search', category.search);
+    url.searchParams.set('published_after', formatProviderDate(
+      new Date(requestedAt.getTime() - NEWS_MAX_ARTICLE_AGE_MS),
+    ));
+    url.searchParams.set('sort', 'published_on');
     url.searchParams.set('limit', String(NEWS_ARTICLES_PER_CATEGORY));
     url.searchParams.set('page', '1');
     let response;
@@ -60,6 +71,10 @@ export class MarketauxNewsGateway {
     }
     return mapMarketauxPayload({ category: category.id, payload, fetchedAt: this.clock() });
   }
+}
+
+function formatProviderDate(value) {
+  return value.toISOString().slice(0, 19);
 }
 
 export function mapMarketauxPayload({ category, payload, fetchedAt }) {

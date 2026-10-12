@@ -5,6 +5,9 @@ export const NEWS_REQUESTS_PER_REFRESH = 3;
 export const NEWS_DAILY_REQUEST_LIMIT = 90;
 export const NEWS_STALE_AFTER_MS = 3 * 60 * 60 * 1000;
 
+// Freshness is enforced server-side so provider relevance never republishes old news as current.
+export const NEWS_MAX_ARTICLE_AGE_MS = 72 * 60 * 60 * 1000;
+
 export const NEWS_COLLECTIONS = Object.freeze({
   feeds: 'marketNewsFeeds',
   leases: '_marketNewsLeases',
@@ -52,7 +55,7 @@ export function feedDocument({ category, articles, fetchedAt }) {
     if (ids.has(item.id)) fail('news_article_duplicate');
     ids.add(item.id);
     return item;
-  });
+  }).sort((left, right) => right.publishedAt.localeCompare(left.publishedAt));
   return Object.freeze({
     category: definition.id,
     provider: NEWS_PROVIDER,
@@ -74,7 +77,8 @@ function articleDocument(article, fetchedAt) {
   const articleUrl = requireHttpsUrl(article.articleUrl);
   const publishedAt = new Date(article.publishedAt);
   if (Number.isNaN(publishedAt.getTime()) ||
-      publishedAt.getTime() > fetchedAt.getTime() + 5 * 60 * 1000) {
+      publishedAt.getTime() > fetchedAt.getTime() + 5 * 60 * 1000 ||
+      publishedAt.getTime() < fetchedAt.getTime() - NEWS_MAX_ARTICLE_AGE_MS) {
     fail('news_article_published_at_invalid');
   }
   return Object.freeze({

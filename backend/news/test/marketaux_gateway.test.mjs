@@ -19,7 +19,7 @@ function article(overrides = {}) {
   };
 }
 
-test('serializa consulta fixa com idioma e três matérias', async () => {
+test('serializa consulta fixa, recente e ordenada por publicação', async () => {
   let receivedUrl;
   const gateway = new MarketauxNewsGateway({
     apiToken: () => 'private-test-token',
@@ -38,6 +38,8 @@ test('serializa consulta fixa com idioma e três matérias', async () => {
   assert.equal(receivedUrl.pathname, '/v1/news/all');
   assert.equal(receivedUrl.searchParams.get('language'), 'pt');
   assert.equal(receivedUrl.searchParams.get('search'), 'mercado');
+  assert.equal(receivedUrl.searchParams.get('published_after'), '2026-10-08T15:00:00');
+  assert.equal(receivedUrl.searchParams.get('sort'), 'published_on');
   assert.equal(receivedUrl.searchParams.get('limit'), '3');
   assert.equal(receivedUrl.searchParams.get('page'), '1');
   assert.equal(receivedUrl.searchParams.get('api_token'), 'private-test-token');
@@ -71,6 +73,31 @@ test('mapeia somente campos públicos permitidos e normaliza texto', () => {
     'title',
   ]);
   assert.equal(feed.articles[0].title, 'Inflação desacelera no mês');
+});
+
+test('ordena por publicação e rejeita matéria fora da janela recente', () => {
+  const feed = mapMarketauxPayload({
+    category: 'market',
+    fetchedAt: now,
+    payload: {
+      data: [
+        article({ uuid: 'article_22345678', published_at: '2026-10-10T08:00:00.000Z' }),
+        article({ uuid: 'article_32345678', published_at: '2026-10-11T14:45:00.000Z' }),
+      ],
+    },
+  });
+  assert.deepEqual(
+    feed.articles.map((item) => item.id),
+    ['article_32345678', 'article_22345678'],
+  );
+  assert.throws(
+    () => mapMarketauxPayload({
+      category: 'market',
+      fetchedAt: now,
+      payload: { data: [article({ published_at: '2026-10-08T14:59:59.999Z' })] },
+    }),
+    { message: 'news_article_published_at_invalid' },
+  );
 });
 
 test('rejeita payload, URL e quantidade incompatíveis', () => {
