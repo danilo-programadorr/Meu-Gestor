@@ -83,6 +83,7 @@ migrate_working_dir/
 backend/functions/premium/.generated/
 backend/functions/assistant/shared/
 backend/functions/quotes/shared/
+backend/functions/news/shared/
 
 # Arquivos temporários gerais
 *.class

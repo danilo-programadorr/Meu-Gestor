@@ -564,6 +564,33 @@ async function seedMarketQuote(overrides = {}) {
   });
 }
 
+function marketNewsFeed(category = 'market', overrides = {}) {
+  return {
+    category,
+    provider: 'marketaux',
+    fetchedAt: past,
+    staleAfter: Timestamp.fromDate(new Date('2026-09-01T00:00:00Z')),
+    articles: [{
+      id: 'article_12345678',
+      title: 'Mercado acompanha a decisão de juros',
+      source: 'example.com',
+      articleUrl: 'https://example.com/mercado/juros',
+      publishedAt: past,
+    }],
+    schemaVersion: 1,
+    ...overrides,
+  };
+}
+
+async function seedMarketNews(category = 'market', overrides = {}) {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(
+      doc(context.firestore(), `marketNewsFeeds/${category}`),
+      marketNewsFeed(category, overrides),
+    );
+  });
+}
+
 async function settle(db, { type = 'payable', id, transactionId, commitmentOverrides = {}, transactionOverrides = {} }) {
   const batch = writeBatch(db);
   const settledStatus = type === 'payable' ? 'paid' : 'received';
@@ -2065,6 +2092,38 @@ describe('INV-2C snapshots globais de cotações atrasadas', () => {
     ]) {
       await assertFails(getDoc(doc(db, path)));
       await assertFails(setDoc(doc(db, path), { synthetic: true }));
+    }
+  });
+});
+
+describe('NEWS-1 snapshots globais do Marketaux', () => {
+  test('usuário financeiro lê somente as três categorias conhecidas', async () => {
+    await seedMarketNews('market');
+    const db = verifiedDb();
+    await assertSucceeds(getDoc(doc(db, 'marketNewsFeeds/market')));
+    await assertSucceeds(getDoc(doc(db, 'marketNewsFeeds/economy')));
+    await assertFails(getDoc(doc(db, 'marketNewsFeeds/politics')));
+    await assertFails(getDocs(collection(db, 'marketNewsFeeds')));
+  });
+
+  test('nega anônimo, e-mail não confirmado, escrita e controles internos', async () => {
+    await seedMarketNews('international');
+    const reference = doc(verifiedDb(), 'marketNewsFeeds/international');
+    await assertSucceeds(getDoc(reference));
+    await assertFails(getDoc(doc(
+      testEnv.unauthenticatedContext().firestore(),
+      'marketNewsFeeds/international',
+    )));
+    await assertFails(getDoc(doc(unverifiedDb(), 'marketNewsFeeds/international')));
+    await assertFails(setDoc(reference, marketNewsFeed('international')));
+    for (const path of [
+      '_marketNewsLeases/current',
+      '_marketNewsRefreshRequests/synthetic-request',
+      '_marketNewsCircuitBreakers/current',
+      '_marketNewsDailyUsage/2026-10-11',
+    ]) {
+      await assertFails(getDoc(doc(verifiedDb(), path)));
+      await assertFails(setDoc(doc(verifiedDb(), path), { synthetic: true }));
     }
   });
 });

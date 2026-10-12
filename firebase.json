@@ -40,6 +40,20 @@
       ]
     },
     {
+      "source": "backend/functions/news",
+      "codebase": "news",
+      "runtime": "nodejs22",
+      "predeploy": [
+        "npm --prefix backend/functions/news run prepare:shared"
+      ],
+      "ignore": [
+        "node_modules",
+        ".git",
+        ".codex-tmp",
+        "test"
+      ]
+    },
+    {
       "source": "backend/functions/assistant",
       "codebase": "assistant",
       "runtime": "nodejs22",

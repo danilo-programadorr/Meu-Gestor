@@ -1,0 +1,21 @@
+{
+  "name": "meu-gestor-financeiro-news-functions",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "main": "index.mjs",
+  "engines": {
+    "node": "22"
+  },
+  "scripts": {
+    "prepare:shared": "node scripts/prepare-news-shared.mjs",
+    "check": "npm run prepare:shared && node scripts/check.mjs",
+    "test": "npm run prepare:shared && node --test test/*.test.mjs",
+    "audit:production-artifact": "npm audit --omit=dev --omit=optional --audit-level=moderate"
+  },
+  "dependencies": {
+    "@google-cloud/firestore": "8.7.1",
+    "firebase-admin": "14.2.0",
+    "firebase-functions": "7.3.2"
+  }
+}

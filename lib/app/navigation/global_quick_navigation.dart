@@ -114,6 +114,7 @@ abstract final class GlobalQuickNavigationModalVisibility {
 
 bool _isAuthenticatedInternalRoute(String location) => <String>{
   AppRoutes.home,
+  AppRoutes.news,
   AppRoutes.calendar,
   AppRoutes.assistant,
   AppRoutes.assistantConversation,
@@ -170,10 +171,10 @@ class _QuickBar extends StatelessWidget {
             ),
             Expanded(
               child: _QuickButton(
-                asset: 'assets/icone/ranking.png',
-                label: 'Ranking',
-                active: activeLocation == AppRoutes.rankings,
-                onTap: () => onGo(AppRoutes.rankings),
+                icon: Icons.newspaper_outlined,
+                label: 'Notícias',
+                active: activeLocation == AppRoutes.news,
+                onTap: () => onGo(AppRoutes.news),
               ),
             ),
             Expanded(
@@ -211,13 +212,15 @@ class _QuickBar extends StatelessWidget {
 
 class _QuickButton extends StatelessWidget {
   const _QuickButton({
-    required this.asset,
     required this.label,
     required this.active,
     required this.onTap,
+    this.asset,
+    this.icon,
     this.central = false,
-  });
-  final String asset;
+  }) : assert(asset != null || icon != null);
+  final String? asset;
+  final IconData? icon;
   final String label;
   final bool active;
   final VoidCallback onTap;
@@ -253,11 +256,13 @@ class _QuickButton extends StatelessWidget {
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: Image.asset(
-                  asset,
-                  fit: BoxFit.contain,
-                  semanticLabel: label,
-                ),
+                child: asset != null
+                    ? Image.asset(
+                        asset!,
+                        fit: BoxFit.contain,
+                        semanticLabel: label,
+                      )
+                    : Icon(icon, semanticLabel: label),
               ),
               const SizedBox(height: 2),
               Text(

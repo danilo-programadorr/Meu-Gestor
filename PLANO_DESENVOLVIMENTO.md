@@ -32,6 +32,9 @@
   remoto. Ausência ou invalidade permanecem bloqueadas; não houve leitura real,
   publicação de Rule ou ativação do provedor.
 - Todas as ações externas de Firebase, Google Cloud e qualquer provedor de IA são exclusivamente manuais pelo solicitante; o agente limita-se a orientar, preparar código autorizado e verificar resultados locais após confirmação. Referências a Gemini nas etapas históricas não representam fornecedor ativo: a ADR-033 exige contrato neutro e nova aprovação antes da escolha.
+- NEWS-1 integra um feed global Marketaux de três categorias em development.
+  Recursos, limites e procedimento operacional seguem o plano concreto de
+  `docs/architecture/NOTICIAS_MARKETAUX.md`; produção permanece fora do escopo.
 
 ## 2. Decisões aprovadas
 
@@ -1177,6 +1180,25 @@ não foi alterada.
 - Testes cobrem normalização e limites do apelido, isolamento por proprietário,
   persistência, ausência de tratamento e composição determinística do
   cumprimento.
+
+## 78. NEWS-1 — feed global Marketaux
+
+Situação do código: implementação e validação local concluídas. A ativação em
+development segue o procedimento operacional documentado; produção não foi
+autorizada.
+
+- Notícias ocupa a antiga posição global do Ranking; Ranking continua em
+  Investimentos. As únicas categorias são Mercado, Economia e Internacional.
+- O backend faz três consultas fixas por ciclo, com idioma português e limite
+  de três matérias. Nenhum filtro do aplicativo, UID, carteira ou dado
+  financeiro é enviado ao Marketaux.
+- Snapshots globais são publicados juntos em documentos conhecidos. O cliente
+  não lista a coleção, não escreve e não acessa a chave do provedor.
+- O plano operacional propõe execução a cada duas horas, 36 requisições/dia,
+  sem retry automático e teto interno de 90 diante do limite externo de 100.
+- Falha preserva o snapshot anterior como desatualizado; cobertura parcial,
+  ausência e expiração permanecem explícitas. Matérias abrem na fonte original
+  e imagens externas não são carregadas nesta primeira versão.
 
 ## 68. ASSIST-USAGE-COMMIT-FIX-1 — resource name canônico no commit
 

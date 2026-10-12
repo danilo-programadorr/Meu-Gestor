@@ -2288,6 +2288,35 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Notícias são snapshots globais de três categorias fechadas. A pessoa
+    // autenticada lê somente documentos conhecidos e nunca enumera ou escreve.
+    match /marketNewsFeeds/{category} {
+      allow get: if category in ['market', 'economy', 'international']
+        && request.auth != null
+        && hasFinancialAccess(request.auth.uid);
+      allow list, create, update, delete: if false;
+
+      match /{document=**} {
+        allow read, write: if false;
+      }
+    }
+
+    match /_marketNewsLeases/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /_marketNewsRefreshRequests/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /_marketNewsCircuitBreakers/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /_marketNewsDailyUsage/{document=**} {
+      allow read, write: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

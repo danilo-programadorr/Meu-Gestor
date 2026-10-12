@@ -38,6 +38,7 @@ import 'package:meu_gestor_financeiro/features/investments/presentation/pages/in
 import 'package:meu_gestor_financeiro/features/investments/presentation/pages/investment_tools_page.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/pages/investments_page.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/pages/rankings_page.dart';
+import 'package:meu_gestor_financeiro/features/news/presentation/pages/market_news_page.dart';
 import 'package:meu_gestor_financeiro/features/owner_access/presentation/controllers/master_access_controller.dart';
 import 'package:meu_gestor_financeiro/features/owner_access/presentation/controllers/master_access_state.dart';
 import 'package:meu_gestor_financeiro/features/owner_access/presentation/pages/owner_area_page.dart';
@@ -369,6 +370,10 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((Ref ref) {
             builder: (context, state) => const InvestmentsPage(),
           ),
           GoRoute(
+            path: AppRoutes.news,
+            builder: (context, state) => const MarketNewsPage(),
+          ),
+          GoRoute(
             path: AppRoutes.rankings,
             builder: (context, state) => const RankingsPage(),
           ),
@@ -509,6 +514,7 @@ String _profileRouteState(AsyncValue<ProfileGateState>? state) {
 
 bool _isValidProfileRoute(String location) {
   return location == AppRoutes.home ||
+      location == AppRoutes.news ||
       location == AppRoutes.calendar ||
       location == AppRoutes.assistant ||
       location == AppRoutes.assistantConversation ||

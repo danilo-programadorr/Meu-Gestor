@@ -1,0 +1,10 @@
+{
+  "name": "meu-gestor-financeiro-news-domain",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "check": "node --check src/news_contract.mjs && node --check src/marketaux_gateway.mjs && node --check src/news_refresh_service.mjs",
+    "test": "node --test test/*.test.mjs"
+  }
+}

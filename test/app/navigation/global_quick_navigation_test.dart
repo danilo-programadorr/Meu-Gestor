@@ -5,7 +5,7 @@ import 'package:meu_gestor_financeiro/app/navigation/global_quick_navigation.dar
 
 void main() {
   testWidgets(
-    'mantém cinco atalhos globais, com rótulos, e navega para a conversa',
+    'mantém Notícias global e deixa Ranking dentro de Investimentos',
     (WidgetTester tester) async {
       final GoRouter router = GoRouter(
         initialLocation: '/contas',
@@ -19,6 +19,11 @@ void main() {
             builder: (_, _) => const Scaffold(
               body: Text('Conversa', key: Key('conversation-route')),
             ),
+          ),
+          GoRoute(
+            path: '/noticias',
+            builder: (_, _) =>
+                const Scaffold(body: Text('Feed', key: Key('news-route'))),
           ),
           GoRoute(
             path: '/investimentos',
@@ -55,11 +60,15 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('quick-nav-Home')), findsOneWidget);
-      expect(find.byKey(const Key('quick-nav-Ranking')), findsOneWidget);
+      expect(find.byKey(const Key('quick-nav-Notícias')), findsOneWidget);
+      expect(find.byKey(const Key('quick-nav-Ranking')), findsNothing);
       expect(find.byKey(const Key('quick-nav-Conversa')), findsOneWidget);
       expect(find.byKey(const Key('quick-nav-Investimentos')), findsOneWidget);
       expect(find.byKey(const Key('quick-nav-Calculadora')), findsOneWidget);
-      expect(find.text('Ranking'), findsOneWidget);
+      expect(find.text('Ranking'), findsNothing);
+      await tester.tap(find.byKey(const Key('quick-nav-Notícias')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('news-route')), findsOneWidget);
       expect(
         find.descendant(
           of: find.byKey(const Key('quick-nav-Conversa')),
@@ -165,5 +174,42 @@ void main() {
 
     expect(find.byKey(const Key('quick-nav-Home')), findsNothing);
     expect(find.text('Entrar'), findsOneWidget);
+  });
+
+  testWidgets('cinco destinos cabem em 320 px com fonte ampliada', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(320, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final GoRouter router = GoRouter(
+      initialLocation: '/noticias',
+      routes: <RouteBase>[
+        GoRoute(
+          path: '/noticias',
+          builder: (_, _) => const Scaffold(body: Text('Notícias')),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp.router(
+        routerConfig: router,
+        builder: (BuildContext context, Widget? child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: const TextScaler.linear(1.4)),
+          child: GlobalQuickNavigation(
+            router: router,
+            location: '/noticias',
+            child: child ?? const SizedBox.shrink(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('quick-nav-Notícias')), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }
