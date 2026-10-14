@@ -37,10 +37,15 @@ void main() {
     addTearDown(context.dispose);
 
     expect(find.text('Complete seu perfil'), findsOneWidget);
-    expect(find.text('pt-BR'), findsOneWidget);
-    expect(find.text('BRL'), findsOneWidget);
-    expect(find.text('America/Sao_Paulo'), findsOneWidget);
-    expect(find.textContaining('IA ainda não está ativa'), findsOneWidget);
+    expect(find.text('Português (Brasil)'), findsOneWidget);
+    expect(find.text('Real brasileiro (R\$)'), findsOneWidget);
+    expect(find.text('Horário de Brasília'), findsOneWidget);
+    expect(find.text('Permitir recursos com IA'), findsOneWidget);
+    expect(
+      find.textContaining('exige ativação explícita na Conversa'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('IA ainda não está ativa'), findsNothing);
     expect(
       find.textContaining('Analytics ainda não está ativo'),
       findsOneWidget,
@@ -101,27 +106,35 @@ void main() {
 
     await _openProfileFromHome(tester);
     expect(find.text('Pessoa Teste'), findsOneWidget);
-    expect(find.text('Email'), findsOneWidget);
-    expect(find.text('Confirmado'), findsOneWidget);
+    expect(find.text('Email confirmado'), findsOneWidget);
+    expect(find.text('Português • Real • Brasília'), findsOneWidget);
     expect(find.text('owner'), findsNothing);
 
-    await tester.scrollUntilVisible(
-      find.text('Aparência'),
-      220,
-      scrollable: find.byType(Scrollable).last,
+    await _tapVisible(tester, find.text('Aparência'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Escolha o tema mais confortável para usar o aplicativo.'),
+      findsOneWidget,
     );
     expect(find.text('Sistema'), findsOneWidget);
     expect(find.text('Claro'), findsOneWidget);
     expect(find.text('Escuro'), findsOneWidget);
+    context.router.pop();
+    await tester.pumpAndSettle();
 
-    await tester.scrollUntilVisible(
-      find.text('Luma'),
-      220,
-      scrollable: find.byType(Scrollable).last,
+    await _tapVisible(tester, find.text('Personalização da Luma'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text(
+        'Defina como a Luma pode se dirigir a você durante as conversas.',
+      ),
+      findsOneWidget,
     );
     expect(find.text('Usar Pessoa'), findsOneWidget);
     expect(find.text('Usar apelido'), findsOneWidget);
     expect(find.text('Não usar meu nome'), findsOneWidget);
+    context.router.pop();
+    await tester.pumpAndSettle();
 
     await _tapVisible(tester, find.text('Privacidade e consentimentos'));
     await tester.pumpAndSettle();
@@ -130,6 +143,73 @@ void main() {
     expect(find.text('Revogar consentimento do Assistente'), findsOneWidget);
     expect(find.text('Salvar preferência de Analytics'), findsOneWidget);
     expect(find.text('Assistente e análises com IA'), findsNothing);
+  });
+
+  testWidgets('Dados da conta permanece na rota até ação explícita', (
+    WidgetTester tester,
+  ) async {
+    final _WidgetContext context = await _pumpProfileApp(
+      tester,
+      profile: createTestProfile(ownerId: 'owner'),
+    );
+    addTearDown(context.dispose);
+
+    await _openProfileFromHome(tester);
+    await _tapVisible(tester, find.text('Dados da conta'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Resetar dados financeiros'), findsOneWidget);
+    expect(find.text('Excluir permanentemente minha conta'), findsOneWidget);
+  });
+
+  testWidgets('falha ao ler consentimento remoto não aparece como desativado', (
+    WidgetTester tester,
+  ) async {
+    final _WidgetContext context = await _pumpProfileApp(
+      tester,
+      profile: createTestProfile(ownerId: 'owner'),
+      remoteConsentReadFails: true,
+    );
+    addTearDown(context.dispose);
+
+    await _openProfileFromHome(tester);
+    await _tapVisible(tester, find.text('Privacidade e consentimentos'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining('Não foi possível confirmar o consentimento remoto'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('O Assistente Financeiro está desativado'),
+      findsNothing,
+    );
+  });
+
+  testWidgets('perfil confirma antes de sair da conta', (
+    WidgetTester tester,
+  ) async {
+    final _WidgetContext context = await _pumpProfileApp(
+      tester,
+      profile: createTestProfile(ownerId: 'owner'),
+    );
+    addTearDown(context.dispose);
+
+    await _openProfileFromHome(tester);
+    await _tapVisible(tester, find.text('Sair da conta'));
+    await tester.pumpAndSettle();
+    expect(find.text('Sair da conta?'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(TextButton, 'Cancelar'));
+    await tester.pumpAndSettle();
+    expect(context.auth.signOutCalls, 0);
+
+    await _tapVisible(tester, find.text('Sair da conta'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Sair'));
+    await tester.pumpAndSettle();
+    expect(context.auth.signOutCalls, 1);
+    expect(find.text('Login'), findsOneWidget);
   });
 
   testWidgets(
@@ -433,12 +513,13 @@ Future<_WidgetContext> _pumpProfileApp(
   FakeAuthRepository? auth,
   FakeUserProfileRepository? profiles,
   UserProfile? profile,
+  bool remoteConsentReadFails = false,
 }) async {
   final FakeAuthRepository authRepository = auth ?? _verifiedAuth();
   final FakeUserProfileRepository profileRepository =
       profiles ?? FakeUserProfileRepository(initialProfile: profile);
   final _FakeAssistantRemoteConsentRepository remoteConsent =
-      _FakeAssistantRemoteConsentRepository();
+      _FakeAssistantRemoteConsentRepository(failRead: remoteConsentReadFails);
   final ProviderContainer container = ProviderContainer(
     overrides: [
       appEnvironmentProvider.overrideWithValue(AppEnvironment.development),
@@ -474,10 +555,16 @@ Future<_WidgetContext> _pumpProfileApp(
 
 final class _FakeAssistantRemoteConsentRepository
     implements AssistantRemoteConsentRepository {
+  _FakeAssistantRemoteConsentRepository({this.failRead = false});
+
+  final bool failRead;
   bool allowed = false;
 
   @override
-  Future<bool> readOwnConsent({required String ownerId}) async => allowed;
+  Future<bool> readOwnConsent({required String ownerId}) async {
+    if (failRead) throw StateError('sanitized_test_failure');
+    return allowed;
+  }
 
   @override
   Future<void> setOwnConsent({

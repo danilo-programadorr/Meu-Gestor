@@ -6,7 +6,7 @@ import 'package:meu_gestor_financeiro/features/investments/presentation/pages/ra
 
 void main() {
   testWidgets(
-    'Rankings exibe métricas objetivas indisponíveis sem inventar ranking',
+    'Rankings usa um único estado de preparação sem inventar posições',
     (WidgetTester tester) async {
       final GoRouter router = _router();
       addTearDown(router.dispose);
@@ -16,9 +16,18 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Rankings'), findsOneWidget);
+      expect(find.text('Explore indicadores'), findsOneWidget);
+      expect(find.text('Rankings de Ações em preparação'), findsOneWidget);
+      expect(find.text('Fonte fundamentalista: Não integrada'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('Indicadores previstos'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('Indicadores previstos'), findsOneWidget);
       expect(find.text('Capitalização'), findsOneWidget);
-      expect(find.text('Preço-teto Bazin'), findsOneWidget);
-      expect(find.text('Dados de mercado indisponíveis'), findsOneWidget);
+      expect(find.text('Referência patrimonial FII'), findsNothing);
+      expect(find.text('Indisponível'), findsNothing);
       await tester.scrollUntilVisible(
         find.textContaining('não constituem recomendação'),
         300,
@@ -28,11 +37,10 @@ void main() {
         find.textContaining('não constituem recomendação'),
         findsOneWidget,
       );
-      expect(find.text('Indisponível'), findsNWidgets(9));
     },
   );
 
-  testWidgets('filtros preservam regras de FII e BDR sem dados artificiais', (
+  testWidgets('filtros mostram somente indicadores compatíveis', (
     WidgetTester tester,
   ) async {
     final GoRouter router = _router();
@@ -42,17 +50,71 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('FIIs'));
+    await tester.tap(find.byKey(const ValueKey<String>('ranking-filter-fiis')));
     await tester.pumpAndSettle();
-    expect(
-      find.textContaining('Número de Graham não se aplica a FIIs'),
-      findsOneWidget,
+    final Finder fiiSummary = find.textContaining(
+      '8 métricas compatíveis com FIIs',
+    );
+    await tester.scrollUntilVisible(
+      fiiSummary,
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(fiiSummary, findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Referência patrimonial FII'),
+      300,
+      scrollable: find.byType(Scrollable).first,
     );
     expect(find.text('Referência patrimonial FII'), findsOneWidget);
+    expect(find.text('Diferença versus Graham'), findsNothing);
 
-    await tester.tap(find.text('BDRs'));
+    final Finder bdrs = find.byKey(
+      const ValueKey<String>('ranking-filter-bdrs'),
+    );
+    await tester.scrollUntilVisible(
+      bdrs,
+      -300,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.pumpAndSettle();
-    expect(find.textContaining('BDRs aguardam normalização'), findsNWidgets(9));
+    await tester.tap(bdrs);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('BDRs precisam de normalização adicional'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(
+      find.text('BDRs precisam de normalização adicional'),
+      findsOneWidget,
+    );
+    expect(find.text('Indicadores previstos'), findsNothing);
+  });
+
+  testWidgets('oferece caminhos úteis sem apresentar ranking artificial', (
+    WidgetTester tester,
+  ) async {
+    final GoRouter router = _router();
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      MaterialApp.router(theme: AppTheme.light, routerConfig: router),
+    );
+    await tester.pumpAndSettle();
+
+    final Finder tools = find.byKey(
+      const ValueKey<String>('ranking-open-tools'),
+    );
+    await tester.scrollUntilVisible(
+      tools,
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(tools);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey<String>('tools-route')), findsOneWidget);
   });
 
   testWidgets('suporta 320 px e fonte ampliada sem overflow', (
@@ -76,14 +138,32 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Indicadores por fundamento'), findsOneWidget);
+    expect(find.text('Explore indicadores'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('ranking-filter-bdrs')),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
   });
 }
 
 GoRouter _router() => GoRouter(
-  initialLocation: '/',
+  initialLocation: '/rankings',
   routes: <RouteBase>[
-    GoRoute(path: '/', builder: (_, _) => const RankingsPage()),
+    GoRoute(path: '/rankings', builder: (_, _) => const RankingsPage()),
+    GoRoute(
+      path: '/investimentos',
+      builder: (_, _) => const Scaffold(body: Text('Investimentos')),
+    ),
+    GoRoute(
+      path: '/investimentos/ferramentas',
+      builder: (_, _) => const Scaffold(
+        body: Text('Ferramentas', key: ValueKey<String>('tools-route')),
+      ),
+    ),
+    GoRoute(
+      path: '/investimentos/cotacoes',
+      builder: (_, _) => const Scaffold(body: Text('Cotações')),
+    ),
   ],
 );

@@ -31,13 +31,18 @@ void main() {
       );
       expect(find.text('Calculadoras e análises'), findsOneWidget);
       expect(find.text('Primeiro milhão'), findsOneWidget);
-      expect(find.textContaining('Não são recomendação'), findsOneWidget);
       await tester.scrollUntilVisible(
         find.text('Análise manual de ações e FIIs'),
         600,
         scrollable: find.byType(Scrollable).first,
       );
       expect(find.text('Análise manual de ações e FIIs'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.textContaining('Não são recomendação'),
+        600,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.textContaining('Não são recomendação'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
@@ -71,6 +76,14 @@ void main() {
         ),
       ),
     );
+    await tester.pumpAndSettle();
+
+    final Finder firstMillion = find.byKey(
+      const ValueKey<String>('investment-tool-open-firstMillion'),
+    );
+    await tester.ensureVisible(firstMillion);
+    await tester.pumpAndSettle();
+    await tester.tap(firstMillion);
     await tester.pumpAndSettle();
 
     await tester.enterText(
@@ -144,6 +157,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.tap(
+      find.byKey(const ValueKey<String>('investment-tool-open-firstMillion')),
+    );
+    await tester.pumpAndSettle();
+
     await tester.tap(find.text('Descobrir aporte'));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -188,5 +206,137 @@ void main() {
     expect(find.text('Aporte mínimo ao fim de cada mês'), findsOneWidget);
     expect(find.text('1 ano'), findsWidgets);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('central agrupa ferramentas e mantém apenas uma aberta', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(360, 760));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final GoRouter router = GoRouter(
+      initialLocation: '/',
+      routes: <RouteBase>[
+        GoRoute(
+          path: '/',
+          builder: (context, state) => const InvestmentToolsPage(),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp.router(theme: AppTheme.light, routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('O que você quer calcular?'), findsOneWidget);
+    expect(find.text('Planejamento'), findsOneWidget);
+    expect(find.text('Cálculos rápidos'), findsOneWidget);
+    expect(find.text('Valor inicial (R\$)'), findsNothing);
+
+    final Finder firstMillion = find.byKey(
+      const ValueKey<String>('investment-tool-open-firstMillion'),
+    );
+    await tester.ensureVisible(firstMillion);
+    await tester.pumpAndSettle();
+    await tester.tap(firstMillion);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Valor inicial (R\$)'), findsOneWidget);
+    expect(find.text('Juros compostos'), findsNothing);
+    expect(find.text('Todas as calculadoras'), findsOneWidget);
+  });
+
+  testWidgets('validação aparece no campo e limpar remove entradas', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(360, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final GoRouter router = GoRouter(
+      initialLocation: '/',
+      routes: <RouteBase>[
+        GoRoute(
+          path: '/',
+          builder: (context, state) => const InvestmentToolsPage(),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp.router(theme: AppTheme.light, routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('investment-tool-open-firstMillion')),
+    );
+    await tester.pumpAndSettle();
+
+    final Finder calculate = find.byKey(
+      const ValueKey<String>('investment-tool-calculate-Primeiro milhão'),
+    );
+    await tester.ensureVisible(calculate);
+    await tester.pumpAndSettle();
+    await tester.tap(calculate);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Informe um valor monetário válido.'), findsNWidgets(2));
+    expect(find.text('Não foi possível calcular'), findsNothing);
+
+    final Finder initial = find.byKey(
+      const ValueKey<String>('investment-tool-field-Valor inicial (R\$)'),
+    );
+    await tester.enterText(initial, '1000');
+    final Finder clear = find.byKey(
+      const ValueKey<String>('investment-tool-clear-Primeiro milhão'),
+    );
+    await tester.ensureVisible(clear);
+    await tester.pumpAndSettle();
+    await tester.tap(clear);
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(initial).controller!.text, isEmpty);
+  });
+
+  testWidgets('privacidade oculta também os valores monetários digitados', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(360, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final GoRouter router = GoRouter(
+      initialLocation: '/',
+      routes: <RouteBase>[
+        GoRoute(
+          path: '/',
+          builder: (context, state) => const InvestmentToolsPage(),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp.router(theme: AppTheme.light, routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('investment-tool-open-firstMillion')),
+    );
+    await tester.pumpAndSettle();
+
+    final Finder moneyField = find.byKey(
+      const ValueKey<String>('investment-tool-field-Valor inicial (R\$)'),
+    );
+    expect(tester.widget<TextField>(moneyField).obscureText, isFalse);
+
+    await tester.tap(find.byTooltip('Ocultar valores e quantidades'));
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<TextField>(moneyField).obscureText, isTrue);
+    expect(
+      find.text('Valores monetários digitados e resultados estão ocultos.'),
+      findsOneWidget,
+    );
   });
 }

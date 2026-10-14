@@ -127,6 +127,13 @@ O tema claro usa fundo `#F4F7FA`, superfícies brancas, cartões secundários `#
 ## 14. Aplicação no dashboard financeiro
 
 - A Home segue uma hierarquia de leitura curta: cabeçalho pessoal, filtros, saldo total, resumo do período, ações rápidas, gráficos, planejamento e lançamentos recentes.
+- A previsão de 30 dias aparece após o saldo atual, antes do resumo histórico,
+  para separar claramente posição presente, compromissos futuros e análise do
+  período. Ela usa `Saldo previsto`, informa o intervalo e a cobertura limitada
+  aos compromissos cadastrados e nunca sugere capacidade livre para gastar.
+- Valores previstos obedecem ao controle global de privacidade. Erro, leitura
+  pendente, ausência de confirmação do servidor e filtro de conta possuem estados
+  explícitos e não reutilizam o último total calculado.
 - O cartão principal mantém saldo atual e resultado mensal como conceitos distintos. Receitas, despesas e resultado possuem texto, valor, ícone e cor semântica.
 - A comparação mensal usa `CustomPainter` nativo e legenda textual; nenhuma dependência gráfica externa foi adicionada.
 - A ocultação de valores é global para o dashboard, preserva a estrutura visual e anuncia “Valor oculto” para tecnologias assistivas.
@@ -176,7 +183,7 @@ O tema claro usa fundo `#F4F7FA`, superfícies brancas, cartões secundários `#
 - Estados de carregamento, vazio, erro e retry possuem próximos passos claros. O gerenciador de carteiras reúne criação, edição, arquivamento e restauração sem apagar ativos ou operações.
 - Em largura de 320 px e fonte a 180%, ações quebram linha, cartões não dependem de largura fixa e o estado da posição fica abaixo do título quando necessário.
 - Temas claro, escuro e sistema reutilizam o sistema visual aprovado; azul-gelo permanece em destaques discretos e não ocupa grandes superfícies.
-- Logos, marcas, fotos, ilustrações proprietárias, barra inferior global, paywall, B3, rankings, notícias, agenda automática e rentabilidade de mercado não compõem o redesign.
+- Logos, marcas, fotos e ilustrações proprietárias não compõem aquele redesign histórico. NEWS-1 acrescenta posteriormente uma aba global de notícias com ícones próprios e atribuição textual, sem copiar a interface ou ativos de terceiros.
 
 ## 18. INV-PROV-1 — proventos manuais
 
@@ -187,7 +194,7 @@ O tema claro usa fundo `#F4F7FA`, superfícies brancas, cartões secundários `#
 - O formulário explica antes dos campos que nenhum saldo será alterado, oferece modos total e por unidade, prévia canônica e diálogo de confirmação.
 - Privacidade oculta valores e quantidades em resumo, gráficos, cartões, histórico, prévia e confirmação. Datas, tipos e status permanecem legíveis.
 - Em 320 px ou fonte a 180%, cabeçalho, filtros e seletor do histórico se empilham; formulários mantêm rolagem com teclado e dropdowns usam a largura disponível.
-- Azul-gelo permanece em seleção e destaque discreto. Não são usados logos, marca de referência, cotação, ranking, notícias, B3, paywall ou agenda automática.
+- Azul-gelo permanece em seleção e destaque discreto. Notícias usa a mesma linguagem visual, sem logos, imagens remotas ou marca de referência; Ranking permanece interno a Investimentos.
 
 ## 19. SUB-1C — estados Premium em investimentos
 
@@ -203,3 +210,23 @@ O tema claro usa fundo `#F4F7FA`, superfícies brancas, cartões secundários `#
 - A página prioriza status, benefícios reais, planos somente quando a loja os devolver, restauração, gerenciamento externo e documentos jurídicos. Não usa desconto, urgência, preço, depoimento ou benefício fictício.
 - Carregando, preparação, indisponível, pendente, verificando, ativa, somente leitura, cancelada e falha possuem texto equivalente e semântica; cores não são a única indicação.
 - Em 320 px, teclado e fonte 180%, cartões quebram texto, botões mantêm alvo Material e a rolagem preserva todas as ações. Tema claro/escuro reutiliza superfícies e azul-gelo discreto.
+
+## 21. Central de exploração de investimentos e Rankings
+
+- Ranking deixa a navegação global e passa a ser acessado pelo menu “Explorar investimentos”, junto de cotações e calculadoras.
+- A navegação global mantém Home, Notícias, Conversa, Investimentos e Calculadora; rotas internas de Investimentos continuam destacando o módulo como ativo.
+- Sem fonte fundamentalista validada, Rankings usa um único estado “Em preparação” em vez de repetir cartões de erro.
+- O catálogo exibe somente métricas compatíveis com a classe selecionada, sem valores, posições, exemplos ou ordenações artificiais.
+- Filtros usam chips responsivos e métricas usam lista textual acessível. BDRs recebem estado próprio até existir normalização de moeda, recibo e ativo subjacente.
+- Calculadoras e cotações permanecem como próximos passos úteis, sem sugerir que cotações atrasadas constituam um ranking fundamentalista.
+
+## 22. Notícias globais
+
+- Notícias ocupa o segundo destino da navegação global, entre Home e Conversa.
+- Mercado, Economia e Internacional usam chips responsivos; nenhuma categoria
+  adicional é inferida a partir da inspiração visual externa.
+- Cada card mostra categoria, título, fonte e horário e abre a matéria original
+  fora do aplicativo. Imagem remota e texto integral não são carregados.
+- Carregamento, falha, categoria ausente, cobertura parcial e snapshot vencido
+  possuem estados explícitos. Cache local ou escrita pendente não confirmam o
+  feed.

@@ -6,7 +6,6 @@ import 'package:meu_gestor_financeiro/app/theme/app_spacing.dart';
 import 'package:meu_gestor_financeiro/features/authentication/data/auth_providers.dart';
 import 'package:meu_gestor_financeiro/features/authentication/presentation/controllers/auth_controller.dart';
 import 'package:meu_gestor_financeiro/features/profile/domain/display_name.dart';
-import 'package:meu_gestor_financeiro/features/profile/domain/user_profile.dart';
 import 'package:meu_gestor_financeiro/features/profile/presentation/controllers/profile_action_controller.dart';
 import 'package:meu_gestor_financeiro/features/profile/presentation/controllers/profile_action_state.dart';
 import 'package:meu_gestor_financeiro/features/profile/presentation/widgets/profile_page_shell.dart';
@@ -79,7 +78,7 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
         ),
         const SizedBox(height: AppSpacing.sm),
         const Text(
-          'Antes de acessar a área autenticada, confirme seu nome e suas escolhas de privacidade.',
+          'Antes de começar, confirme seu nome e escolha como os recursos opcionais podem ser usados.',
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: AppSpacing.lg),
@@ -104,17 +103,17 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
             children: <Widget>[
               ProfileInfoTile(
                 label: 'Idioma',
-                value: UserProfile.supportedLocale,
+                value: 'Português (Brasil)',
                 icon: Icons.language_outlined,
               ),
               ProfileInfoTile(
                 label: 'Moeda',
-                value: UserProfile.supportedCurrencyCode,
+                value: 'Real brasileiro (R\$)',
                 icon: Icons.payments_outlined,
               ),
               ProfileInfoTile(
                 label: 'Fuso horário',
-                value: UserProfile.supportedTimeZone,
+                value: 'Horário de Brasília',
                 icon: Icons.schedule_outlined,
               ),
             ],
@@ -141,9 +140,9 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
           onChanged: loading
               ? null
               : (bool value) => setState(() => _aiConsent = value),
-          title: const Text('Permitir análises com IA futuramente'),
+          title: const Text('Permitir recursos com IA'),
           subtitle: const Text(
-            'Opcional e desativado por padrão. A IA ainda não está ativa e esta escolha não envia dados.',
+            'Opcional e desativado por padrão. O contexto financeiro remoto ainda exige ativação explícita na Conversa.',
           ),
         ),
         SwitchListTile(
@@ -151,7 +150,7 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
           onChanged: loading
               ? null
               : (bool value) => setState(() => _analyticsConsent = value),
-          title: const Text('Permitir Analytics futuramente'),
+          title: const Text('Permitir Analytics'),
           subtitle: const Text(
             'Opcional e separado da IA. Analytics ainda não está ativo e nenhum evento será enviado.',
           ),

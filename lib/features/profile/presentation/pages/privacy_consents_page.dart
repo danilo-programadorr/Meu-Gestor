@@ -19,18 +19,31 @@ class PrivacyConsentsPage extends ConsumerStatefulWidget {
 
 class _PrivacyConsentsPageState extends ConsumerState<PrivacyConsentsPage> {
   bool? _analyticsConsent;
+  DateTime? _loadedAnalyticsUpdatedAt;
   bool _revokingAssistantConsent = false;
+  _RemoteConsentLoadState _remoteConsentState = _RemoteConsentLoadState.loading;
 
   @override
   void initState() {
     super.initState();
     Future<void>.microtask(() async {
+      ref.read(profileActionControllerProvider.notifier).clearMessage();
       try {
         await ref
             .read(assistantRemoteConsentControllerProvider.notifier)
             .load();
+        if (mounted) {
+          setState(
+            () => _remoteConsentState = _RemoteConsentLoadState.available,
+          );
+        }
       } on Object {
         // A ausência ou uma falha de leitura preserva o estado fechado.
+        if (mounted) {
+          setState(
+            () => _remoteConsentState = _RemoteConsentLoadState.unavailable,
+          );
+        }
       }
     });
   }
@@ -55,9 +68,19 @@ class _PrivacyConsentsPageState extends ConsumerState<PrivacyConsentsPage> {
         .value;
     final UserProfile? profile = gate is ProfileGateValid ? gate.profile : null;
     if (profile == null) {
-      return const SizedBox.shrink();
+      return const ProfilePageShell(
+        title: 'Privacidade e consentimentos',
+        children: <Widget>[
+          Center(child: CircularProgressIndicator()),
+          SizedBox(height: AppSpacing.md),
+          Text('Carregando suas preferências...', textAlign: TextAlign.center),
+        ],
+      );
     }
-    _analyticsConsent ??= profile.analyticsConsentEnabled;
+    if (_loadedAnalyticsUpdatedAt != profile.analyticsConsentUpdatedAt) {
+      _loadedAnalyticsUpdatedAt = profile.analyticsConsentUpdatedAt;
+      _analyticsConsent = profile.analyticsConsentEnabled;
+    }
 
     final ProfileActionState action = ref.watch(
       profileActionControllerProvider,
@@ -102,6 +125,7 @@ class _PrivacyConsentsPageState extends ConsumerState<PrivacyConsentsPage> {
         const SizedBox(height: AppSpacing.sm),
         _AssistantConsentRevocationCard(
           enabled: profile.aiConsentEnabled || remoteConsentAllowed,
+          loadState: _remoteConsentState,
           loading: loading || _revokingAssistantConsent,
           onRevoke: _revokeAssistantConsent,
         ),
@@ -164,8 +188,14 @@ class _PrivacyConsentsPageState extends ConsumerState<PrivacyConsentsPage> {
       await ref
           .read(assistantRemoteConsentControllerProvider.notifier)
           .setAllowed(false);
+      if (mounted) {
+        setState(() => _remoteConsentState = _RemoteConsentLoadState.available);
+      }
     } on Object {
       if (mounted) {
+        setState(
+          () => _remoteConsentState = _RemoteConsentLoadState.unavailable,
+        );
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Não foi possível atualizar a permissão remota.'),
@@ -181,11 +211,13 @@ class _PrivacyConsentsPageState extends ConsumerState<PrivacyConsentsPage> {
 class _AssistantConsentRevocationCard extends StatelessWidget {
   const _AssistantConsentRevocationCard({
     required this.enabled,
+    required this.loadState,
     required this.loading,
     required this.onRevoke,
   });
 
   final bool enabled;
+  final _RemoteConsentLoadState loadState;
   final bool loading;
   final Future<void> Function() onRevoke;
 
@@ -201,12 +233,18 @@ class _AssistantConsentRevocationCard extends StatelessWidget {
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: AppSpacing.xs),
-          Text(
-            enabled
-                ? 'O consentimento pode ser revogado a qualquer momento. A revogação bloqueia imediatamente novas chamadas remotas.'
-                : 'O Assistente Financeiro está desativado. Para ativá-lo, abra uma conversa e escolha “Ativar e continuar”.',
-          ),
-          if (enabled) ...<Widget>[
+          Text(switch (loadState) {
+            _RemoteConsentLoadState.loading =>
+              'Confirmando a situação do consentimento remoto...',
+            _RemoteConsentLoadState.unavailable =>
+              'Não foi possível confirmar o consentimento remoto. Por segurança, novas chamadas permanecem bloqueadas.',
+            _RemoteConsentLoadState.available when enabled =>
+              'O consentimento pode ser revogado a qualquer momento. A revogação bloqueia imediatamente novas chamadas remotas.',
+            _RemoteConsentLoadState.available =>
+              'O Assistente Financeiro está desativado. Para ativá-lo, abra uma conversa e escolha “Ativar e continuar”.',
+          }),
+          if (loadState == _RemoteConsentLoadState.available &&
+              enabled) ...<Widget>[
             const SizedBox(height: AppSpacing.sm),
             OutlinedButton.icon(
               onPressed: loading ? null : () => onRevoke(),
@@ -219,3 +257,5 @@ class _AssistantConsentRevocationCard extends StatelessWidget {
     ),
   );
 }
+
+enum _RemoteConsentLoadState { loading, available, unavailable }

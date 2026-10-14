@@ -51,6 +51,8 @@ import 'package:meu_gestor_financeiro/features/profile/presentation/controllers/
 import 'package:meu_gestor_financeiro/features/profile/presentation/pages/legal_update_page.dart';
 import 'package:meu_gestor_financeiro/features/profile/presentation/pages/privacy_consents_page.dart';
 import 'package:meu_gestor_financeiro/features/profile/presentation/pages/profile_access_error_page.dart';
+import 'package:meu_gestor_financeiro/features/profile/presentation/pages/profile_appearance_page.dart';
+import 'package:meu_gestor_financeiro/features/profile/presentation/pages/profile_assistant_page.dart';
 import 'package:meu_gestor_financeiro/features/profile/presentation/pages/profile_page.dart';
 import 'package:meu_gestor_financeiro/features/profile/presentation/pages/profile_setup_page.dart';
 import 'package:meu_gestor_financeiro/features/transactions/domain/financial_transaction.dart';
@@ -451,6 +453,14 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((Ref ref) {
             builder: (context, state) => const ProfilePage(),
           ),
           GoRoute(
+            path: AppRoutes.profileAppearance,
+            builder: (context, state) => const ProfileAppearancePage(),
+          ),
+          GoRoute(
+            path: AppRoutes.profileAssistant,
+            builder: (context, state) => const ProfileAssistantPage(),
+          ),
+          GoRoute(
             path: AppRoutes.ownerArea,
             builder: (context, state) =>
                 const MasterAccessGate(child: OwnerAreaPage()),
@@ -519,7 +529,10 @@ bool _isValidProfileRoute(String location) {
       location == AppRoutes.assistant ||
       location == AppRoutes.assistantConversation ||
       location == AppRoutes.profile ||
+      location == AppRoutes.profileAppearance ||
+      location == AppRoutes.profileAssistant ||
       location == AppRoutes.privacyConsents ||
+      location == AppRoutes.dataAndPrivacy ||
       location == AppRoutes.accounts ||
       location == AppRoutes.archivedAccounts ||
       location.startsWith('${AppRoutes.accounts}/') ||

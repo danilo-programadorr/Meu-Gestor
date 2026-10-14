@@ -181,6 +181,11 @@ class _PerformanceCard extends StatelessWidget {
             visible: visible,
           ),
           _MoneyLine(
+            label: 'Valor investido',
+            value: performance.investedCostCents,
+            visible: visible,
+          ),
+          _MoneyLine(
             label: 'Resultado não realizado',
             value: performance.unrealizedResultCents,
             visible: visible,
@@ -200,6 +205,20 @@ class _PerformanceCard extends StatelessWidget {
             value: performance.totalEconomicResultCents,
             visible: visible,
           ),
+          _TextLine(
+            label: 'Rentabilidade da posição',
+            value: _basisPoints(
+              performance.openPositionReturnBasisPoints,
+              visible: visible,
+            ),
+          ),
+          _TextLine(
+            label: 'Variação do dia',
+            value: _basisPoints(
+              performance.dailyVariationBasisPoints,
+              visible: visible,
+            ),
+          ),
           if (!performance.hasFullCoverage) ...<Widget>[
             const SizedBox(height: AppSpacing.sm),
             const Text(
@@ -208,6 +227,36 @@ class _PerformanceCard extends StatelessWidget {
           ],
         ],
       ),
+    ),
+  );
+
+  String _basisPoints(int? value, {required bool visible}) {
+    if (value == null) return 'Indisponível';
+    if (!visible) return InvestmentViewSupport.hiddenValue;
+    final String signal = value > 0
+        ? '+'
+        : value < 0
+        ? '-'
+        : '';
+    final int absolute = value.abs();
+    return '$signal${absolute ~/ 100},${(absolute % 100).toString().padLeft(2, '0')}%';
+  }
+}
+
+class _TextLine extends StatelessWidget {
+  const _TextLine({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+    child: Row(
+      children: <Widget>[
+        Expanded(child: Text(label)),
+        Text(value, textAlign: TextAlign.end),
+      ],
     ),
   );
 }

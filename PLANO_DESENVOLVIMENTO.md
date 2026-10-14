@@ -746,8 +746,8 @@ Situação em 09/08/2026: implementação e validações concluídas; Security R
 Situação em 09/08/2026: implementação visual concluída sobre a INV-1A; 532 testes Flutter e 40 testes de regras aprovados, logs auditados e APK debug development aprovado manualmente. O checkpoint Git conjunto foi autorizado.
 
 - O cabeçalho preserva retorno seguro, privacidade e ação compacta de criação. O seletor de carteira permanece antes das abas e o gerenciamento reúne criação, edição, arquivamento e restauração.
-- Resumo, Ativos e Lançamentos eram as abas aprovadas na UI-INV-1B; o INV-PROV-1 acrescenta somente a quarta aba Proventos. Rentabilidade, rankings, notícias, integrações, paywall e cotação não aparecem como recursos disponíveis. A antiga proposta de integração B3/corretoras foi cancelada e não integra o planejamento.
-- O cartão principal apresenta somente custo acompanhado, ativos cadastrados, posições abertas, resultado realizado e carteira selecionada.
+- Resumo, Ativos e Lançamentos eram as abas aprovadas na UI-INV-1B; o INV-PROV-1 acrescentou Proventos e o INV-2C passou a expor Rentabilidade com snapshots atrasados. Rankings e calculadoras permanecem em “Explorar investimentos”; corretoras e Open Finance seguem fora do planejamento.
+- O cartão principal apresenta valor investido, ativos cadastrados, posições abertas e resultado realizado. Um carrossel adicional de mercado separa patrimônio estimado, lucro econômico, rentabilidade da posição e variação diária, sempre sujeito a cobertura completa.
 - O gráfico nativo de evolução agrega compras e vendas efetivamente registradas. A rosca usa custo atual das posições abertas e alterna entre classes e ativos, com legenda textual e privacidade conjunta.
 - A lista de ativos possui busca por ticker/nome, filtro Ações/FIIs e ordenação determinística. Lançamentos usam cartões responsivos com filtros por operação, ativo e período, sem tabela horizontal obrigatória.
 - A prévia de operação reutiliza tipos escalados e `InvestmentArithmetic` do domínio para valor bruto, taxas, valor final, impacto na quantidade e possível novo preço médio de compra.
@@ -763,7 +763,7 @@ Situação em 10/08/2026: implementação e validações concluídas; Security R
 - Valores aceitam total em centavos ou quantidade escala 8 vezes valor unitário escala 6, com intermediário `BigInt`, half-up, imposto retido informado e líquido derivado.
 - Data-com é opcional; previsão pode ser futura; recebimento efetivo usa data civil de São Paulo e não pode estar no futuro.
 - A coleção `investmentIncomeEvents` possui mapper fechado, referências ativas, revisões, mutations idempotentes, timestamps do servidor e confirmação por releitura server-only.
-- A quarta aba apresenta resumo líquido, filtros, colunas de 12 meses, distribuição por ativo, lista e histórico mensal/anual somente com dados persistidos. Privacidade, temas, 320 px e fonte a 180% são preservados.
+- A aba apresenta recebido no mês e no período, valor previsto, filtros, evolução de 12 meses, distribuição por ativo, lista e histórico mensal/anual somente com dados persistidos. Privacidade, temas, 320 px e fonte a 180% são preservados.
 - Proventos não criam receita no núcleo financeiro, não referenciam conta e não alteram saldo, compromissos, posição ou resumo mensal.
 - Agenda automática de proventos, amortização, eventos corporativos, cálculo tributário, DARF, notificações, assinatura e integrações permanecem fora deste incremento. A integração B3 e as integrações automáticas com corretoras foram canceladas por decisão do responsável pelo projeto: não constituem requisito, limitação pendente ou incremento futuro, e nenhuma implementação, pesquisa técnica ou preparação arquitetural deve ser iniciada. A futura cotação de mercado com atraso por provedor de dados independente permanece separada dessa decisão.
 
@@ -888,6 +888,7 @@ Situação: contrato e experiência local preparados; BRAPI aprovada como proved
 - Cotações são snapshots globais de ação/FII em BRL por ticker, com preço escalado, horário da fonte, captura, atraso e validade declarados. Estados indisponível, inválido, mercado fechado, atrasado e possível evento corporativo são explícitos; resposta sem horário, preço não positivo ou mais antiga é recusada.
 - O gateway local é independente de provedor e trabalha em lotes deduplicados, cache global, lease, retry idempotente e circuit breaker. Não há consulta por usuário, chamada de API nem dado fictício no aplicativo.
 - Valor estimado, não realizado, realizado e proventos recebidos aparecem separados. Total econômico somente é calculado quando todas as posições abertas têm snapshot compatível; cobertura parcial não simula total nem evolução histórica.
+- A variação diária da carteira recompõe o fechamento anterior de cada posição com inteiros escalados e pondera os ativos pelo valor. A rentabilidade da posição usa resultado não realizado sobre o custo atual; alta é indicada em verde e queda em vermelho, sempre acompanhadas de sinal e texto acessíveis.
 - A experiência usa rota autenticada gratuita e estados honestos de indisponibilidade. Preços, operações, quantidade, preço médio, proventos, contas e saldo nunca são modificados.
 - A ativação externa depende de aprovação comercial e técnica separada de provedor de dados atrasados, licença, orçamento/limites, segredo server-side, persistência global de snapshots e job backend. B3 e corretoras permanecem canceladas.
 
@@ -916,6 +917,9 @@ aos tickers presentes no catálogo global administrado pelo servidor.
 - Ativo sem compra, ticker sem cobertura, snapshot vencido, leitura em curso e
   falha de atualização possuem estados distintos. Cobertura parcial não produz
   total completo e a privacidade global também oculta preço e variação.
+- O Resumo usa cartões horizontais para patrimônio, valor investido, lucro,
+  rentabilidade e variação diária. A aba Rentabilidade decompõe o desempenho
+  por ativo; sinais positivos e negativos não dependem apenas de cor.
 - O aplicativo não envia carteira, quantidade, identificador pessoal ou lista
   arbitrária de tickers à BRAPI. Ampliar a cobertura requer alteração controlada
   do catálogo global e validação dos limites do plano development.
@@ -1223,6 +1227,40 @@ não foi alterada.
 - Testes cobrem normalização e limites do apelido, isolamento por proprietário,
   persistência, ausência de tratamento e composição determinística do
   cumprimento.
+
+## 76. PROFILE-UX-1 — perfil organizado e estados seguros
+
+- O resumo do perfil usa iniciais locais, email mascarado vindo somente da
+  sessão e descrição amigável de idioma, moeda e fuso, sem ampliar o schema.
+- Aparência e personalização da Luma possuem páginas próprias; consentimentos,
+  operações de dados e sessão ficam em grupos distintos.
+- A leitura do consentimento remoto diferencia carregamento, estado confirmado
+  e indisponibilidade, preservando bloqueio seguro em qualquer falha.
+- Rotas filhas do Perfil permanecem abertas até ação explícita. Dados da conta
+  deixa de ser redirecionado indevidamente à Home, e logout exige confirmação.
+
+## 77. FIN-CASHFLOW-1 — previsão nominal de caixa em 30 dias
+
+Situação em 10/10/2026: implementação local concluída; publicação e validação
+manual no Android permanecem pendentes de autorização específica.
+
+- A Home deriva uma previsão nominal de 30 dias exclusivamente do saldo atual e
+  dos compromissos próprios confirmados pelo servidor, sem IA, nova persistência
+  ou dados fictícios.
+- O intervalo usa datas civis de `America/Sao_Paulo` e fim exclusivo. Obrigações
+  vencidas são tratadas como imediatas; recebimentos vencidos permanecem fora da
+  entrada prevista e são informados como não garantidos.
+- Compromissos liquidados, cancelados, anulados ou fora do horizonte não entram
+  no cálculo. A projeção identifica o primeiro fechamento diário negativo e
+  nunca é apresentada quando uma das leituras não está confirmada.
+- Como compromissos pendentes ainda não possuem conta de liquidação, a previsão
+  é somente consolidada. Com filtro de conta, a interface explica a limitação e
+  permite voltar a todas as contas, sem atribuição artificial.
+- O resultado é denominado `Saldo previsto` e não `dinheiro livre`: despesas
+  essenciais, confiança de renda e recorrências ainda não possuem cobertura
+  suficiente para calcular capacidade segura de gasto.
+- Textos históricos de IA futura foram removidos sem ativar Analytics, alterar
+  Firestore, Rules ou backend.
 
 ## 78. NEWS-1 — feed global Marketaux
 

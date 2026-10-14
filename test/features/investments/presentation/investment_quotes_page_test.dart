@@ -36,6 +36,10 @@ void main() {
               realizedResultCents: 0,
               receivedIncomeCents: 0,
               totalEconomicResultCents: null,
+              investedCostCents: 0,
+              openPositionReturnBasisPoints: null,
+              dailyVariationCents: null,
+              dailyVariationBasisPoints: null,
             ),
           ),
         ],
@@ -57,7 +61,7 @@ void main() {
       find.textContaining('não existe um provedor autorizado'),
       findsNothing,
     );
-    expect(find.text('Indisponível'), findsNWidgets(3));
+    expect(find.text('Indisponível'), findsNWidgets(5));
     expect(tester.takeException(), isNull);
   });
 }

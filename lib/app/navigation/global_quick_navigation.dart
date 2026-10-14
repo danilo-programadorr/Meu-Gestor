@@ -129,6 +129,8 @@ bool _isAuthenticatedInternalRoute(String location) => <String>{
   AppRoutes.investmentTools,
   AppRoutes.fairValue,
   AppRoutes.profile,
+  AppRoutes.profileAppearance,
+  AppRoutes.profileAssistant,
   AppRoutes.privacyConsents,
   AppRoutes.dataAndPrivacy,
   AppRoutes.ownerArea,

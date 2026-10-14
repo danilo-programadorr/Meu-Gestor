@@ -21,4 +21,23 @@ void main() {
       );
     }
   });
+
+  test('catálogo mantém somente métricas compatíveis com a classe', () {
+    expect(
+      rankingMetricsFor(
+        RankingAssetFilter.shares,
+      ).map((RankingMetricDefinition definition) => definition.metric),
+      isNot(contains(RankingMetric.fiiBookReference)),
+    );
+    expect(
+      rankingMetricsFor(
+        RankingAssetFilter.fiis,
+      ).map((RankingMetricDefinition definition) => definition.metric),
+      allOf(
+        contains(RankingMetric.fiiBookReference),
+        isNot(contains(RankingMetric.grahamDifference)),
+      ),
+    );
+    expect(rankingMetricsFor(RankingAssetFilter.bdrs), isEmpty);
+  });
 }

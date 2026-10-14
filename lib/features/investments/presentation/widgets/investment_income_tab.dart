@@ -116,6 +116,7 @@ class _InvestmentIncomeTabState extends ConsumerState<InvestmentIncomeTab> {
             ),
             const SizedBox(height: AppSpacing.md),
             _IncomeSummaryCard(
+              currentMonthReceivedCents: evolution.last.receivedCents,
               receivedCents: InvestmentIncomeAnalytics.receivedTotal(filtered),
               expectedCents: InvestmentIncomeAnalytics.expectedTotal(filtered),
               valuesVisible: widget.valuesVisible,
@@ -139,8 +140,8 @@ class _InvestmentIncomeTabState extends ConsumerState<InvestmentIncomeTab> {
             ),
             const SizedBox(height: AppSpacing.md),
             _IncomeSectionCard(
-              title: 'Recebido versus previsto',
-              subtitle: 'Últimos 12 meses, sem projeções automáticas',
+              title: 'Evolução de proventos',
+              subtitle: 'Recebidos e previstos nos últimos 12 meses',
               child: InvestmentIncomeColumnsChart(
                 buckets: evolution,
                 valuesVisible: widget.valuesVisible,
@@ -148,7 +149,7 @@ class _InvestmentIncomeTabState extends ConsumerState<InvestmentIncomeTab> {
             ),
             const SizedBox(height: AppSpacing.md),
             _IncomeSectionCard(
-              title: 'Distribuição por ativo',
+              title: 'Proventos por ativo',
               subtitle: 'Somente recebimentos confirmados nos filtros',
               child: InvestmentIncomeDonutChart(
                 slices: distribution,
@@ -426,12 +427,14 @@ class _IncomeHeader extends StatelessWidget {
 
 class _IncomeSummaryCard extends StatelessWidget {
   const _IncomeSummaryCard({
+    required this.currentMonthReceivedCents,
     required this.receivedCents,
     required this.expectedCents,
     required this.valuesVisible,
     required this.eventCount,
   });
 
+  final int currentMonthReceivedCents;
   final int receivedCents;
   final int expectedCents;
   final bool valuesVisible;
@@ -440,7 +443,7 @@ class _IncomeSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Semantics(
     label: valuesVisible
-        ? 'Resumo de proventos: recebido ${InvestmentViewSupport.money(receivedCents, visible: true)}, previsto ${InvestmentViewSupport.money(expectedCents, visible: true)}, $eventCount registros.'
+        ? 'Resumo de proventos: neste mês ${InvestmentViewSupport.money(currentMonthReceivedCents, visible: true)}, recebido no período ${InvestmentViewSupport.money(receivedCents, visible: true)}, previsto ${InvestmentViewSupport.money(expectedCents, visible: true)}, $eventCount registros.'
         : 'Resumo de proventos com valores ocultos.',
     child: Card(
       color: Theme.of(context).colorScheme.primaryContainer,
@@ -449,24 +452,28 @@ class _IncomeSummaryCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            Text(
-              'Resumo do período',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
+            Text('Proventos', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: AppSpacing.md),
             Wrap(
               spacing: AppSpacing.xl,
               runSpacing: AppSpacing.md,
               children: <Widget>[
                 _IncomeMetric(
-                  label: 'Líquido recebido',
+                  label: 'Recebido neste mês',
+                  value: InvestmentViewSupport.money(
+                    currentMonthReceivedCents,
+                    visible: valuesVisible,
+                  ),
+                ),
+                _IncomeMetric(
+                  label: 'Recebido no período',
                   value: InvestmentViewSupport.money(
                     receivedCents,
                     visible: valuesVisible,
                   ),
                 ),
                 _IncomeMetric(
-                  label: 'Líquido previsto',
+                  label: 'A receber no período',
                   value: InvestmentViewSupport.money(
                     expectedCents,
                     visible: valuesVisible,

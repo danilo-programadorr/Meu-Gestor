@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:meu_gestor_financeiro/app/theme/app_theme.dart';
+import 'package:meu_gestor_financeiro/app/theme/app_theme_colors.dart';
 import 'package:meu_gestor_financeiro/core/environment/app_environment.dart';
 import 'package:meu_gestor_financeiro/core/privacy/financial_privacy_controller.dart';
 import 'package:meu_gestor_financeiro/features/authentication/data/auth_providers.dart';
@@ -182,6 +183,64 @@ void main() {
         findsOneWidget,
       );
       expect(context.quoteRepository.lastTickers, <String>['PETR4']);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'resumo e rentabilidade exibem totais somente com cobertura completa',
+    (WidgetTester tester) async {
+      final _WidgetContext context = await _context(
+        withOperations: true,
+        withIncome: true,
+      );
+      addTearDown(context.dispose);
+      context.quoteRepository.quotes.addAll(<InvestmentQuote>[
+        _quote(),
+        _quote(
+          ticker: 'HGLG11',
+          type: TrackedInvestmentAssetType.fii,
+          price: '170',
+          variationBasisPoints: -75,
+        ),
+      ]);
+      context.container.invalidate(investmentQuotesProvider);
+
+      await _pump(tester, context, const InvestmentsPage());
+
+      expect(
+        find.byKey(const ValueKey<String>('investment-performance-carousel')),
+        findsOneWidget,
+      );
+      expect(find.text('Patrimônio estimado'), findsOneWidget);
+      expect(find.text('Lucro econômico total'), findsOneWidget);
+
+      await _tapInvestmentTab(tester, 'Rentabilidade');
+      await tester.scrollUntilVisible(
+        find.text('Resultado por ativo'),
+        220,
+        scrollable: find
+            .descendant(
+              of: find.byKey(
+                const ValueKey<String>('investment-profitability-scroll'),
+              ),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      expect(find.text('Resultado por ativo'), findsOneWidget);
+      expect(find.text('PETR4'), findsOneWidget);
+      expect(find.text('HGLG11'), findsOneWidget);
+      expect(find.text('Hoje +1,23%'), findsOneWidget);
+      expect(find.text('Hoje -0,75%'), findsOneWidget);
+      expect(
+        tester.widget<Text>(find.text('Hoje +1,23%')).style?.color,
+        AppThemeColors.of(tester.element(find.text('Hoje +1,23%'))).success,
+      );
+      expect(
+        tester.widget<Text>(find.text('Hoje -0,75%')).style?.color,
+        AppThemeColors.of(tester.element(find.text('Hoje -0,75%'))).expense,
+      );
       expect(tester.takeException(), isNull);
     },
   );
@@ -365,13 +424,13 @@ void main() {
         find.byKey(const ValueKey<String>('investment-main-summary-card')),
         findsOneWidget,
       );
-      expect(find.text('Custo atual acompanhado'), findsOneWidget);
+      expect(find.text('Valor investido'), findsOneWidget);
       expect(tester.takeException(), isNull);
       context.dispose();
     }
   });
 
-  testWidgets('exibe seletor e as quatro abas autorizadas', (
+  testWidgets('exibe seletor e as cinco abas da carteira', (
     WidgetTester tester,
   ) async {
     final _WidgetContext context = await _context(withAsset: true);
@@ -386,7 +445,7 @@ void main() {
     expect(find.text('Ativos'), findsOneWidget);
     expect(find.text('Lançamentos'), findsOneWidget);
     expect(find.text('Proventos'), findsOneWidget);
-    expect(find.text('Rentabilidade'), findsNothing);
+    expect(find.text('Rentabilidade'), findsOneWidget);
     expect(find.textContaining('patrimônio atual'), findsNothing);
     expect(find.textContaining('valorização'), findsNothing);
     expect(find.byTooltip('Criar carteira'), findsOneWidget);
@@ -477,7 +536,7 @@ void main() {
     await _pump(tester, context, const InvestmentsPage());
 
     expect(find.textContaining('acesso Premium terminou'), findsNothing);
-    expect(find.text('Custo atual acompanhado'), findsOneWidget);
+    expect(find.text('Valor investido'), findsWidgets);
     expect(find.byTooltip('Criar carteira'), findsOneWidget);
     expect(find.byTooltip('Gerenciar carteiras'), findsOneWidget);
     expect(find.byTooltip('Consultar carteiras'), findsNothing);
@@ -626,10 +685,12 @@ void main() {
     await tester.scrollUntilVisible(
       find.text('Evolução dos aportes e vendas'),
       220,
-      scrollable: find.descendant(
-        of: find.byKey(const ValueKey<String>('investment-summary-scroll')),
-        matching: find.byType(Scrollable),
-      ),
+      scrollable: find
+          .descendant(
+            of: find.byKey(const ValueKey<String>('investment-summary-scroll')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
     );
     expect(find.text('Evolução dos aportes e vendas'), findsOneWidget);
     expect(
@@ -639,10 +700,12 @@ void main() {
     await tester.scrollUntilVisible(
       find.byKey(const ValueKey<String>('investment-allocation-chart')),
       220,
-      scrollable: find.descendant(
-        of: find.byKey(const ValueKey<String>('investment-summary-scroll')),
-        matching: find.byType(Scrollable),
-      ),
+      scrollable: find
+          .descendant(
+            of: find.byKey(const ValueKey<String>('investment-summary-scroll')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
     );
     expect(
       find.byKey(const ValueKey<String>('investment-allocation-chart')),
@@ -911,24 +974,24 @@ void main() {
       await _pump(tester, context, const InvestmentsPage());
 
       await _tapInvestmentTab(tester, 'Proventos');
-      expect(find.text('Resumo do período'), findsOneWidget);
+      expect(find.text('Proventos'), findsWidgets);
       expect(find.text('Filtros'), findsOneWidget);
       final Finder incomeScroll = find.descendant(
         of: find.byKey(const ValueKey<String>('investment-income-scroll')),
         matching: find.byType(Scrollable),
       );
       await tester.scrollUntilVisible(
-        find.text('Recebido versus previsto'),
+        find.text('Evolução de proventos'),
         220,
         scrollable: incomeScroll,
       );
-      expect(find.text('Recebido versus previsto'), findsOneWidget);
+      expect(find.text('Evolução de proventos'), findsOneWidget);
       await tester.scrollUntilVisible(
-        find.text('Distribuição por ativo'),
+        find.text('Proventos por ativo'),
         220,
         scrollable: incomeScroll,
       );
-      expect(find.text('Distribuição por ativo'), findsOneWidget);
+      expect(find.text('Proventos por ativo'), findsOneWidget);
       await tester.scrollUntilVisible(
         find.text('Meus proventos'),
         220,
@@ -1368,17 +1431,23 @@ InvestmentOperation _operation({
   );
 }
 
-InvestmentQuote _quote({DateTime? observedAt, String price = '35'}) {
+InvestmentQuote _quote({
+  DateTime? observedAt,
+  String price = '35',
+  String ticker = 'PETR4',
+  TrackedInvestmentAssetType type = TrackedInvestmentAssetType.stock,
+  int variationBasisPoints = 123,
+}) {
   final DateTime effectiveObservedAt =
       observedAt ?? DateTime.utc(2026, 8, 10, 11, 30);
   final DateTime capturedAt = DateTime.utc(2026, 8, 10, 12);
   return InvestmentQuote(
-    ticker: 'PETR4',
-    assetType: TrackedInvestmentAssetType.stock,
+    ticker: ticker,
+    assetType: type,
     currencyCode: 'BRL',
     market: InvestmentQuoteMarket.b3,
     unitPriceScaled: InvestmentUnitPrice.parsePtBr(price).scaled,
-    variationBasisPoints: 123,
+    variationBasisPoints: variationBasisPoints,
     observedAt: effectiveObservedAt,
     capturedAt: capturedAt,
     declaredDelay: const Duration(minutes: 30),

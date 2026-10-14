@@ -7,6 +7,7 @@ final class OwnerAccessBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Semantics(
+    container: true,
     button: true,
     label: 'Acesso proprietário. Abrir Área do proprietário',
     excludeSemantics: true,

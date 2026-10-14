@@ -68,7 +68,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             },
             onToggleTheme: _toggleTheme,
             onProfile: () => _push(AppRoutes.profile),
-            onAppearance: () => _push(AppRoutes.profile),
+            onAppearance: () => _push(AppRoutes.profileAppearance),
             onAccounts: () => _push(AppRoutes.accounts),
             onCategories: () => _push(AppRoutes.categories),
             onTransactions: () => _push(AppRoutes.transactions),

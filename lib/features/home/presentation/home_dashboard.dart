@@ -12,6 +12,7 @@ import 'package:meu_gestor_financeiro/features/accounts/domain/financial_account
 import 'package:meu_gestor_financeiro/features/categories/domain/financial_category.dart';
 import 'package:meu_gestor_financeiro/features/commitments/domain/financial_commitment.dart';
 import 'package:meu_gestor_financeiro/features/commitments/presentation/controllers/financial_commitments_controller.dart';
+import 'package:meu_gestor_financeiro/features/home/domain/home_cash_flow_forecast.dart';
 import 'package:meu_gestor_financeiro/features/home/presentation/home_dashboard_analytics.dart';
 import 'package:meu_gestor_financeiro/features/home/presentation/home_dashboard_filter.dart';
 import 'package:meu_gestor_financeiro/features/transactions/domain/financial_balance_calculator.dart';
@@ -208,6 +209,19 @@ class _DashboardContent extends StatelessWidget {
           onAccounts: callbacks.onAccounts,
         ),
         const SizedBox(height: AppSpacing.md),
+        _CashFlowForecastSection(
+          balance: analytics.balance,
+          payables: payables,
+          receivables: receivables,
+          today: today,
+          accountFilterActive: filter.accountId != null,
+          valuesVisible: valuesVisible,
+          onShowAllAccounts: onFilterChanged == null
+              ? null
+              : () => onFilterChanged!(filter.withAccount(null)),
+          onRetry: callbacks.onRetryCommitments,
+        ),
+        const SizedBox(height: AppSpacing.md),
         _MonthlySummary(
           income: analytics.income,
           expense: analytics.expense,
@@ -248,6 +262,272 @@ class _DashboardContent extends StatelessWidget {
       ],
     );
   }
+}
+
+class _CashFlowForecastSection extends StatelessWidget {
+  const _CashFlowForecastSection({
+    required this.balance,
+    required this.payables,
+    required this.receivables,
+    required this.today,
+    required this.accountFilterActive,
+    required this.valuesVisible,
+    required this.onShowAllAccounts,
+    required this.onRetry,
+  });
+
+  final Money balance;
+  final AsyncValue<FinancialCommitmentsState<Payable>> payables;
+  final AsyncValue<FinancialCommitmentsState<Receivable>> receivables;
+  final SaoPauloCivilDate today;
+  final bool accountFilterActive;
+  final bool valuesVisible;
+  final VoidCallback? onShowAllAccounts;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    if (accountFilterActive) {
+      return _DashboardCard(
+        key: const ValueKey<String>('home-cash-flow-forecast-unavailable'),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const _SectionTitle(
+              title: 'Próximos 30 dias',
+              subtitle: 'Previsão consolidada com compromissos cadastrados.',
+            ),
+            const SizedBox(height: AppSpacing.md),
+            const Text(
+              'Compromissos pendentes ainda não possuem uma conta definida. '
+              'Por isso, a previsão não pode ser calculada para apenas uma conta.',
+            ),
+            if (onShowAllAccounts != null) ...<Widget>[
+              const SizedBox(height: AppSpacing.sm),
+              TextButton.icon(
+                onPressed: onShowAllAccounts,
+                icon: const Icon(Icons.account_balance_wallet_outlined),
+                label: const Text('Ver todas as contas'),
+              ),
+            ],
+          ],
+        ),
+      );
+    }
+    if (payables.hasError || receivables.hasError) {
+      return _SectionError(
+        message:
+            'Não foi possível confirmar os dados da previsão com o servidor.',
+        onRetry: onRetry,
+      );
+    }
+    final FinancialCommitmentsState<Payable>? payableState = payables.value;
+    final FinancialCommitmentsState<Receivable>? receivableState =
+        receivables.value;
+    if (payableState == null || receivableState == null) {
+      return const _ForecastLoading();
+    }
+    if (!payableState.isServerConfirmed || !receivableState.isServerConfirmed) {
+      return _SectionError(
+        message: 'A previsão exige compromissos confirmados pelo servidor.',
+        onRetry: onRetry,
+      );
+    }
+    final HomeCashFlowForecast forecast =
+        HomeCashFlowForecastCalculator.calculate(
+          openingBalance: balance,
+          payables: payableState.commitments,
+          receivables: receivableState.commitments,
+          today: today,
+        );
+    return _CashFlowForecastCard(
+      forecast: forecast,
+      valuesVisible: valuesVisible,
+    );
+  }
+}
+
+class _CashFlowForecastCard extends StatelessWidget {
+  const _CashFlowForecastCard({
+    required this.forecast,
+    required this.valuesVisible,
+  });
+
+  final HomeCashFlowForecast forecast;
+  final bool valuesVisible;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppThemeColors colors = AppThemeColors.of(context);
+    final DateFormat dateFormat = DateFormat('dd/MM', 'pt_BR');
+    final String range =
+        '${dateFormat.format(forecast.start.toUtcCalendarDate())}–'
+        '${dateFormat.format(forecast.endInclusive.toUtcCalendarDate())}';
+    final SaoPauloCivilDate? negativeDate = forecast.firstNegativeDate;
+    final Color statusColor = negativeDate == null
+        ? colors.success
+        : Theme.of(context).colorScheme.error;
+    final String statusText = negativeDate == null
+        ? 'Sem saldo negativo previsto no período'
+        : 'Saldo negativo previsto em '
+              '${dateFormat.format(negativeDate.toUtcCalendarDate())}';
+    final String semanticLabel = valuesVisible
+        ? 'Previsão dos próximos 30 dias, de $range. '
+              'A pagar ${MoneyFormatter.format(forecast.scheduledPayables)}. '
+              'A receber ${MoneyFormatter.format(forecast.scheduledReceivables)}. '
+              'Saldo previsto ${MoneyFormatter.format(forecast.projectedBalance)}. '
+              '$statusText.'
+        : 'Previsão dos próximos 30 dias com valores ocultos. $statusText.';
+    return Semantics(
+      container: true,
+      label: semanticLabel,
+      child: _DashboardCard(
+        key: const ValueKey<String>('home-cash-flow-forecast'),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            _SectionTitle(
+              title: 'Próximos 30 dias',
+              subtitle: 'Compromissos cadastrados • $range',
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              'Saldo previsto',
+              style: Theme.of(context).textTheme.labelLarge,
+            ),
+            const SizedBox(height: AppSpacing.xxs),
+            _MoneyValue(
+              money: forecast.projectedBalance,
+              visible: valuesVisible,
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: _ForecastMetric(
+                    label: 'A pagar',
+                    money: forecast.scheduledPayables,
+                    visible: valuesVisible,
+                    color: colors.expense,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: _ForecastMetric(
+                    label: 'A receber',
+                    money: forecast.scheduledReceivables,
+                    visible: valuesVisible,
+                    color: colors.success,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Icon(
+                  negativeDate == null
+                      ? Icons.check_circle_outline_rounded
+                      : Icons.warning_amber_rounded,
+                  color: statusColor,
+                  semanticLabel: negativeDate == null ? 'Sem risco' : 'Atenção',
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Expanded(
+                  child: Text(
+                    statusText,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: statusColor),
+                  ),
+                ),
+              ],
+            ),
+            if (forecast.excludedOverdueReceivableCount > 0) ...<Widget>[
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                '${forecast.excludedOverdueReceivableCount} recebimento(s) '
+                'atrasado(s) não foram considerados como entrada garantida.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'Estimativa nominal: considera somente compromissos cadastrados '
+              'e confirmados pelo servidor.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ForecastMetric extends StatelessWidget {
+  const _ForecastMetric({
+    required this.label,
+    required this.money,
+    required this.visible,
+    required this.color,
+  });
+
+  final String label;
+  final Money money;
+  final bool visible;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(AppSpacing.sm),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.08),
+      borderRadius: AppRadius.medium,
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(label, style: Theme.of(context).textTheme.labelMedium),
+        const SizedBox(height: AppSpacing.xxs),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: _MoneyValue(
+            money: money,
+            visible: visible,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _ForecastLoading extends StatelessWidget {
+  const _ForecastLoading();
+
+  @override
+  Widget build(BuildContext context) => const _DashboardCard(
+    key: ValueKey<String>('home-cash-flow-forecast-loading'),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        _SectionTitle(
+          title: 'Próximos 30 dias',
+          subtitle: 'Confirmando compromissos com o servidor.',
+        ),
+        SizedBox(height: AppSpacing.md),
+        LinearProgressIndicator(),
+      ],
+    ),
+  );
 }
 
 class _DashboardHeader extends StatelessWidget {

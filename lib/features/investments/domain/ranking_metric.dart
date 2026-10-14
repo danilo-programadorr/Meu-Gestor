@@ -82,6 +82,24 @@ rankingMetricDefinitions = <RankingMetricDefinition>[
   ),
 ];
 
+// Mantém no catálogo apenas métricas compatíveis com a classe selecionada;
+// ausência de fonte continua impedindo qualquer lista ordenada ou valor.
+bool rankingMetricAppliesTo(RankingMetric metric, RankingAssetFilter filter) {
+  if (filter == RankingAssetFilter.bdrs) return false;
+  if (filter == RankingAssetFilter.fiis) {
+    return metric != RankingMetric.grahamDifference;
+  }
+  return metric != RankingMetric.fiiBookReference;
+}
+
+List<RankingMetricDefinition> rankingMetricsFor(RankingAssetFilter filter) =>
+    rankingMetricDefinitions
+        .where(
+          (RankingMetricDefinition definition) =>
+              rankingMetricAppliesTo(definition.metric, filter),
+        )
+        .toList(growable: false);
+
 String unavailableRankingReason(
   RankingMetric metric,
   RankingAssetFilter filter,

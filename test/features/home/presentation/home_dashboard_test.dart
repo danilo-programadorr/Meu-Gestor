@@ -54,6 +54,99 @@ void main() {
     );
   });
 
+  testWidgets('projeta trinta dias somente com compromissos confirmados', (
+    WidgetTester tester,
+  ) async {
+    await _pumpDashboard(tester, tracker: _DashboardTracker());
+    await _reveal(tester, 'Próximos 30 dias');
+
+    final Finder forecast = find.byKey(
+      const ValueKey<String>('home-cash-flow-forecast'),
+    );
+    expect(forecast, findsOneWidget);
+    expect(
+      find.descendant(of: forecast, matching: find.text('R\$ 3.125,00')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: forecast, matching: find.text('R\$ 125,00')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: forecast, matching: find.text('R\$ 250,00')),
+      findsOneWidget,
+    );
+    expect(find.text('Sem saldo negativo previsto no período'), findsOneWidget);
+    expect(
+      find.textContaining('considera somente compromissos cadastrados'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('previsão falha fechada sem confirmação do servidor', (
+    WidgetTester tester,
+  ) async {
+    await _pumpDashboard(
+      tester,
+      tracker: _DashboardTracker(),
+      payables: AsyncData<FinancialCommitmentsState<Payable>>(
+        FinancialCommitmentsState<Payable>(
+          commitments: <Payable>[createTestPayable()],
+          isServerConfirmed: false,
+        ),
+      ),
+    );
+    await _reveal(
+      tester,
+      'A previsão exige compromissos confirmados pelo servidor.',
+    );
+
+    expect(
+      find.text('A previsão exige compromissos confirmados pelo servidor.'),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('home-cash-flow-forecast')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('filtro de conta não atribui compromissos sem conta', (
+    WidgetTester tester,
+  ) async {
+    final SaoPauloCivilDate today = SaoPauloCivilDate(
+      year: 2026,
+      month: 8,
+      day: 15,
+    );
+    await _pumpDashboard(
+      tester,
+      tracker: _DashboardTracker(),
+      initialFilter: HomeDashboardFilter.currentMonth(
+        today,
+      ).withAccount('account-1'),
+    );
+    await _reveal(tester, 'Próximos 30 dias');
+
+    expect(
+      find.byKey(const ValueKey<String>('home-cash-flow-forecast-unavailable')),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining(
+        'a previsão não pode ser calculada para apenas uma conta',
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Ver todas as contas'));
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey<String>('home-cash-flow-forecast')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('gráfico agrupado exibe legenda, período e resultado reais', (
     WidgetTester tester,
   ) async {
@@ -135,6 +228,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('R\$ 3.000,00'), findsNothing);
+    expect(find.text('R\$ 3.125,00'), findsNothing);
     expect(find.text('••••••'), findsWidgets);
     expect(
       _semanticsLabel('Saldo atual e resultado do período ocultos.'),
@@ -253,7 +347,7 @@ void main() {
     await _pumpDashboard(tester, tracker: tracker);
     await _reveal(tester, 'Compromissos pendentes');
 
-    expect(find.text('R\$ 125,00'), findsOneWidget);
+    expect(find.text('R\$ 125,00'), findsAtLeastNWidgets(1));
     expect(find.text('R\$ 250,00'), findsAtLeastNWidgets(1));
     expect(find.text('1 compromisso'), findsOneWidget);
     expect(find.text('Conta de energia'), findsNothing);
@@ -666,6 +760,7 @@ Future<void> _pumpDashboard(
   AsyncValue<FinancialCommitmentsState<Receivable>>? receivables,
   ThemeData? theme,
   double textScale = 1,
+  HomeDashboardFilter? initialFilter,
 }) async {
   final ValueNotifier<bool> visibility = ValueNotifier<bool>(true);
   final SaoPauloCivilDate today = SaoPauloCivilDate(
@@ -675,7 +770,7 @@ Future<void> _pumpDashboard(
   );
   final ValueNotifier<HomeDashboardFilter> filter =
       ValueNotifier<HomeDashboardFilter>(
-        HomeDashboardFilter.currentMonth(today),
+        initialFilter ?? HomeDashboardFilter.currentMonth(today),
       );
   addTearDown(visibility.dispose);
   addTearDown(filter.dispose);

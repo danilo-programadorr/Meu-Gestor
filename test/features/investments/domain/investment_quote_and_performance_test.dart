@@ -125,6 +125,10 @@ void main() {
       expect(result.receivedIncomeCents, 40);
       expect(result.totalEconomicResultCents, 565);
       expect(result.positions.single.returnBasisPoints, 1667);
+      expect(result.investedCostCents, 3000);
+      expect(result.openPositionReturnBasisPoints, 1667);
+      expect(result.dailyVariationCents, 43);
+      expect(result.dailyVariationBasisPoints, 123);
     });
 
     test('não apresenta total estimado com cobertura parcial', () {
@@ -143,6 +147,9 @@ void main() {
       expect(result.estimatedMarketValueCents, isNull);
       expect(result.unrealizedResultCents, isNull);
       expect(result.totalEconomicResultCents, isNull);
+      expect(result.openPositionReturnBasisPoints, isNull);
+      expect(result.dailyVariationCents, isNull);
+      expect(result.dailyVariationBasisPoints, isNull);
     });
 
     test('não usa cotação de tipo incompatível para estimar posição', () {

@@ -10,6 +10,7 @@ import 'package:meu_gestor_financeiro/app/widgets/entity_action_icon_button.dart
 import 'package:meu_gestor_financeiro/core/privacy/financial_privacy_controller.dart';
 import 'package:meu_gestor_financeiro/features/investments/data/investment_providers.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_operation.dart';
+import 'package:meu_gestor_financeiro/features/investments/domain/investment_performance.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_portfolio.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_position.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_quote.dart';
@@ -18,6 +19,7 @@ import 'package:meu_gestor_financeiro/features/investments/presentation/controll
 import 'package:meu_gestor_financeiro/features/investments/presentation/controllers/investment_quotes_controller.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/controllers/investments_controller.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/widgets/investment_analytics.dart';
+import 'package:meu_gestor_financeiro/features/investments/presentation/widgets/investment_income_analytics.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/widgets/investment_income_tab.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/widgets/investment_quote_view_support.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/widgets/investment_view_support.dart';
@@ -48,7 +50,7 @@ class _InvestmentsPageState extends ConsumerState<InvestmentsPage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
   }
 
   @override
@@ -204,6 +206,9 @@ class _InvestmentsPageState extends ConsumerState<InvestmentsPage>
     final InvestmentProjection projection = data.projectionForPortfolio(
       selected.id,
     );
+    final int receivedIncomeCents = InvestmentIncomeAnalytics.receivedTotal(
+      data.incomeEventsForPortfolio(selected.id),
+    );
     final DateTime now = ref.watch(investmentClockProvider)();
     return Column(
       children: <Widget>[
@@ -237,6 +242,7 @@ class _InvestmentsPageState extends ConsumerState<InvestmentsPage>
             Tab(text: 'Ativos', icon: Icon(Icons.candlestick_chart_outlined)),
             Tab(text: 'Lançamentos', icon: Icon(Icons.receipt_long_outlined)),
             Tab(text: 'Proventos', icon: Icon(Icons.payments_outlined)),
+            Tab(text: 'Rentabilidade', icon: Icon(Icons.query_stats_outlined)),
           ],
         ),
         Expanded(
@@ -253,6 +259,7 @@ class _InvestmentsPageState extends ConsumerState<InvestmentsPage>
                 period: _summaryPeriod,
                 allocationMode: _allocationMode,
                 now: now,
+                receivedIncomeCents: receivedIncomeCents,
                 onPeriodChanged: (InvestmentPeriodFilter value) =>
                     setState(() => _summaryPeriod = value),
                 onAllocationModeChanged: (InvestmentAllocationMode value) =>
@@ -322,6 +329,14 @@ class _InvestmentsPageState extends ConsumerState<InvestmentsPage>
                 now: now,
                 onRefresh: () =>
                     ref.read(investmentsControllerProvider.notifier).refresh(),
+              ),
+              _ProfitabilityTab(
+                projection: projection,
+                quotes: quotes,
+                receivedIncomeCents: receivedIncomeCents,
+                valuesVisible: valuesVisible,
+                now: now,
+                onRefresh: _refreshInvestmentsAndQuotes,
               ),
             ],
           ),
@@ -739,6 +754,7 @@ class _SummaryTab extends StatelessWidget {
     required this.period,
     required this.allocationMode,
     required this.now,
+    required this.receivedIncomeCents,
     required this.onPeriodChanged,
     required this.onAllocationModeChanged,
     required this.onClassSelected,
@@ -755,6 +771,7 @@ class _SummaryTab extends StatelessWidget {
   final InvestmentPeriodFilter period;
   final InvestmentAllocationMode allocationMode;
   final DateTime now;
+  final int receivedIncomeCents;
   final ValueChanged<InvestmentPeriodFilter> onPeriodChanged;
   final ValueChanged<InvestmentAllocationMode> onAllocationModeChanged;
   final ValueChanged<TrackedInvestmentAssetType> onClassSelected;
@@ -795,6 +812,14 @@ class _SummaryTab extends StatelessWidget {
               portfolio: portfolio,
               projection: projection,
               valuesVisible: valuesVisible,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            _PortfolioPerformancePanel(
+              projection: projection,
+              quotes: quotes,
+              receivedIncomeCents: receivedIncomeCents,
+              valuesVisible: valuesVisible,
+              now: now,
             ),
             const SizedBox(height: AppSpacing.md),
             _MarketOverviewCard(
@@ -926,7 +951,7 @@ class _InvestmentHeroCard extends StatelessWidget {
         .where((InvestmentPosition position) => !position.isClosed)
         .length;
     final String semantic = valuesVisible
-        ? 'Carteira ${portfolio.name}. Custo acompanhado ${InvestmentViewSupport.money(projection.totalCostCents, visible: true)}. ${projection.positions.length} ativos cadastrados. $openPositions posições abertas. Resultado realizado ${InvestmentViewSupport.money(projection.totalRealizedResultCents, visible: true)}.'
+        ? 'Carteira ${portfolio.name}. Valor investido ${InvestmentViewSupport.money(projection.totalCostCents, visible: true)}. ${projection.positions.length} ativos cadastrados. $openPositions posições abertas. Resultado realizado ${InvestmentViewSupport.money(projection.totalRealizedResultCents, visible: true)}.'
         : 'Resumo da carteira ${portfolio.name} com valores e quantidades ocultos.';
     return Semantics(
       container: true,
@@ -975,7 +1000,7 @@ class _InvestmentHeroCard extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.md),
               Text(
-                'Custo atual acompanhado',
+                'Valor investido',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: colors.onSurfaceVariant,
                 ),
@@ -1081,6 +1106,518 @@ class _SectionCard extends StatelessWidget {
       ),
     ),
   );
+}
+
+// Converte os snapshots confirmados em indicadores de carteira sem exibir
+// totais parciais como se toda a posição tivesse cobertura de mercado.
+class _PortfolioPerformancePanel extends StatelessWidget {
+  const _PortfolioPerformancePanel({
+    required this.projection,
+    required this.quotes,
+    required this.receivedIncomeCents,
+    required this.valuesVisible,
+    required this.now,
+  });
+
+  final InvestmentProjection projection;
+  final AsyncValue<InvestmentQuoteReadResult> quotes;
+  final int receivedIncomeCents;
+  final bool valuesVisible;
+  final DateTime now;
+
+  @override
+  Widget build(BuildContext context) => quotes.when(
+    loading: () => const Card(
+      child: Padding(
+        padding: EdgeInsets.all(AppSpacing.md),
+        child: Row(
+          children: <Widget>[
+            SizedBox.square(
+              dimension: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: AppSpacing.sm),
+            Expanded(child: Text('Atualizando indicadores da carteira…')),
+          ],
+        ),
+      ),
+    ),
+    error: (Object _, StackTrace _) => const _PerformanceUnavailableCard(),
+    data: (InvestmentQuoteReadResult result) {
+      final InvestmentPortfolioPerformance performance =
+          InvestmentPerformanceCalculator.calculate(
+            positions: projection.positions,
+            quotes: result.quotes,
+            receivedIncomeCents: receivedIncomeCents,
+            referenceInstant: now,
+          );
+      if (!performance.hasOpenPositions) {
+        return const _PerformanceUnavailableCard(
+          message:
+              'Registre uma compra para calcular patrimônio, lucro e rentabilidade.',
+        );
+      }
+      return _PerformanceCards(
+        performance: performance,
+        valuesVisible: valuesVisible,
+      );
+    },
+  );
+}
+
+class _PerformanceUnavailableCard extends StatelessWidget {
+  const _PerformanceUnavailableCard({
+    this.message =
+        'Os indicadores ficam disponíveis quando todas as posições abertas têm cotação válida.',
+  });
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    key: const ValueKey<String>('investment-performance-unavailable'),
+    child: Padding(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Row(
+        children: <Widget>[
+          const Icon(Icons.query_stats_outlined),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(child: Text(message)),
+        ],
+      ),
+    ),
+  );
+}
+
+class _PerformanceCards extends StatelessWidget {
+  const _PerformanceCards({
+    required this.performance,
+    required this.valuesVisible,
+  });
+
+  final InvestmentPortfolioPerformance performance;
+  final bool valuesVisible;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool complete = performance.hasFullCoverage;
+    final double textScale = MediaQuery.textScalerOf(context).scale(16) / 16;
+    final double carouselHeight = 244 + ((textScale - 1).clamp(0, 1) * 96);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: Text(
+                'Visão da carteira',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+            ),
+            Text(
+              '${performance.quotedAssetCount}/${performance.totalAssetCount} cotações',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        SizedBox(
+          height: carouselHeight,
+          child: ListView(
+            key: const ValueKey<String>('investment-performance-carousel'),
+            scrollDirection: Axis.horizontal,
+            children: <Widget>[
+              _PortfolioMetricCard(
+                key: const ValueKey<String>('investment-wealth-card'),
+                icon: Icons.savings_outlined,
+                title: 'Patrimônio estimado',
+                primaryValue: _moneyOrUnavailable(
+                  complete ? performance.estimatedMarketValueCents : null,
+                  visible: valuesVisible,
+                ),
+                metrics: <_PortfolioMetric>[
+                  _PortfolioMetric(
+                    label: 'Valor investido',
+                    value: InvestmentViewSupport.money(
+                      performance.investedCostCents,
+                      visible: valuesVisible,
+                    ),
+                  ),
+                  _PortfolioMetric(
+                    label: 'Variação do dia',
+                    value: _dailyVariation(performance, valuesVisible),
+                    signedValue: performance.dailyVariationBasisPoints,
+                  ),
+                ],
+              ),
+              _PortfolioMetricCard(
+                key: const ValueKey<String>('investment-profit-card'),
+                icon: Icons.trending_up_rounded,
+                title: 'Lucro econômico total',
+                primaryValue: _moneyOrUnavailable(
+                  complete ? performance.totalEconomicResultCents : null,
+                  visible: valuesVisible,
+                ),
+                signedPrimaryValue: complete
+                    ? performance.totalEconomicResultCents
+                    : null,
+                metrics: <_PortfolioMetric>[
+                  _PortfolioMetric(
+                    label: 'Não realizado',
+                    value: _moneyOrUnavailable(
+                      complete ? performance.unrealizedResultCents : null,
+                      visible: valuesVisible,
+                    ),
+                    signedValue: complete
+                        ? performance.unrealizedResultCents
+                        : null,
+                  ),
+                  _PortfolioMetric(
+                    label: 'Realizado',
+                    value: InvestmentViewSupport.money(
+                      performance.realizedResultCents,
+                      visible: valuesVisible,
+                    ),
+                    signedValue: performance.realizedResultCents,
+                  ),
+                  _PortfolioMetric(
+                    label: 'Proventos',
+                    value: InvestmentViewSupport.money(
+                      performance.receivedIncomeCents,
+                      visible: valuesVisible,
+                    ),
+                  ),
+                ],
+              ),
+              _PortfolioMetricCard(
+                key: const ValueKey<String>('investment-return-card'),
+                icon: Icons.query_stats_outlined,
+                title: 'Rentabilidade da posição',
+                primaryValue: _basisPointsOrUnavailable(
+                  complete ? performance.openPositionReturnBasisPoints : null,
+                  visible: valuesVisible,
+                ),
+                signedPrimaryValue: complete
+                    ? performance.openPositionReturnBasisPoints
+                    : null,
+                metrics: <_PortfolioMetric>[
+                  _PortfolioMetric(
+                    label: 'Variação do dia',
+                    value: _basisPointsOrUnavailable(
+                      performance.dailyVariationBasisPoints,
+                      visible: valuesVisible,
+                    ),
+                    signedValue: performance.dailyVariationBasisPoints,
+                  ),
+                  _PortfolioMetric(
+                    label: 'Cobertura',
+                    value:
+                        '${performance.quotedAssetCount} de ${performance.totalAssetCount} posições',
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        if (!complete) ...<Widget>[
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            'Há posição sem cotação válida. Patrimônio, lucro e rentabilidade permanecem indisponíveis para evitar total parcial.',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+      ],
+    );
+  }
+
+  static String _moneyOrUnavailable(int? value, {required bool visible}) =>
+      value == null
+      ? 'Indisponível'
+      : InvestmentViewSupport.money(value, visible: visible);
+
+  static String _basisPointsOrUnavailable(
+    int? value, {
+    required bool visible,
+  }) => value == null
+      ? 'Indisponível'
+      : _formatBasisPoints(value, visible: visible);
+
+  static String _dailyVariation(
+    InvestmentPortfolioPerformance performance,
+    bool visible,
+  ) {
+    if (performance.dailyVariationCents == null ||
+        performance.dailyVariationBasisPoints == null) {
+      return 'Indisponível';
+    }
+    if (!visible) return InvestmentViewSupport.hiddenValue;
+    return '${InvestmentViewSupport.money(performance.dailyVariationCents!, visible: true)} · ${_formatBasisPoints(performance.dailyVariationBasisPoints!, visible: true)}';
+  }
+}
+
+final class _PortfolioMetric {
+  const _PortfolioMetric({
+    required this.label,
+    required this.value,
+    this.signedValue,
+  });
+
+  final String label;
+  final String value;
+  final int? signedValue;
+}
+
+class _PortfolioMetricCard extends StatelessWidget {
+  const _PortfolioMetricCard({
+    required this.icon,
+    required this.title,
+    required this.primaryValue,
+    required this.metrics,
+    this.signedPrimaryValue,
+    super.key,
+  });
+
+  final IconData icon;
+  final String title;
+  final String primaryValue;
+  final int? signedPrimaryValue;
+  final List<_PortfolioMetric> metrics;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme colors = Theme.of(context).colorScheme;
+    return SizedBox(
+      width: 310,
+      child: Card(
+        color: colors.surfaceContainerHighest,
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  Icon(icon, color: colors.primary),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                primaryValue,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: _signedColor(context, signedPrimaryValue),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const Spacer(),
+              for (final _PortfolioMetric metric in metrics)
+                Padding(
+                  padding: const EdgeInsets.only(top: AppSpacing.xs),
+                  child: Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: Text(
+                          metric.label,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.xs),
+                      Flexible(
+                        child: Text(
+                          metric.value,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.end,
+                          style: Theme.of(context).textTheme.labelLarge
+                              ?.copyWith(
+                                color: _signedColor(
+                                  context,
+                                  metric.signedValue,
+                                ),
+                              ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+Color? _signedColor(BuildContext context, int? value) {
+  if (value == null || value == 0) return null;
+  final AppThemeColors colors = AppThemeColors.of(context);
+  return value > 0 ? colors.success : colors.expense;
+}
+
+String _formatBasisPoints(int value, {required bool visible}) {
+  if (!visible) return InvestmentViewSupport.hiddenValue;
+  final String signal = value > 0
+      ? '+'
+      : value < 0
+      ? '-'
+      : '';
+  final int absolute = value.abs();
+  return '$signal${absolute ~/ 100},${(absolute % 100).toString().padLeft(2, '0')}%';
+}
+
+class _ProfitabilityTab extends StatelessWidget {
+  const _ProfitabilityTab({
+    required this.projection,
+    required this.quotes,
+    required this.receivedIncomeCents,
+    required this.valuesVisible,
+    required this.now,
+    required this.onRefresh,
+  });
+
+  final InvestmentProjection projection;
+  final AsyncValue<InvestmentQuoteReadResult> quotes;
+  final int receivedIncomeCents;
+  final bool valuesVisible;
+  final DateTime now;
+  final Future<void> Function() onRefresh;
+
+  @override
+  Widget build(BuildContext context) => RefreshIndicator(
+    onRefresh: onRefresh,
+    child: ListView(
+      key: const ValueKey<String>('investment-profitability-scroll'),
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.xxl,
+      ),
+      children: <Widget>[
+        Text('Rentabilidade', style: Theme.of(context).textTheme.headlineSmall),
+        const SizedBox(height: AppSpacing.xxs),
+        Text(
+          'Desempenho das posições abertas com base nas cotações confirmadas.',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        const SizedBox(height: AppSpacing.md),
+        _PortfolioPerformancePanel(
+          projection: projection,
+          quotes: quotes,
+          receivedIncomeCents: receivedIncomeCents,
+          valuesVisible: valuesVisible,
+          now: now,
+        ),
+        const SizedBox(height: AppSpacing.md),
+        quotes.when(
+          loading: () => const SizedBox.shrink(),
+          error: (Object _, StackTrace _) => const SizedBox.shrink(),
+          data: (InvestmentQuoteReadResult result) {
+            final InvestmentPortfolioPerformance performance =
+                InvestmentPerformanceCalculator.calculate(
+                  positions: projection.positions,
+                  quotes: result.quotes,
+                  receivedIncomeCents: receivedIncomeCents,
+                  referenceInstant: now,
+                );
+            final List<InvestmentPositionPerformance> open = performance
+                .positions
+                .where(
+                  (InvestmentPositionPerformance item) =>
+                      !item.position.isClosed,
+                )
+                .toList(growable: false);
+            if (open.isEmpty) return const SizedBox.shrink();
+            return _SectionCard(
+              title: 'Resultado por ativo',
+              subtitle: 'Rentabilidade desde o custo médio e variação do dia.',
+              child: Column(
+                children: <Widget>[
+                  for (final InvestmentPositionPerformance item in open)
+                    _PositionPerformanceRow(
+                      performance: item,
+                      valuesVisible: valuesVisible,
+                    ),
+                ],
+              ),
+            );
+          },
+        ),
+      ],
+    ),
+  );
+}
+
+class _PositionPerformanceRow extends StatelessWidget {
+  const _PositionPerformanceRow({
+    required this.performance,
+    required this.valuesVisible,
+  });
+
+  final InvestmentPositionPerformance performance;
+  final bool valuesVisible;
+
+  @override
+  Widget build(BuildContext context) {
+    final int? daily = performance.quote?.variationBasisPoints;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  performance.position.asset.ticker,
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                Text(
+                  performance.position.asset.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: <Widget>[
+              Text(
+                performance.returnBasisPoints == null
+                    ? 'Indisponível'
+                    : _formatBasisPoints(
+                        performance.returnBasisPoints!,
+                        visible: valuesVisible,
+                      ),
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: _signedColor(context, performance.returnBasisPoints),
+                ),
+              ),
+              Text(
+                daily == null
+                    ? 'Dia indisponível'
+                    : 'Hoje ${_formatBasisPoints(daily, visible: valuesVisible)}',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: _signedColor(context, daily),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // Une os ativos cadastrados aos snapshots globais sem transformar ausência de
@@ -1243,7 +1780,9 @@ class _MarketOverviewRow extends StatelessWidget {
                 textAlign: constraints.maxWidth < 360
                     ? TextAlign.start
                     : TextAlign.end,
-                style: Theme.of(context).textTheme.bodySmall,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: _signedColor(context, current?.variationBasisPoints),
+                ),
               ),
             ],
           );
@@ -1648,6 +2187,9 @@ class _PositionCard extends StatelessWidget {
                             quote!,
                             visible: valuesVisible,
                           ),
+                    valueColor: quoteLoading || !valuesVisible
+                        ? null
+                        : _signedColor(context, quote?.variationBasisPoints),
                   ),
                 ),
               ],
@@ -2019,10 +2561,15 @@ class _AssetTypeIcon extends StatelessWidget {
 }
 
 class _CompactMetric extends StatelessWidget {
-  const _CompactMetric({required this.label, required this.value});
+  const _CompactMetric({
+    required this.label,
+    required this.value,
+    this.valueColor,
+  });
 
   final String label;
   final String value;
+  final Color? valueColor;
 
   @override
   Widget build(BuildContext context) => ConstrainedBox(
@@ -2032,7 +2579,12 @@ class _CompactMetric extends StatelessWidget {
       children: <Widget>[
         Text(label, style: Theme.of(context).textTheme.bodySmall),
         const SizedBox(height: AppSpacing.xxs),
-        Text(value, style: Theme.of(context).textTheme.labelLarge),
+        Text(
+          value,
+          style: Theme.of(
+            context,
+          ).textTheme.labelLarge?.copyWith(color: valueColor),
+        ),
       ],
     ),
   );
