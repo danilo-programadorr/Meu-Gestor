@@ -117,4 +117,11 @@ abstract interface class InvestmentQuoteRepository {
     required Iterable<String> tickers,
     required bool serverOnly,
   });
+
+  /// Lê a série diária global de um ticker já conhecido pela carteira.
+  Future<List<InvestmentQuote>> readQuoteHistory({
+    required String ticker,
+    required int maximumPoints,
+    required bool serverOnly,
+  });
 }

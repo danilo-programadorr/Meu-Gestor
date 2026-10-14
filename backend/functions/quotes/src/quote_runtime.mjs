@@ -14,7 +14,12 @@ export function createQuoteRuntime({
   logger = console,
 }) {
   const storage = createFirestoreQuoteStorage({ firestore, Timestamp });
-  const gateway = new BrapiDelayedQuoteGateway({ fetchImpl, token, clock });
+  const gateway = new BrapiDelayedQuoteGateway({
+    fetchImpl,
+    token,
+    clock,
+    timeoutMs: 5000,
+  });
   const catalog = createFirestoreQuoteCatalog({ firestore, logger });
   const refreshService = new PersistentQuoteRefreshService({ storage, gateway, clock, logger });
   return Object.freeze({ catalog, refreshService, storage, gateway });

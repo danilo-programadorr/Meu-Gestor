@@ -9,10 +9,22 @@ export const QUOTE_FUNCTION_OPTIONS = Object.freeze({
   region: 'southamerica-east1',
   serviceAccount: quotesRuntimeServiceAccount,
   memory: '256MiB',
-  timeoutSeconds: 30,
+  timeoutSeconds: 180,
   maxInstances: 1,
   minInstances: 0,
   concurrency: 1,
   invoker: 'private',
   secrets: [brapiApiToken],
+});
+
+/// O trigger não acessa segredo nem provedor; usa a mesma identidade dedicada
+/// apenas para materializar demanda global opaca no Firestore.
+export const QUOTE_CATALOG_SYNC_OPTIONS = Object.freeze({
+  region: 'southamerica-east1',
+  serviceAccount: quotesRuntimeServiceAccount,
+  memory: '256MiB',
+  timeoutSeconds: 30,
+  maxInstances: 1,
+  minInstances: 0,
+  concurrency: 1,
 });

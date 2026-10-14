@@ -1,8 +1,8 @@
 # Plano de ativação development — cotações BRAPI
 
-Estado em 10/10/2026: recursos de development criados, Function implantada e
-Scheduler mantido pausado até uma atualização acompanhada produzir snapshot
-válido. Produção permanece inalterada.
+Estado em 13/10/2026: a ampliação automática está validada somente localmente.
+Os recursos já existentes em development não foram modificados neste checkpoint.
+Produção permanece inalterada.
 
 ## Recursos propostos
 
@@ -25,11 +25,28 @@ Projeto exclusivo: `meu-gestor-financeiro-dev`.
 - Rules atuais, que permitem somente `get` de snapshot conhecido pelo aplicativo
   financeiro válido e negam catálogo, listagem, escrita e coleções internas.
 
-O catálogo inicial é deliberadamente representativo e não deriva dos ativos de
+## Ampliação INV-2C-D preparada localmente
+
+- novo trigger `syncInvestmentQuoteCatalog`, no mesmo codebase e identidade,
+  para `users/{userId}/investmentAssets/{assetId}`;
+- coleção interna `_marketQuoteDemands`, com chave SHA-256 da referência do
+  ativo e sem UID, carteira, quantidade, custo, nome ou operação;
+- catálogo schema 2 com `demandCount`, ativação automática e bloqueio de conflito
+  de classe; documentos schema 1 permanecem legíveis durante a migração;
+- até 30 tickers ativos, processados em chamadas sequenciais de um ticker;
+- timeout proposto de 180 s para a Function, 5 s por chamada, mantendo
+  concorrência 1, mínimo 0 e máximo 1;
+- histórico diário em `marketQuoteHistory/{ticker}/quoteDays/{AAAA-MM-DD}`, com
+  leitura autenticada limitada a 120 documentos e proposta de TTL em
+  `expiresAt` após 93 dias;
+- backfill único e controlado dos ativos development já existentes após o
+  deploy, pois triggers não recebem gravações anteriores à sua criação.
+
+O catálogo inicial era deliberadamente representativo e não derivava dos ativos de
 nenhuma pessoa. Alterações posteriores são administrativas, globais, auditadas e
 limitadas no código a um ticker ativo enquanto vigorar o plano Gratuito; não
-existe descoberta pelo aplicativo. O contrato provider-neutral de 50 itens não
-é usado para ampliar chamadas BRAPI.
+existe descoberta pelo aplicativo. O INV-2C-D substitui a manutenção manual por
+descoberta server-side opaca; o aplicativo continua sem enviar listas à BRAPI.
 
 ## IAM mínimo proposto
 
@@ -73,7 +90,7 @@ inventa esse estado. Cotações válidas são classificadas como atrasadas e ven
 60 minutos após `regularMarketTime`. Referência:
 <https://brapi.dev/docs/acoes>.
 
-Proposta conservadora: `*/30 10-18 * * 1-5`, timezone
+Agenda conservadora existente: `*/30 10-18 * * 1-5`, timezone
 `America/Sao_Paulo`, sem retry automático. O circuit breaker interno trata
 falhas e a próxima janela tenta novamente. Com até 23 dias úteis, são no máximo
 414 execuções agendadas e 414 requisições BRAPI por mês para o único ticker
@@ -88,6 +105,13 @@ ticker ativo, mas não existe contador mensal próprio; o dashboard BRAPI contin
 sendo a autoridade sobre o ciclo e consumo. A cota pública atual do plano
 Gratuito é 15.000 chamadas por ciclo e um ticker por requisição.
 
+Com o teto local de 30 tickers, a agenda de 414 ciclos produz até 12.420
+requisições agendadas em um mês de 23 dias úteis. Restam 2.580 chamadas frente
+à cota publicada, mas isso é margem estimada, não garantia: o ciclo de cobrança,
+execuções manuais e eventuais alterações de agenda precisam ser conferidos no
+dashboard antes da ativação. O código não faz retry HTTP automático e preserva
+uma única chamada simultânea.
+
 ## Ordem e desativação
 
 1. Confirmar limites contratuais sem expor o token.
@@ -96,6 +120,12 @@ Gratuito é 15.000 chamadas por ciclo e um ticker por requisição.
 4. Conceder invocação somente à identidade do Scheduler.
 5. Criar o Scheduler pausado e conferir URL, OIDC, timezone e limites.
 6. Habilitar o job e acompanhar uma única execução com logs sanitizados.
+
+Para o INV-2C-D, publicar também o trigger, executar um backfill único dos ativos
+já existentes, aplicar o TTL da collection group exclusiva `quoteDays` em `expiresAt` e
+somente então retomar o Scheduler. A implantação exige validar previamente se o
+papel customizado atual da identidade runtime já cobre os eventos e gravações;
+nenhuma permissão adicional deve ser concedida por inferência.
 
 Para desativar: pausar primeiro o Scheduler, marcar o catálogo como desabilitado,
 desabilitar a versão do segredo e remover `roles/run.invoker` da identidade do

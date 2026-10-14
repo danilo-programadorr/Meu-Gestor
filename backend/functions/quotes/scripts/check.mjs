@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const files = ['index.mjs'];
-for (const directory of ['src', 'shared']) {
+for (const directory of ['src', 'shared', 'scripts']) {
   const names = await readdir(new URL(`../${directory}/`, import.meta.url));
   files.push(...names.filter((name) => name.endsWith('.mjs')).map((name) => `${directory}/${name}`));
 }

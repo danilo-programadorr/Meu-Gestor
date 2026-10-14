@@ -75,6 +75,57 @@ describe('PersistentQuoteRefreshService', () => {
     assert.equal(second[0].priceScaled, 30000000);
   });
 
+  test('divide catálogo em chamadas unitárias sem reduzir cobertura global', async () => {
+    const storage = new FakeQuoteStorage();
+    const requested = [];
+    const service = new PersistentQuoteRefreshService({
+      storage,
+      gateway: {
+        maximumTargetsPerRequest: 1,
+        async fetchBatch(targets) {
+          requested.push(targets.map((item) => item.ticker));
+          return [quote({
+            ticker: targets[0].ticker,
+            priceScaled: targets[0].ticker === 'PETR4' ? 30000000 : 60000000,
+          })];
+        },
+      },
+      clock: () => new Date('2026-08-18T12:05:00.000Z'),
+    });
+    const result = await service.refresh({
+      requestId: 'request_synthetic_multiple_20260818',
+      targets: [target, { ticker: 'VALE3', assetType: 'stock' }],
+    });
+    assert.deepEqual(requested, [['PETR4'], ['VALE3']]);
+    assert.equal(result.length, 2);
+  });
+
+  test('falha de um ticker não impede atualização dos demais', async () => {
+    const storage = new FakeQuoteStorage();
+    const service = new PersistentQuoteRefreshService({
+      storage,
+      gateway: {
+        maximumTargetsPerRequest: 1,
+        async fetchBatch(targets) {
+          if (targets[0].ticker === 'PETR4') {
+            const error = new Error('private detail');
+            error.code = 'quote_provider_unavailable';
+            throw error;
+          }
+          return [quote({ ticker: targets[0].ticker, priceScaled: 60000000 })];
+        },
+      },
+      clock: () => new Date('2026-08-18T12:05:00.000Z'),
+      logger: { info() {}, warn() {} },
+    });
+    await assert.rejects(service.refresh({
+      requestId: 'request_synthetic_partial_20260818',
+      targets: [target, { ticker: 'VALE3', assetType: 'stock' }],
+    }), { message: 'quote_provider_unavailable' });
+    assert.equal(storage.snapshots.has('VALE3'), true);
+    assert.equal(storage.snapshots.has('PETR4'), false);
+  });
+
   test('nunca substitui observação mais recente por resposta antiga', async () => {
     const storage = new FakeQuoteStorage();
     storage.snapshots.set('PETR4', quote({ observedAt: '2026-08-18T12:10:00.000Z', priceScaled: 31000000 }));

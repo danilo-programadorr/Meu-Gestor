@@ -60,7 +60,9 @@ class InvestmentQuotesPage extends ConsumerWidget {
               children: <Widget>[
                 const _Notice(),
                 const SizedBox(height: AppSpacing.md),
-                if (result.quotedAssetCount == 0) ...<Widget>[
+                if (!result.positions.any(
+                  (InvestmentPositionPerformance item) => item.quote != null,
+                )) ...<Widget>[
                   _Unavailable(
                     onRetry: () =>
                         ref.invalidate(investmentPortfolioPerformanceProvider),
@@ -68,7 +70,7 @@ class InvestmentQuotesPage extends ConsumerWidget {
                   const SizedBox(height: AppSpacing.md),
                 ],
                 _Filters(
-                  hasAssets: result.totalAssetCount > 0,
+                  tracked: result.positions.length,
                   quoted: result.quotedAssetCount,
                   total: result.totalAssetCount,
                 ),
@@ -110,12 +112,12 @@ class _Notice extends StatelessWidget {
 
 class _Filters extends StatelessWidget {
   const _Filters({
-    required this.hasAssets,
+    required this.tracked,
     required this.quoted,
     required this.total,
   });
 
-  final bool hasAssets;
+  final int tracked;
   final int quoted;
   final int total;
 
@@ -132,9 +134,11 @@ class _Filters extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(
-            hasAssets
-                ? '$quoted de $total ativos possuem uma cotação confirmada.'
-                : 'Cadastre ativos para acompanhar a cobertura quando o serviço estiver disponível.',
+            tracked == 0
+                ? 'Cadastre ativos para acompanhar a cobertura quando o serviço estiver disponível.'
+                : total == 0
+                ? '$tracked ${tracked == 1 ? 'ativo cadastrado' : 'ativos cadastrados'}; registre uma compra para formar posição e calcular patrimônio.'
+                : '$quoted de $total posições abertas possuem uma cotação confirmada.',
           ),
           const SizedBox(height: AppSpacing.sm),
           const Wrap(
@@ -255,7 +259,9 @@ class _QuoteTile extends StatelessWidget {
                     '${quote.declaredDelay.inMinutes} min de atraso',
         ),
         trailing: Text(
-          performance.estimatedMarketValueCents == null
+          performance.position.isClosed
+              ? 'Sem posição'
+              : performance.estimatedMarketValueCents == null
               ? 'Indisponível'
               : InvestmentViewSupport.money(
                   performance.estimatedMarketValueCents!,

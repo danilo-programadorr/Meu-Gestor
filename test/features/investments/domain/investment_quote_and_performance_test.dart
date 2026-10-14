@@ -180,6 +180,25 @@ void main() {
         expect(result.estimatedMarketValueCents, 0);
         expect(result.realizedResultCents, 123);
         expect(result.totalEconomicResultCents, 123);
+        expect(result.positions, hasLength(1));
+        expect(result.positions.single.estimatedMarketValueCents, isNull);
+      },
+    );
+
+    test(
+      'mantém cotação visível em ativo sem posição sem criar patrimônio',
+      () {
+        final result = InvestmentPerformanceCalculator.calculate(
+          positions: <InvestmentPosition>[position(quantity: 0)],
+          quotes: <InvestmentQuote>[quote()],
+          receivedIncomeCents: 0,
+          referenceInstant: captured,
+        );
+
+        expect(result.positions.single.quote?.ticker, 'PETR4');
+        expect(result.positions.single.estimatedMarketValueCents, isNull);
+        expect(result.totalAssetCount, 0);
+        expect(result.estimatedMarketValueCents, 0);
       },
     );
   });

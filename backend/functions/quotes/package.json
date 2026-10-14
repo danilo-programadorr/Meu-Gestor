@@ -12,6 +12,7 @@
     "check": "npm run prepare:shared && node scripts/check.mjs",
     "test": "npm run prepare:shared && node --test test/*.test.mjs",
     "test:emulator": "npm run prepare:shared && node --test test/*.emulator.test.mjs",
+    "backfill:catalog": "node scripts/backfill-market-quote-demands.mjs",
     "audit:production-artifact": "npm audit --omit=dev --omit=optional --audit-level=moderate"
   },
   "dependencies": {

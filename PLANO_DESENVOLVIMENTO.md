@@ -902,6 +902,49 @@ Situação: composição operacional local concluída com BRAPI aprovada, sem de
 - A tela recebe somente snapshots server-only já confirmados e preserva estados atrasado, fechado, indisponível, inválido, possível evento corporativo e cobertura parcial. Patrimônio/resultado estimados não substituem custo, operação, provento, conta, saldo ou resumo mensal.
 - Antes de ativar: materializar somente o escopo já aprovado de cobertura, atraso e limites da BRAPI; criar segredo no cofre, configurar identidade runtime e Scheduler interno, cadastrar o catálogo inicial, revisar custos, publicar Function/Rules em autorização independente e validar com tickers públicos. B3 e corretoras seguem canceladas como integração.
 
+### 43.1. INV-2C-C — propagação de ativos e cotações na experiência
+
+Situação: implementação local concluída; a cobertura externa continua limitada
+aos tickers presentes no catálogo global administrado pelo servidor.
+
+- O mesmo estado confirmado de carteira alimenta resumo, lista, detalhes,
+  cotações e os demais fluxos de operações e proventos. A inclusão de um ativo
+  recompõe automaticamente a consulta compartilhada de snapshots por ticker.
+- Cotação e variação atrasadas podem aparecer desde o cadastro. Patrimônio,
+  resultado não realizado e rentabilidade continuam exigindo uma posição
+  formada por operação confirmada; ausência nunca vira zero ou dado fictício.
+- Ativo sem compra, ticker sem cobertura, snapshot vencido, leitura em curso e
+  falha de atualização possuem estados distintos. Cobertura parcial não produz
+  total completo e a privacidade global também oculta preço e variação.
+- O aplicativo não envia carteira, quantidade, identificador pessoal ou lista
+  arbitrária de tickers à BRAPI. Ampliar a cobertura requer alteração controlada
+  do catálogo global e validação dos limites do plano development.
+
+### 43.2. INV-2C-D — cobertura automática e histórico diário
+
+Situação: implementação e validação local concluídas; a ativação development
+segue o plano operacional próprio e exige confirmação verificável após o deploy.
+
+- Um trigger server-side observa criação, arquivamento, restauração e exclusão
+  de ativos e materializa apenas uma demanda global opaca por documento. UID,
+  carteira, nome, quantidade, custo e operações não entram no catálogo nem na
+  chamada BRAPI. Eventos repetidos ou fora de ordem não alteram estado novo.
+- O catálogo deduplica tickers entre pessoas, desabilita conflito de classe e
+  retira cobertura quando a última demanda fica inativa. O cliente continua
+  incapaz de listar, escrever ou escolher alvos arbitrários para o provedor.
+- O plano Gratuito mantém uma chamada por ticker. O processador divide até 30
+  alvos ativos em requisições sequenciais, preserva lease, idempotência e
+  circuit breaker por ticker e permite que um alvo válido avance quando outro
+  falha. Com a agenda atual, 30 alvos representam até 12.420 chamadas em 23
+  dias úteis, sem tratar essa estimativa como teto contratual garantido.
+- Cada snapshot mais novo atualiza também um ponto diário global pelo dia civil
+  de `America/Sao_Paulo`. O detalhe do ativo lê no máximo 30 pontos, mostra o
+  gráfico somente com dados reais e respeita a privacidade; ausência ou falha
+  continuam explícitas.
+- A chave BRAPI passa somente no header `Authorization`; URL, logs e documentos
+  não recebem o segredo. O timeout proposto da Function é 180 s, com 5 s por
+  chamada, concorrência 1, mínimo 0 e máximo 1 instância.
+
 ## 44. CRUD-AUDIT-1 + INV-CALC-2 — ações completas e calculadoras inequívocas
 
 Situação: implementado e validado somente localmente; Rules não publicadas e nenhuma ação externa executada.

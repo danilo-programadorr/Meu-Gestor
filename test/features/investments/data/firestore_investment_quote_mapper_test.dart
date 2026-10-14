@@ -37,6 +37,21 @@ void main() {
     expect(mapped.declaredDelay, const Duration(minutes: 15));
   });
 
+  test('mapper histórico remove somente metadados server-side conhecidos', () {
+    final InvestmentQuote mapped =
+        FirestoreInvestmentQuoteMapper.fromHistoryMap(
+          data: quote(
+            overrides: <String, dynamic>{
+              'bucketDate': '2026-08-18',
+              'expiresAt': Timestamp.fromDate(DateTime.utc(2026, 11, 19)),
+            },
+          ),
+          ticker: 'PETR4',
+        );
+    expect(mapped.ticker, 'PETR4');
+    expect(mapped.unitPriceScaled, 31450000);
+  });
+
   test('mapper rejeita documento, schema, campo e timestamp incompatíveis', () {
     expect(
       () => FirestoreInvestmentQuoteMapper.fromMap(

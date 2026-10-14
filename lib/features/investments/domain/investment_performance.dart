@@ -65,13 +65,28 @@ abstract final class InvestmentPerformanceCalculator {
     int total = 0;
     for (final InvestmentPosition position in positions) {
       realized += BigInt.from(position.realizedResultCents);
-      if (position.isClosed) continue;
+      final InvestmentQuote? candidate = quotesByTicker[position.asset.ticker];
+      final InvestmentQuote? quote = candidate?.assetType == position.asset.type
+          ? candidate
+          : null;
+      if (position.isClosed) {
+        // Ativo cadastrado continua visível nas telas de mercado mesmo sem
+        // posição. Cotação não cria patrimônio, custo ou rentabilidade.
+        calculated.add(
+          InvestmentPositionPerformance(
+            position: position,
+            quote: quote,
+            estimatedMarketValueCents: null,
+            unrealizedResultCents: null,
+            returnBasisPoints: null,
+          ),
+        );
+        continue;
+      }
       total += 1;
-      final InvestmentQuote? quote = quotesByTicker[position.asset.ticker];
       if (quote == null ||
           !quote.hasPrice ||
-          quote.isStaleAt(referenceInstant) ||
-          quote.assetType != position.asset.type) {
+          quote.isStaleAt(referenceInstant)) {
         calculated.add(
           InvestmentPositionPerformance(
             position: position,

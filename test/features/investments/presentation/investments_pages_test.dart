@@ -15,9 +15,11 @@ import 'package:meu_gestor_financeiro/features/investments/domain/investment_fai
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_income_event.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_operation.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_portfolio.dart';
+import 'package:meu_gestor_financeiro/features/investments/domain/investment_quote.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/scaled_investment_value.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/tracked_investment_asset.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/controllers/investment_action_controller.dart';
+import 'package:meu_gestor_financeiro/features/investments/presentation/controllers/investment_quotes_controller.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/controllers/investments_controller.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/pages/investment_asset_details_page.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/pages/investment_asset_form_page.dart';
@@ -36,6 +38,7 @@ import 'package:meu_gestor_financeiro/features/subscriptions/presentation/contro
 import 'package:meu_gestor_financeiro/features/subscriptions/presentation/widgets/investment_premium_route_gate.dart';
 
 import '../../../support/fake_auth_repository.dart';
+import '../../../support/fake_investment_quote_repository.dart';
 import '../../../support/fake_investment_repository.dart';
 import '../../../support/fake_premium_entitlement_repository.dart';
 import '../../../support/fake_user_profile_repository.dart';
@@ -57,7 +60,7 @@ void main() {
         find.text('Crie sua primeira carteira de acompanhamento'),
         findsOneWidget,
       );
-      expect(find.textContaining('Cotações automáticas'), findsOneWidget);
+      expect(find.textContaining('Cotações atrasadas'), findsOneWidget);
       expect(find.textContaining(r'R$ 10.000'), findsNothing);
       expect(tester.takeException(), isNull);
     },
@@ -90,7 +93,7 @@ void main() {
           .first,
     );
     expect(find.text('PETR4'), findsOneWidget);
-    expect(find.text('Posição zerada'), findsOneWidget);
+    expect(find.text('Sem compra registrada'), findsOneWidget);
     await tester.tap(find.byTooltip('Ocultar valores e quantidades'));
     await tester.pump();
     expect(find.text('••••'), findsWidgets);
@@ -98,34 +101,148 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('detalhe não inventa cotação e bloqueia venda sem posição', (
+  testWidgets(
+    'detalhe informa falta de cobertura e bloqueia venda sem posição',
+    (WidgetTester tester) async {
+      final _WidgetContext context = await _context(withAsset: true);
+      addTearDown(context.dispose);
+      await _pump(
+        tester,
+        context,
+        const InvestmentAssetDetailsPage(assetId: 'portfolio-1__PETR4'),
+      );
+
+      expect(find.text('Cotação sem cobertura'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text(
+          'Nenhuma operação registrada. Comece pela operação mais antiga.',
+        ),
+        220,
+      );
+      expect(
+        find.text(
+          'Nenhuma operação registrada. Comece pela operação mais antiga.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.byType(BackButtonIcon), findsOneWidget);
+      final OutlinedButton sell = tester.widget<OutlinedButton>(
+        find.widgetWithText(OutlinedButton, 'Registrar venda'),
+      );
+      expect(sell.onPressed, isNull);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'ativo cadastrado alimenta resumo, lista e detalhe com a mesma cotação',
+    (WidgetTester tester) async {
+      final _WidgetContext context = await _context(withAsset: true);
+      addTearDown(context.dispose);
+      context.quoteRepository.quotes.add(_quote());
+      context.container.invalidate(investmentQuotesProvider);
+
+      await _pump(tester, context, const InvestmentsPage());
+
+      expect(
+        find.byKey(const ValueKey<String>('investment-market-overview-card')),
+        findsOneWidget,
+      );
+      expect(find.text(r'R$ 35,00'), findsOneWidget);
+      expect(find.text('+1,23% · Atrasada'), findsOneWidget);
+
+      await _tapInvestmentTab(tester, 'Ativos');
+      await tester.scrollUntilVisible(
+        find.text('Cotação atrasada'),
+        180,
+        scrollable: find
+            .descendant(
+              of: find.byKey(const ValueKey<String>('investments-scroll')),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      expect(find.text(r'R$ 35,00'), findsOneWidget);
+      expect(find.text('+1,23%'), findsOneWidget);
+
+      await _pump(
+        tester,
+        context,
+        const InvestmentAssetDetailsPage(assetId: 'portfolio-1__PETR4'),
+      );
+      expect(
+        find.byKey(const ValueKey<String>('investment-asset-quote-card')),
+        findsOneWidget,
+      );
+      expect(find.text(r'R$ 35,00'), findsOneWidget);
+      expect(
+        find.text(
+          'Registre uma compra para calcular patrimônio e resultado; a cotação sozinha não cria posição.',
+        ),
+        findsOneWidget,
+      );
+      expect(context.quoteRepository.lastTickers, <String>['PETR4']);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('detalhe exibe evolução somente com histórico real confirmado', (
     WidgetTester tester,
   ) async {
     final _WidgetContext context = await _context(withAsset: true);
     addTearDown(context.dispose);
+    context.quoteRepository.history['PETR4'] = <InvestmentQuote>[
+      _quote(observedAt: DateTime.utc(2026, 8, 9, 11, 30), price: '34'),
+      _quote(),
+    ];
+
     await _pump(
       tester,
       context,
       const InvestmentAssetDetailsPage(assetId: 'portfolio-1__PETR4'),
     );
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey<String>('investment-market-history-card')),
+      180,
+    );
 
     expect(
-      find.text('Cotação automática ainda não disponível'),
+      find.byKey(const ValueKey<String>('investment-market-history-chart')),
       findsOneWidget,
     );
-    expect(
-      find.text(
-        'Nenhuma operação registrada. Comece pela operação mais antiga.',
-      ),
-      findsOneWidget,
-    );
-    expect(find.byType(BackButtonIcon), findsOneWidget);
-    final OutlinedButton sell = tester.widget<OutlinedButton>(
-      find.widgetWithText(OutlinedButton, 'Registrar venda'),
-    );
-    expect(sell.onPressed, isNull);
+    expect(find.textContaining('2 pontos diários confirmados'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  test(
+    'novo ativo recompõe automaticamente a consulta compartilhada de cotações',
+    () async {
+      final _WidgetContext context = await _context(withAsset: true);
+      addTearDown(context.dispose);
+      final ProviderSubscription<AsyncValue<InvestmentQuoteReadResult>>
+      subscription = context.container.listen(
+        investmentQuotesProvider,
+        (_, _) {},
+      );
+      addTearDown(subscription.close);
+      await context.container.read(investmentQuotesProvider.future);
+
+      final bool created = await context.container
+          .read(investmentActionControllerProvider.notifier)
+          .createAsset(
+            const TrackedInvestmentAssetDraft(
+              portfolioId: 'portfolio-1',
+              ticker: 'VALE3',
+              name: 'Vale ON',
+              type: TrackedInvestmentAssetType.stock,
+            ),
+          );
+      await context.container.read(investmentQuotesProvider.future);
+
+      expect(created, isTrue);
+      expect(context.quoteRepository.lastTickers, <String>['PETR4', 'VALE3']);
+    },
+  );
 
   testWidgets(
     'ativo histórico oferece correção e arquivamento em vez de exclusão',
@@ -274,6 +391,12 @@ void main() {
     expect(find.textContaining('valorização'), findsNothing);
     expect(find.byTooltip('Criar carteira'), findsOneWidget);
     expect(find.byTooltip('Gerenciar carteiras'), findsOneWidget);
+    expect(find.byTooltip('Explorar investimentos'), findsOneWidget);
+    await tester.tap(find.byTooltip('Explorar investimentos'));
+    await tester.pumpAndSettle();
+    expect(find.text('Cotações e rentabilidade'), findsOneWidget);
+    expect(find.text('Rankings e indicadores'), findsOneWidget);
+    expect(find.text('Calculadoras e análises'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -500,6 +623,14 @@ void main() {
     addTearDown(context.dispose);
     await _pump(tester, context, const InvestmentsPage());
 
+    await tester.scrollUntilVisible(
+      find.text('Evolução dos aportes e vendas'),
+      220,
+      scrollable: find.descendant(
+        of: find.byKey(const ValueKey<String>('investment-summary-scroll')),
+        matching: find.byType(Scrollable),
+      ),
+    );
     expect(find.text('Evolução dos aportes e vendas'), findsOneWidget);
     expect(
       find.byKey(const ValueKey<String>('investment-evolution-chart')),
@@ -949,6 +1080,7 @@ final class _WidgetContext {
     required this.container,
     required this.auth,
     required this.repository,
+    required this.quoteRepository,
     required this.gate,
     required this.investments,
     required this.action,
@@ -957,6 +1089,7 @@ final class _WidgetContext {
   final ProviderContainer container;
   final FakeAuthRepository auth;
   final FakeInvestmentRepository repository;
+  final FakeInvestmentQuoteRepository quoteRepository;
   final ProviderSubscription<AsyncValue<ProfileGateState>> gate;
   final ProviderSubscription<AsyncValue<InvestmentsState>> investments;
   final ProviderSubscription<InvestmentActionState> action;
@@ -989,6 +1122,8 @@ Future<_WidgetContext> _context({
     ),
   );
   final FakeInvestmentRepository repository = FakeInvestmentRepository();
+  final FakeInvestmentQuoteRepository quoteRepository =
+      FakeInvestmentQuoteRepository();
   final FakePremiumEntitlementRepository premiumRepository =
       FakePremiumEntitlementRepository(
           entitlement: entitlement ?? syntheticPremiumEntitlement(),
@@ -1111,6 +1246,10 @@ Future<_WidgetContext> _context({
         ),
       ),
       investmentRepositoryProvider.overrideWithValue(repository),
+      investmentQuoteRepositoryProvider.overrideWithValue(quoteRepository),
+      investmentClockProvider.overrideWithValue(
+        () => DateTime.utc(2026, 8, 10, 12),
+      ),
       premiumEntitlementRepositoryProvider.overrideWithValue(premiumRepository),
       premiumAccessReferenceClockProvider.overrideWithValue(
         () => DateTime.utc(2026, 8, 10, 12),
@@ -1143,6 +1282,7 @@ Future<_WidgetContext> _context({
     container: container,
     auth: auth,
     repository: repository,
+    quoteRepository: quoteRepository,
     gate: gate,
     investments: investments,
     action: action,
@@ -1225,6 +1365,26 @@ InvestmentOperation _operation({
     updatedAt: occurredAt.add(const Duration(hours: 1)),
     schemaVersion: 1,
     revision: 1,
+  );
+}
+
+InvestmentQuote _quote({DateTime? observedAt, String price = '35'}) {
+  final DateTime effectiveObservedAt =
+      observedAt ?? DateTime.utc(2026, 8, 10, 11, 30);
+  final DateTime capturedAt = DateTime.utc(2026, 8, 10, 12);
+  return InvestmentQuote(
+    ticker: 'PETR4',
+    assetType: TrackedInvestmentAssetType.stock,
+    currencyCode: 'BRL',
+    market: InvestmentQuoteMarket.b3,
+    unitPriceScaled: InvestmentUnitPrice.parsePtBr(price).scaled,
+    variationBasisPoints: 123,
+    observedAt: effectiveObservedAt,
+    capturedAt: capturedAt,
+    declaredDelay: const Duration(minutes: 30),
+    staleAfter: capturedAt.add(const Duration(minutes: 60)),
+    availability: InvestmentQuoteAvailability.delayed,
+    source: 'fixture',
   );
 }
 

@@ -1,5 +1,6 @@
 export const QUOTE_COLLECTIONS = Object.freeze({
   snapshots: 'marketQuoteSnapshots',
+  history: 'marketQuoteHistory',
   leases: '_marketQuoteLeases',
   requests: '_marketQuoteRefreshRequests',
   circuits: '_marketQuoteCircuitBreakers',

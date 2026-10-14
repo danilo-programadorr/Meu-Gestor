@@ -80,8 +80,10 @@ describe('BRAPI delayed quote adapter', () => {
     });
     await gateway.fetchBatch([{ ticker: 'PETR4', assetType: 'stock' }]);
     assert.equal(received.url.hostname, 'brapi.dev');
+    assert.equal(received.url.searchParams.has('token'), false);
     assert.equal(received.url.searchParams.get('range'), '1d');
     assert.equal(received.options.method, 'GET');
+    assert.equal(received.options.headers.Authorization, 'Bearer synthetic-token');
     assert.ok(received.options.signal instanceof AbortSignal);
 
     const unavailable = new BrapiDelayedQuoteGateway({

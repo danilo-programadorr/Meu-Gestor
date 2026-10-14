@@ -65,6 +65,16 @@ abstract final class FirestoreInvestmentQuoteMapper {
     }
   }
 
+  static InvestmentQuote fromHistoryMap({
+    required Map<String, dynamic> data,
+    required String ticker,
+  }) {
+    final Map<String, dynamic> snapshot = Map<String, dynamic>.from(data)
+      ..remove('bucketDate')
+      ..remove('expiresAt');
+    return fromMap(data: snapshot, documentId: ticker);
+  }
+
   static String _string(Map<String, dynamic> data, String field) {
     final Object? value = data[field];
     if (value is! String) throw StateError('invalid_quote_string');

@@ -12,6 +12,7 @@ final class FirebaseInvestmentQuoteRepository
     : _firestore = firestore;
 
   static const String collectionName = 'marketQuoteSnapshots';
+  static const String historyCollectionName = 'marketQuoteHistory';
   static const Duration _timeout = Duration(seconds: 12);
   static const int _maximumTickersPerRead = 50;
 
@@ -79,6 +80,56 @@ final class FirebaseInvestmentQuoteRepository
         kind: InvestmentFailureKind.unavailable,
         safeMessage: 'Não foi possível consultar cotações confirmadas agora.',
         code: 'market_quote_server_read_failed',
+      );
+    }
+  }
+
+  @override
+  Future<List<InvestmentQuote>> readQuoteHistory({
+    required String ticker,
+    required int maximumPoints,
+    required bool serverOnly,
+  }) async {
+    final String normalized = TrackedInvestmentAsset.requireTicker(ticker);
+    if (maximumPoints < 2 || maximumPoints > 120) {
+      throw const InvestmentFailure(
+        kind: InvestmentFailureKind.validation,
+        safeMessage: 'O período solicitado para o histórico é inválido.',
+        code: 'market_quote_history_limit_invalid',
+      );
+    }
+    try {
+      final Query<Map<String, dynamic>> query = _firestore
+          .collection(historyCollectionName)
+          .doc(normalized)
+          .collection('quoteDays')
+          .orderBy('observedAt', descending: true)
+          .limit(maximumPoints);
+      final QuerySnapshot<Map<String, dynamic>> result = await query
+          .get(serverOnly ? const GetOptions(source: Source.server) : null)
+          .timeout(_timeout);
+      final List<InvestmentQuote> points =
+          result.docs
+              .map(
+                (QueryDocumentSnapshot<Map<String, dynamic>> document) =>
+                    FirestoreInvestmentQuoteMapper.fromHistoryMap(
+                      data: document.data(),
+                      ticker: normalized,
+                    ),
+              )
+              .toList(growable: false)
+            ..sort(
+              (InvestmentQuote first, InvestmentQuote second) =>
+                  first.observedAt.compareTo(second.observedAt),
+            );
+      return List<InvestmentQuote>.unmodifiable(points);
+    } on InvestmentFailure {
+      rethrow;
+    } on Object {
+      throw const InvestmentFailure(
+        kind: InvestmentFailureKind.unavailable,
+        safeMessage: 'Não foi possível consultar o histórico confirmado agora.',
+        code: 'market_quote_history_server_read_failed',
       );
     }
   }

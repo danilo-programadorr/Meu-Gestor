@@ -8,6 +8,7 @@ import { QuoteStatus } from './quote_mapper.mjs';
 
 const BRAPI_ENDPOINT = 'https://brapi.dev/api/quote/';
 export const BRAPI_FREE_PLAN_MAX_TARGETS = 1;
+export const BRAPI_FREE_PLAN_MAX_ACTIVE_TARGETS = 30;
 
 /// Adapter BRAPI isolado: a resposta externa jamais sai deste arquivo como
 /// preço decimal/floating point ou contrato da aplicação.
@@ -23,6 +24,7 @@ export class BrapiDelayedQuoteGateway {
     this.token = token;
     this.clock = clock;
     this.timeoutMs = timeoutMs;
+    this.maximumTargetsPerRequest = BRAPI_FREE_PLAN_MAX_TARGETS;
   }
 
   async fetchBatch(targets) {
@@ -41,12 +43,13 @@ export class BrapiDelayedQuoteGateway {
     url.searchParams.set('range', '1d');
     url.searchParams.set('interval', '1d');
     url.searchParams.set('fundamental', 'false');
-    url.searchParams.set('token', apiToken);
     let response;
     try {
       response = await this.fetchImpl(url, {
         method: 'GET',
-        headers: { Accept: 'application/json' },
+        // Abertura do transporte autenticado: a chave permanece no header e
+        // não entra em URLs, históricos, diagnósticos ou documentos.
+        headers: { Accept: 'application/json', Authorization: `Bearer ${apiToken}` },
         signal: AbortSignal.timeout(this.timeoutMs),
       });
     } catch (error) {

@@ -18,6 +18,17 @@ final FutureProvider<InvestmentQuoteReadResult> investmentQuotesProvider =
           );
     });
 
+final investmentQuoteHistoryProvider = FutureProvider.autoDispose
+    .family<List<InvestmentQuote>, String>((Ref ref, String ticker) {
+      return ref
+          .read(investmentQuoteRepositoryProvider)
+          .readQuoteHistory(
+            ticker: ticker,
+            maximumPoints: 30,
+            serverOnly: true,
+          );
+    });
+
 final FutureProvider<InvestmentPortfolioPerformance>
 investmentPortfolioPerformanceProvider =
     FutureProvider.autoDispose<InvestmentPortfolioPerformance>((Ref ref) async {

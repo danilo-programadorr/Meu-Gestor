@@ -9,7 +9,7 @@ function timestamp(value = '2026-10-08T12:00:00.000Z') {
   return { toDate: () => new Date(value) };
 }
 
-function firestoreWith(documents, expectedLimit = 2) {
+function firestoreWith(documents, expectedLimit = 31) {
   const query = {
     where(field, operator, value) {
       assert.deepEqual([field, operator, value], ['enabled', '==', true]);
@@ -58,12 +58,25 @@ describe('Firestore quote catalog', () => {
     );
   });
 
-  test('limita o catálogo ativo ao único ticker permitido no plano gratuito', async () => {
-    const documents = [document('PETR4'), document('VALE3')];
+  test('aceita vários ativos, mas limita o catálogo ao orçamento mensal conservador', async () => {
+    const documents = Array.from({ length: 31 }, (_, index) =>
+      document(`TEST${String(index).padStart(2, '0')}`));
     await assert.rejects(
       createFirestoreQuoteCatalog({ firestore: firestoreWith(documents) }).readActiveTargets(),
       { message: 'quote_catalog_limit_exceeded' },
     );
+  });
+
+  test('aceita documento automático opaco com contagem de demanda', async () => {
+    const automatic = document('VALE3', {
+      demandCount: 2,
+      lastDemandAt: timestamp(),
+      schemaVersion: 2,
+    });
+    const targets = await createFirestoreQuoteCatalog({
+      firestore: firestoreWith([automatic]),
+    }).readActiveTargets();
+    assert.deepEqual(targets, [{ ticker: 'VALE3', assetType: 'stock' }]);
   });
 
   test('não permite configurar limite acima do contrato provider-neutral', () => {

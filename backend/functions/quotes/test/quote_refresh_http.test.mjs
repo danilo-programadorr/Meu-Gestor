@@ -38,7 +38,7 @@ describe('Quote refresh Gen 2 HTTP boundary', () => {
       region: 'southamerica-east1',
       serviceAccount: QUOTE_FUNCTION_OPTIONS.serviceAccount,
       memory: '256MiB',
-      timeoutSeconds: 30,
+      timeoutSeconds: 180,
       maxInstances: 1,
       minInstances: 0,
       concurrency: 1,

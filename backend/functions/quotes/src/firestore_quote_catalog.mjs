@@ -1,5 +1,5 @@
 import { MAX_BATCH_SIZE, normalizeTargets } from '../shared/quote_contract.mjs';
-import { BRAPI_FREE_PLAN_MAX_TARGETS } from '../shared/brapi_gateway.mjs';
+import { BRAPI_FREE_PLAN_MAX_ACTIVE_TARGETS } from '../shared/brapi_gateway.mjs';
 
 export const QUOTE_CATALOG_COLLECTION = '_marketQuoteCatalog';
 
@@ -8,7 +8,7 @@ export const QUOTE_CATALOG_COLLECTION = '_marketQuoteCatalog';
 export function createFirestoreQuoteCatalog({
   firestore,
   logger = { info() {}, warn() {} },
-  maximumTargets = BRAPI_FREE_PLAN_MAX_TARGETS,
+  maximumTargets = BRAPI_FREE_PLAN_MAX_ACTIVE_TARGETS,
 }) {
   if (!firestore || typeof firestore.collection !== 'function') {
     throw new TypeError('quote_invalid_catalog_dependencies');
@@ -35,10 +35,14 @@ export function createFirestoreQuoteCatalog({
 function mapCatalogDocument(snapshot) {
   const data = snapshot.data();
   if (!data || typeof data !== 'object' || Array.isArray(data)) fail('quote_catalog_invalid_document');
-  const expected = ['assetType', 'enabled', 'schemaVersion', 'ticker', 'updatedAt'];
+  const expected = data.schemaVersion === 1
+      ? ['assetType', 'enabled', 'schemaVersion', 'ticker', 'updatedAt']
+      : ['assetType', 'demandCount', 'enabled', 'lastDemandAt', 'schemaVersion', 'ticker', 'updatedAt'];
   const keys = Object.keys(data).sort();
   if (keys.length !== expected.length || keys.some((key, index) => key !== expected[index]) ||
-      snapshot.id !== data.ticker || data.enabled !== true || data.schemaVersion !== 1 ||
+      snapshot.id !== data.ticker || data.enabled !== true || ![1, 2].includes(data.schemaVersion) ||
+      (data.schemaVersion === 2 && (!Number.isInteger(data.demandCount) || data.demandCount < 1 ||
+        typeof data.lastDemandAt?.toDate !== 'function' || Number.isNaN(data.lastDemandAt.toDate().getTime()))) ||
       typeof data.updatedAt?.toDate !== 'function' || Number.isNaN(data.updatedAt.toDate().getTime())) {
     fail('quote_catalog_invalid_document');
   }

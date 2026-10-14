@@ -13,6 +13,8 @@ import {
   doc,
   getDoc,
   getDocs,
+  limit,
+  query,
   serverTimestamp,
   setDoc,
   updateDoc,
@@ -560,6 +562,19 @@ async function seedMarketQuote(overrides = {}) {
     await setDoc(
       doc(context.firestore(), 'marketQuoteSnapshots/PETR4'),
       marketQuoteSnapshot(overrides),
+    );
+  });
+}
+
+async function seedMarketQuoteHistory() {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(
+      doc(context.firestore(), 'marketQuoteHistory/PETR4/quoteDays/2026-08-01'),
+      {
+        ...marketQuoteSnapshot(),
+        bucketDate: '2026-08-01',
+        expiresAt: Timestamp.fromDate(new Date('2026-11-02T12:00:00Z')),
+      },
     );
   });
 }
@@ -2089,10 +2104,28 @@ describe('INV-2C snapshots globais de cotações atrasadas', () => {
       '_marketQuoteRefreshRequests/synthetic-request',
       '_marketQuoteCircuitBreakers/PETR4',
       '_marketQuoteCatalog/PETR4',
+      '_marketQuoteDemands/opaque-demand',
     ]) {
       await assertFails(getDoc(doc(db, path)));
       await assertFails(setDoc(doc(db, path), { synthetic: true }));
     }
+  });
+
+  test('histórico diário exige acesso financeiro, limite e permanece somente leitura', async () => {
+    await seedMarketQuoteHistory();
+    const owner = verifiedDb();
+    const points = collection(owner, 'marketQuoteHistory/PETR4/quoteDays');
+    await assertSucceeds(getDoc(doc(points, '2026-08-01')));
+    await assertSucceeds(getDocs(query(points, limit(120))));
+    await assertFails(getDocs(points));
+    await assertFails(getDocs(query(points, limit(121))));
+    await assertFails(getDoc(doc(
+      testEnv.unauthenticatedContext().firestore(),
+      'marketQuoteHistory/PETR4/quoteDays/2026-08-01',
+    )));
+    await assertFails(setDoc(doc(points, '2026-08-02'), {
+      ...marketQuoteSnapshot(), bucketDate: '2026-08-02', expiresAt: past,
+    }));
   });
 });
 

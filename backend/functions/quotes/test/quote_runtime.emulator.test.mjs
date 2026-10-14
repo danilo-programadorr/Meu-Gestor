@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
 
 import { createQuoteRuntime } from '../src/quote_runtime.mjs';
+import { createFirestoreQuoteCatalogSync } from '../src/firestore_quote_catalog_sync.mjs';
 
 /// Exercita a composição real contra Firestore Emulator, mantendo somente a
 /// fronteira HTTP da BRAPI simulada e sem qualquer credencial ou dado pessoal.
@@ -64,6 +65,11 @@ suite('Quote runtime with Firestore Emulator', () => {
     assert.equal(stored.data().priceScaled, 31450000);
     assert.equal(stored.data().source, 'brapi');
     assert.equal(stored.data().ownerId, undefined);
+    const history = await firestore.collection('marketQuoteHistory').doc('PETR4')
+        .collection('quoteDays').doc('2026-10-08').get();
+    assert.equal(history.data().priceScaled, 31450000);
+    assert.equal(history.data().bucketDate, '2026-10-08');
+    assert.equal(history.data().ownerId, undefined);
     const request = await firestore.collection('_marketQuoteRefreshRequests')
         .doc('emulator_runtime_20261008_152000__PETR4').get();
     assert.equal(request.data().status, 'completed');
@@ -171,5 +177,54 @@ suite('Quote runtime with Firestore Emulator', () => {
     await Promise.all([first, second]);
     assert.equal(calls, 1);
     assert.equal((await firestore.collection('marketQuoteSnapshots').doc('VALE3').get()).exists, true);
+  });
+
+  test('trigger materializa demanda opaca e retira o último ativo arquivado', async () => {
+    const sync = createFirestoreQuoteCatalogSync({
+      firestore,
+      Timestamp,
+      logger: { info() {} },
+    });
+    const empty = { exists: false };
+    const active = {
+      exists: true,
+      data: () => ({
+        ownerId: 'synthetic-owner',
+        ticker: 'ITUB4',
+        assetType: 'stock',
+        revision: 1,
+        schemaVersion: 2,
+        isArchived: false,
+        updatedAt: Timestamp.fromDate(new Date('2026-10-08T17:00:00.000Z')),
+      }),
+    };
+    await sync({
+      params: { userId: 'synthetic-owner', assetId: 'portfolio__ITUB4' },
+      data: { before: empty, after: active },
+      time: '2026-10-08T17:00:01.000Z',
+    });
+    const catalog = firestore.collection('_marketQuoteCatalog').doc('ITUB4');
+    assert.equal((await catalog.get()).data().demandCount, 1);
+    const [demand] = (await firestore.collection('_marketQuoteDemands').get()).docs
+        .filter((document) => document.data().ticker === 'ITUB4');
+    assert.equal(demand.id.length, 64);
+    assert.equal(JSON.stringify(demand.data()).includes('synthetic-owner'), false);
+
+    const archived = {
+      exists: true,
+      data: () => ({
+        ...active.data(),
+        revision: 2,
+        isArchived: true,
+        updatedAt: Timestamp.fromDate(new Date('2026-10-08T17:05:00.000Z')),
+      }),
+    };
+    await sync({
+      params: { userId: 'synthetic-owner', assetId: 'portfolio__ITUB4' },
+      data: { before: active, after: archived },
+      time: '2026-10-08T17:05:01.000Z',
+    });
+    assert.equal((await catalog.get()).data().enabled, false);
+    assert.equal((await catalog.get()).data().demandCount, 0);
   });
 });

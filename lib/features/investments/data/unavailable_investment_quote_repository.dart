@@ -15,4 +15,11 @@ final class UnavailableInvestmentQuoteRepository
     isFromServer: false,
     hasPendingWrites: false,
   );
+
+  @override
+  Future<List<InvestmentQuote>> readQuoteHistory({
+    required String ticker,
+    required int maximumPoints,
+    required bool serverOnly,
+  }) async => const <InvestmentQuote>[];
 }

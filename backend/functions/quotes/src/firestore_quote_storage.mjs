@@ -1,6 +1,7 @@
 import { QUOTE_COLLECTIONS, QUOTE_SCHEMA_VERSION } from '../shared/quote_contract.mjs';
 
 const requestRetentionMs = 30 * 24 * 60 * 60 * 1000;
+const historyRetentionMs = 93 * 24 * 60 * 60 * 1000;
 
 /// Adaptador Admin: todas as transações usam apenas coleções globais de
 /// mercado; UID, carteira, posição, operação e valor do usuário não entram.
@@ -51,9 +52,13 @@ export function createFirestoreQuoteStorage({ firestore, Timestamp }) {
         const requestRef = reference(QUOTE_COLLECTIONS.requests, requestIdFor(requestId, target.ticker));
         const leaseRef = reference(QUOTE_COLLECTIONS.leases, target.ticker);
         const snapshotRef = reference(QUOTE_COLLECTIONS.snapshots, target.ticker);
+        const historyBucket = marketDayFor(quote.observedAt);
+        const historyRef = firestore.collection(QUOTE_COLLECTIONS.history)
+            .doc(target.ticker).collection('quoteDays').doc(historyBucket);
         const circuitRef = reference(QUOTE_COLLECTIONS.circuits, target.ticker);
-        const [requestSnapshot, leaseSnapshot, currentSnapshot] = await Promise.all([
+        const [requestSnapshot, leaseSnapshot, currentSnapshot, currentHistory] = await Promise.all([
           transaction.get(requestRef), transaction.get(leaseRef), transaction.get(snapshotRef),
+          transaction.get(historyRef),
         ]);
         if (requestSnapshot.data()?.status === 'completed') return Object.freeze({ written: false, idempotent: true });
         if (leaseSnapshot.data()?.requestId !== requestId) return Object.freeze({ written: false, idempotent: false });
@@ -62,12 +67,21 @@ export function createFirestoreQuoteStorage({ firestore, Timestamp }) {
         const currentObservedAt = current?.observedAt?.toDate?.();
         const shouldWrite = !currentObservedAt || incomingObservedAt > currentObservedAt;
         if (shouldWrite) {
-          transaction.set(snapshotRef, {
+          const persistedQuote = {
             ...quote,
             observedAt: toTimestamp(quote.observedAt),
             capturedAt: toTimestamp(quote.capturedAt),
             staleAfter: toTimestamp(quote.staleAfter),
-          });
+          };
+          transaction.set(snapshotRef, persistedQuote);
+          const historicalObservedAt = currentHistory.data()?.observedAt?.toDate?.();
+          if (!historicalObservedAt || incomingObservedAt > historicalObservedAt) {
+            transaction.set(historyRef, {
+              ...persistedQuote,
+              bucketDate: historyBucket,
+              expiresAt: Timestamp.fromDate(new Date(incomingObservedAt.getTime() + historyRetentionMs)),
+            });
+          }
         }
         transaction.set(requestRef, requestDocument({
           requestId, target, now, status: 'completed', snapshotWritten: shouldWrite,
@@ -108,6 +122,18 @@ export function createFirestoreQuoteStorage({ firestore, Timestamp }) {
       return Object.freeze(snapshots.filter((snapshot) => snapshot.exists).map((snapshot) => snapshot.data()));
     },
   });
+}
+
+function marketDayFor(value) {
+  const instant = new Date(value);
+  if (Number.isNaN(instant.getTime())) throw new TypeError('quote_invalid_history_time');
+  // A B3 usa o dia civil de São Paulo; formatToParts evita depender do fuso do
+  // processo e mantém a chave diária determinística em viradas de mês/ano.
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(instant);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
 }
 
 function requestDocument({ requestId, target, now, status, code = null, snapshotWritten = null }) {

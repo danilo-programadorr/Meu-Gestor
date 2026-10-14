@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:meu_gestor_financeiro/app/routing/app_routes.dart';
 import 'package:meu_gestor_financeiro/app/routing/safe_back_navigation.dart';
 import 'package:meu_gestor_financeiro/app/theme/app_radius.dart';
@@ -8,11 +9,15 @@ import 'package:meu_gestor_financeiro/app/theme/app_spacing.dart';
 import 'package:meu_gestor_financeiro/app/theme/app_theme_colors.dart';
 import 'package:meu_gestor_financeiro/app/widgets/entity_action_icon_button.dart';
 import 'package:meu_gestor_financeiro/core/privacy/financial_privacy_controller.dart';
+import 'package:meu_gestor_financeiro/features/investments/data/investment_providers.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_operation.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_position.dart';
+import 'package:meu_gestor_financeiro/features/investments/domain/investment_quote.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/tracked_investment_asset.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/controllers/investment_action_controller.dart';
+import 'package:meu_gestor_financeiro/features/investments/presentation/controllers/investment_quotes_controller.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/controllers/investments_controller.dart';
+import 'package:meu_gestor_financeiro/features/investments/presentation/widgets/investment_quote_view_support.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/widgets/investment_view_support.dart';
 
 enum _AssetContextAction { archive, restore }
@@ -27,6 +32,9 @@ class InvestmentAssetDetailsPage extends ConsumerWidget {
     final AsyncValue<InvestmentsState> workspace = ref.watch(
       investmentsControllerProvider,
     );
+    final AsyncValue<InvestmentQuoteReadResult> quotes = ref.watch(
+      investmentQuotesProvider,
+    );
     final bool valuesVisible = ref.watch(financialPrivacyControllerProvider);
     final TrackedInvestmentAsset? currentAsset = workspace.value?.assetById(
       assetId,
@@ -34,6 +42,9 @@ class InvestmentAssetDetailsPage extends ConsumerWidget {
     final InvestmentActionState action = ref.watch(
       investmentActionControllerProvider,
     );
+    final AsyncValue<List<InvestmentQuote>> history = currentAsset == null
+        ? const AsyncData<List<InvestmentQuote>>(<InvestmentQuote>[])
+        : ref.watch(investmentQuoteHistoryProvider(currentAsset.ticker));
     return SafeBackScope(
       fallbackLocation: AppRoutes.investments,
       child: Scaffold(
@@ -119,6 +130,8 @@ class InvestmentAssetDetailsPage extends ConsumerWidget {
               context,
               ref,
               state,
+              quotes: quotes,
+              history: history,
               valuesVisible: valuesVisible,
               canMutate: true,
             ),
@@ -132,6 +145,8 @@ class InvestmentAssetDetailsPage extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     InvestmentsState state, {
+    required AsyncValue<InvestmentQuoteReadResult> quotes,
+    required AsyncValue<List<InvestmentQuote>> history,
     required bool valuesVisible,
     required bool canMutate,
   }) {
@@ -161,8 +176,12 @@ class InvestmentAssetDetailsPage extends ConsumerWidget {
       investmentActionControllerProvider,
     );
     return RefreshIndicator(
-      onRefresh: () =>
-          ref.read(investmentsControllerProvider.notifier).refresh(),
+      onRefresh: () async {
+        await ref.read(investmentsControllerProvider.notifier).refresh();
+        ref.invalidate(investmentQuotesProvider);
+        ref.invalidate(investmentQuoteHistoryProvider(asset.ticker));
+        await ref.read(investmentQuotesProvider.future);
+      },
       child: LayoutBuilder(
         builder: (BuildContext context, BoxConstraints constraints) => ListView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -223,33 +242,15 @@ class InvestmentAssetDetailsPage extends ConsumerWidget {
               valuesVisible: valuesVisible,
             ),
             const SizedBox(height: AppSpacing.sm),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    const Icon(Icons.info_outline_rounded),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(
-                            'Cotação automática ainda não disponível',
-                            style: Theme.of(context).textTheme.titleSmall,
-                          ),
-                          const SizedBox(height: AppSpacing.xxs),
-                          const Text(
-                            'Os indicadores usam somente compras e vendas informadas por você.',
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            _AssetQuoteCard(
+              quoteState: quotes,
+              asset: asset,
+              position: position,
+              valuesVisible: valuesVisible,
+              now: ref.read(investmentClockProvider)(),
             ),
+            const SizedBox(height: AppSpacing.sm),
+            _MarketHistoryCard(history: history, valuesVisible: valuesVisible),
             const SizedBox(height: AppSpacing.md),
             if (canMutate)
               Wrap(
@@ -483,6 +484,118 @@ class InvestmentAssetDetailsPage extends ConsumerWidget {
   }
 }
 
+class _MarketHistoryCard extends StatelessWidget {
+  const _MarketHistoryCard({
+    required this.history,
+    required this.valuesVisible,
+  });
+
+  final AsyncValue<List<InvestmentQuote>> history;
+  final bool valuesVisible;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    key: const ValueKey<String>('investment-market-history-card'),
+    child: Padding(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            'Evolução de mercado',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          history.when(
+            loading: () => const LinearProgressIndicator(
+              semanticsLabel: 'Carregando histórico de mercado',
+            ),
+            error: (Object _, StackTrace _) =>
+                const Text('Histórico de mercado indisponível no momento.'),
+            data: (List<InvestmentQuote> points) {
+              if (!valuesVisible) {
+                return const Text('Valores ocultos por privacidade.');
+              }
+              if (points.length < 2) {
+                return const Text(
+                  'O gráfico aparecerá após dois dias com cotações confirmadas.',
+                );
+              }
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  SizedBox(
+                    key: const ValueKey<String>(
+                      'investment-market-history-chart',
+                    ),
+                    height: 96,
+                    width: double.infinity,
+                    child: CustomPaint(
+                      painter: _MarketHistoryPainter(
+                        values: points
+                            .map(
+                              (InvestmentQuote point) => point.unitPriceScaled,
+                            )
+                            .toList(growable: false),
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    '${points.length} pontos diários confirmados · '
+                    '${DateFormat('dd/MM', 'pt_BR').format(points.first.observedAt.toLocal())} a '
+                    '${DateFormat('dd/MM', 'pt_BR').format(points.last.observedAt.toLocal())}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _MarketHistoryPainter extends CustomPainter {
+  const _MarketHistoryPainter({required this.values, required this.color});
+
+  final List<int> values;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final int minimum = values.reduce((int a, int b) => a < b ? a : b);
+    final int maximum = values.reduce((int a, int b) => a > b ? a : b);
+    final int span = maximum - minimum;
+    final Path path = Path();
+    for (int index = 0; index < values.length; index += 1) {
+      final double x = size.width * index / (values.length - 1);
+      final double ratio = span == 0 ? 0.5 : (values[index] - minimum) / span;
+      final double y = size.height - (ratio * size.height);
+      if (index == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = color
+        ..strokeWidth = 3
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _MarketHistoryPainter oldDelegate) =>
+      oldDelegate.color != color || oldDelegate.values != values;
+}
+
 class _PositionSummaryCard extends StatelessWidget {
   const _PositionSummaryCard({
     required this.position,
@@ -642,6 +755,134 @@ class _DeleteAssetConfirmationDialogState
             : null,
         child: const Text('Excluir permanentemente'),
       ),
+    ],
+  );
+}
+
+// Mostra o mesmo snapshot usado no resumo e na lista, sem converter uma
+// cotação global em posição financeira do usuário.
+class _AssetQuoteCard extends StatelessWidget {
+  const _AssetQuoteCard({
+    required this.quoteState,
+    required this.asset,
+    required this.position,
+    required this.valuesVisible,
+    required this.now,
+  });
+
+  final AsyncValue<InvestmentQuoteReadResult> quoteState;
+  final TrackedInvestmentAsset asset;
+  final InvestmentPosition position;
+  final bool valuesVisible;
+  final DateTime now;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    key: const ValueKey<String>('investment-asset-quote-card'),
+    child: Padding(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: quoteState.when(
+        loading: () => const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            LinearProgressIndicator(),
+            SizedBox(height: AppSpacing.sm),
+            Text('Atualizando cotação confirmada…'),
+          ],
+        ),
+        error: (Object _, StackTrace _) => const Text(
+          'A cotação não pôde ser atualizada agora. Operações e custos cadastrados continuam disponíveis.',
+        ),
+        data: (InvestmentQuoteReadResult result) {
+          final InvestmentQuote? quote = InvestmentQuoteViewSupport.quoteFor(
+            result.quotes,
+            asset.ticker,
+          );
+          if (quote == null) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  'Cotação sem cobertura',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const SizedBox(height: AppSpacing.xxs),
+                const Text(
+                  'O ativo está sincronizado na carteira, mas ainda não existe um snapshot global confirmado para este ticker.',
+                ),
+              ],
+            );
+          }
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Text(
+                      'Cotação atrasada',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                  ),
+                  Chip(
+                    label: Text(
+                      InvestmentQuoteViewSupport.availability(quote, now),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Wrap(
+                spacing: AppSpacing.xl,
+                runSpacing: AppSpacing.sm,
+                children: <Widget>[
+                  _QuoteMetric(
+                    label: 'Preço',
+                    value: InvestmentQuoteViewSupport.price(
+                      quote,
+                      visible: valuesVisible,
+                    ),
+                  ),
+                  _QuoteMetric(
+                    label: 'Variação',
+                    value: InvestmentQuoteViewSupport.variation(
+                      quote,
+                      visible: valuesVisible,
+                    ),
+                  ),
+                  _QuoteMetric(
+                    label: 'Observada em',
+                    value: InvestmentQuoteViewSupport.observedAt(quote),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                position.asset.lastOperationId == null
+                    ? 'Registre uma compra para calcular patrimônio e resultado; a cotação sozinha não cria posição.'
+                    : 'A cotação é informativa e não altera quantidade, custo médio ou operações.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          );
+        },
+      ),
+    ),
+  );
+}
+
+class _QuoteMetric extends StatelessWidget {
+  const _QuoteMetric({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: <Widget>[
+      Text(label, style: Theme.of(context).textTheme.bodySmall),
+      Text(value, style: Theme.of(context).textTheme.titleSmall),
     ],
   );
 }

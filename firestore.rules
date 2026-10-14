@@ -2288,6 +2288,23 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Demanda deduplicada e opaca criada somente pelo trigger server-side.
+    match /_marketQuoteDemands/{document=**} {
+      allow read, write: if false;
+    }
+
+    // Série diária global por ticker; nenhum ponto contém proprietário,
+    // carteira, quantidade ou custo. Consultas são limitadas pelo cliente.
+    match /marketQuoteHistory/{ticker}/quoteDays/{day} {
+      allow get: if request.auth != null
+        && hasFinancialAccess(request.auth.uid);
+      allow list: if request.auth != null
+        && hasFinancialAccess(request.auth.uid)
+        && request.query.limit != null
+        && request.query.limit <= 120;
+      allow create, update, delete: if false;
+    }
+
     // Notícias são snapshots globais de três categorias fechadas. A pessoa
     // autenticada lê somente documentos conhecidos e nunca enumera ou escreve.
     match /marketNewsFeeds/{category} {
