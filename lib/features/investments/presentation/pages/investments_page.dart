@@ -1223,9 +1223,10 @@ class _PerformanceCards extends StatelessWidget {
         const SizedBox(height: AppSpacing.sm),
         SizedBox(
           height: carouselHeight,
-          child: ListView(
+          child: PageView(
             key: const ValueKey<String>('investment-performance-carousel'),
             scrollDirection: Axis.horizontal,
+            clipBehavior: Clip.hardEdge,
             children: <Widget>[
               _PortfolioMetricCard(
                 key: const ValueKey<String>('investment-wealth-card'),
@@ -1386,9 +1387,10 @@ class _PortfolioMetricCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ColorScheme colors = Theme.of(context).colorScheme;
-    return SizedBox(
-      width: 310,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
       child: Card(
+        margin: EdgeInsets.zero,
         color: colors.surfaceContainerHighest,
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.md),

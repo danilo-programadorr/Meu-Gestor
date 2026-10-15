@@ -213,7 +213,40 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Patrimônio estimado'), findsOneWidget);
+      expect(find.text('Lucro econômico total'), findsNothing);
+
+      // Cada página reserva toda a largura do carrossel; nenhum trecho do
+      // próximo card deve aparecer enquanto a página atual está parada.
+      final Finder carousel = find.byKey(
+        const ValueKey<String>('investment-performance-carousel'),
+      );
+      await tester.ensureVisible(carousel);
+      await tester.pumpAndSettle();
+      final Finder wealthPage = find.byKey(
+        const ValueKey<String>('investment-wealth-card'),
+      );
+      final Finder wealthCard = find.descendant(
+        of: wealthPage,
+        matching: find.byType(Card),
+      );
+      final Rect carouselRect = tester.getRect(carousel);
+      final Rect wealthRect = tester.getRect(wealthCard);
+      expect(wealthRect.left, greaterThan(carouselRect.left));
+      expect(wealthRect.right, lessThan(carouselRect.right));
+
+      await tester.drag(carousel, const Offset(-500, 0));
+      await tester.pumpAndSettle();
+      final Finder profitPage = find.byKey(
+        const ValueKey<String>('investment-profit-card'),
+      );
+      final Finder profitCard = find.descendant(
+        of: profitPage,
+        matching: find.byType(Card),
+      );
       expect(find.text('Lucro econômico total'), findsOneWidget);
+      final Rect settledProfitRect = tester.getRect(profitCard);
+      expect(settledProfitRect.left, greaterThan(carouselRect.left));
+      expect(settledProfitRect.right, lessThan(carouselRect.right));
 
       await _tapInvestmentTab(tester, 'Rentabilidade');
       await tester.scrollUntilVisible(
