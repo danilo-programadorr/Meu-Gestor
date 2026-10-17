@@ -78,6 +78,9 @@ const readyPlanEnvelope = Object.freeze({
       clarificationQuestion: '',
       periodCode: 'today',
       financialTool: 'balance',
+      eventTitle: '',
+      eventStart: '',
+      eventEnd: '',
     }) })] }),
   })],
 });

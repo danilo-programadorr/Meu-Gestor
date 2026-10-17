@@ -17,17 +17,17 @@ export const ASSISTANT_VERTEX_API_VERSION = 'v1';
 export const ASSISTANT_VERTEX_SPEECH_MODEL = 'gemini-3.1-flash-tts-preview';
 export const ASSISTANT_VERTEX_SPEECH_VOICE = 'Sulafat';
 export const ASSISTANT_VERTEX_PROMPT_VERSION = 'assist-grounded-prompt-v7';
-export const ASSISTANT_VERTEX_PLAN_PROMPT_VERSION = 'assist-intent-plan-v3';
+export const ASSISTANT_VERTEX_PLAN_PROMPT_VERSION = 'assist-intent-plan-v5';
 
 export const ASSISTANT_VERTEX_PLAN_SCHEMA = Object.freeze({
   type: 'OBJECT',
   required: [
     'schemaVersion', 'status', 'intent', 'clarificationCode', 'clarificationQuestion',
-    'periodCode', 'financialTool',
+    'periodCode', 'financialTool', 'eventTitle', 'eventStart', 'eventEnd',
   ],
   properties: {
     schemaVersion: { type: 'INTEGER', description: 'Use exatamente 1.' },
-    status: { type: 'STRING', enum: ['ready', 'clarification_required', 'safe_unavailable'] },
+    status: { type: 'STRING', enum: ['ready', 'calendar_event_proposal', 'calendar_query', 'clarification_required', 'safe_unavailable'] },
     intent: { type: 'STRING', enum: ASSISTANT_CONVERSATION_INTENTS },
     clarificationCode: { type: 'STRING', enum: ['none', ...ASSISTANT_CLARIFICATION_CODES] },
     clarificationQuestion: {
@@ -36,6 +36,9 @@ export const ASSISTANT_VERTEX_PLAN_SCHEMA = Object.freeze({
     },
     periodCode: { type: 'STRING', enum: ['none', ...ASSISTANT_PERIOD_CODES] },
     financialTool: { type: 'STRING', enum: ['none', ...ASSISTANT_FINANCIAL_TOOLS] },
+    eventTitle: { type: 'STRING', description: 'Título do compromisso; vazio fora de calendar_event_proposal.' },
+    eventStart: { type: 'STRING', description: 'ISO 8601 com offset do início do compromisso ou da consulta de agenda.' },
+    eventEnd: { type: 'STRING', description: 'ISO 8601 com offset do fim exclusivo do compromisso ou da consulta de agenda.' },
   },
 });
 
@@ -323,12 +326,23 @@ const safeClarificationQuestion = (value) => typeof value === 'string'
   && !unsafeSerializedContext(JSON.stringify(value))
   && !/\b(compre|compra|venda|vender|pague|receba|transfira|invista|aposte)\b/iu.test(value);
 
+const safeCalendarTitle = (value) => typeof value === 'string'
+  && value === value.trim()
+  && value.length >= 2
+  && value.length <= 120
+  && !/[\u0000-\u001F\u007F]/u.test(value)
+  && !unsafeSerializedContext(JSON.stringify(value));
+
+const safeCalendarInstant = (value) => typeof value === 'string'
+  && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?(?:Z|[+-]\d{2}:\d{2})$/u.test(value)
+  && Number.isFinite(Date.parse(value));
+
 const admitIntentPlan = (value) => {
   if (!exactKeys(value, [
     'schemaVersion', 'status', 'intent', 'clarificationCode', 'clarificationQuestion',
-    'periodCode', 'financialTool',
+    'periodCode', 'financialTool', 'eventTitle', 'eventStart', 'eventEnd',
   ]) || value.schemaVersion !== 1
-      || !['ready', 'clarification_required', 'safe_unavailable'].includes(value.status)
+      || !['ready', 'calendar_event_proposal', 'calendar_query', 'clarification_required', 'safe_unavailable'].includes(value.status)
       || !ASSISTANT_CONVERSATION_INTENTS.includes(value.intent)
       || !['none', ...ASSISTANT_CLARIFICATION_CODES].includes(value.clarificationCode)
       || !['none', ...ASSISTANT_PERIOD_CODES].includes(value.periodCode)
@@ -340,27 +354,65 @@ const admitIntentPlan = (value) => {
         || value.clarificationCode !== 'none'
         || value.clarificationQuestion !== ''
         || !ASSISTANT_PERIOD_CODES.includes(value.periodCode)
-        || expectedToolByIntent[value.intent] !== value.financialTool) return null;
+        || expectedToolByIntent[value.intent] !== value.financialTool
+        || value.eventTitle !== '' || value.eventStart !== '' || value.eventEnd !== '') return null;
+  } else if (value.status === 'calendar_event_proposal') {
+    const start = Date.parse(value.eventStart);
+    const end = Date.parse(value.eventEnd);
+    if (value.intent !== 'calendar_event'
+        || value.clarificationCode !== 'none'
+        || value.clarificationQuestion !== ''
+        || value.periodCode !== 'none'
+        || value.financialTool !== 'none'
+        || !safeCalendarTitle(value.eventTitle)
+        || !safeCalendarInstant(value.eventStart)
+        || !safeCalendarInstant(value.eventEnd)
+        || start >= end
+        || end - start < 5 * 60_000
+        || end - start > 24 * 60 * 60_000) return null;
+  } else if (value.status === 'calendar_query') {
+    const start = Date.parse(value.eventStart);
+    const end = Date.parse(value.eventEnd);
+    if (value.intent !== 'calendar_query'
+        || value.clarificationCode !== 'none'
+        || value.clarificationQuestion !== ''
+        || value.periodCode !== 'none'
+        || value.financialTool !== 'none'
+        || value.eventTitle !== ''
+        || !safeCalendarInstant(value.eventStart)
+        || !safeCalendarInstant(value.eventEnd)
+        || start >= end
+        || end - start > 31 * 24 * 60 * 60_000) return null;
   } else if (value.periodCode !== 'none' || value.financialTool !== 'none') {
     return null;
   } else if (value.status === 'clarification_required'
       && (!ASSISTANT_CLARIFICATION_CODES.includes(value.clarificationCode)
-        || !safeClarificationQuestion(value.clarificationQuestion))) {
+        || !safeClarificationQuestion(value.clarificationQuestion)
+        || value.eventTitle !== '' || value.eventStart !== '' || value.eventEnd !== '')) {
     return null;
   } else if (value.status === 'safe_unavailable'
-      && (value.clarificationCode !== 'none' || value.clarificationQuestion !== '')) {
+      && (value.clarificationCode !== 'none' || value.clarificationQuestion !== ''
+        || value.eventTitle !== '' || value.eventStart !== '' || value.eventEnd !== '')) {
     return null;
   }
   return Object.freeze(structuredClone(value));
 };
 
-const createPlanPrompt = ({ message, continuation = undefined }) => {
+const createPlanPrompt = ({ message, continuation = undefined, referenceTime }) => {
   const serialized = JSON.stringify({
     promptVersion: ASSISTANT_VERTEX_PLAN_PROMPT_VERSION,
     instructions: [
       'Interprete semanticamente a intenção em português brasileiro sem depender de frases ou palavras-chave fixas.',
       'Considere fala informal, erros naturais de transcrição e pedidos curtos no contexto do turno anterior.',
       'Não responda à pergunta e não solicite nem invente dados financeiros.',
+      'Agenda pessoal é uma capacidade explícita da Luma e tem precedência sobre o fallback financeiro ambíguo quando a intenção for criar ou consultar compromissos.',
+      'Quando a pessoa pedir para marcar, agendar ou lembrar um compromisso pessoal, use calendar_event_proposal e intent calendar_event.',
+      'Para calendar_event_proposal, extraia somente título, início e fim. Use America/Sao_Paulo e ISO 8601 com offset; se a duração não for informada, use uma hora.',
+      'Quando a pessoa perguntar por compromissos existentes, inclusive com fala informal ou erro de transcrição como chamar Luma de Lima, use calendar_query e intent calendar_query.',
+      'Para calendar_query, deixe eventTitle vazio e use eventStart e eventEnd como intervalo civil [início, fim exclusivo) em America/Sao_Paulo. Amanhã significa o dia civil seguinte completo.',
+      'Nunca execute a ação. O aplicativo mostrará uma prévia e exigirá confirmação explícita antes de escrever na agenda Android.',
+      'Se faltar título use calendar_title_required; se faltar data ou horário use calendar_time_required. Nesses casos, deixe os três campos de evento vazios.',
+      'Nunca converta um pedido de criar ou consultar agenda em intent_ambiguous nem pergunte o que a pessoa quer ver nas finanças.',
       'Use ready quando a intenção financeira for clara; não exija que a pessoa use termos técnicos.',
       'Use a intenção e a ferramenta investment_assets quando a pessoa pedir quais ativos possui, seus nomes ou seus tickers; use investments para análises e resumos da carteira.',
       'Mapeie hoje para today, este mês para current_month e mês anterior para previous_month.',
@@ -371,6 +423,7 @@ const createPlanPrompt = ({ message, continuation = undefined }) => {
       'Você é Luma, uma assistente financeira. Perguntas sobre seu nome, identidade ou capacidades devem usar clarification_required, intent unknown e clarificationCode social_conversation.',
       'Em social_conversation, responda diretamente ao conteúdo social e termine com uma pergunta curta e natural; não finja ter consultado dados financeiros.',
       'Ao perguntarem o que você faz, explique naturalmente que pode consultar e explicar dados financeiros autorizados, comparar períodos e mostrar compromissos e investimentos; deixe claro que não movimenta dinheiro nem recomenda operações.',
+      'Perguntas sobre como usar o aplicativo também são conversa útil: responda em social_conversation com orientação curta e natural. Para cadastrar um ativo, explique que a pessoa abre Investimentos, busca e seleciona o ticker no catálogo, informa data, quantidade, preço e custos e confirma; nunca afirme que você gravou a operação.',
       'Não inclua números, valores, identidade da pessoa ou recomendação em clarificationQuestion.',
       'Use clarificationQuestion vazio em ready e safe_unavailable.',
       'Use uma única ferramenta compatível com a intenção; identidade, autorização e fatos serão resolvidos pelo servidor.',
@@ -380,6 +433,7 @@ const createPlanPrompt = ({ message, continuation = undefined }) => {
       'Se a intenção não estiver clara, prefira clarification_required com intent_ambiguous a safe_unavailable.',
       'Use safe_unavailable somente para conteúdo inseguro ou completamente fora das capacidades do assistente financeiro.',
     ],
+    serverTime: { isoUtc: referenceTime, timeZone: 'America/Sao_Paulo' },
     request: { message, ...(continuation ? { continuation } : {}) },
   });
   if (unsafeSerializedContext(serialized)) throw deny('assistant_provider_request_unsafe');
@@ -449,7 +503,8 @@ export const createVertexRuntimeGateway = ({
       }
       assertExecution(execution, { planning: true });
       assertMaximumCost(maximumCostCents);
-      const prompt = createPlanPrompt(request);
+      const referenceTime = new Date(clock()).toISOString();
+      const prompt = createPlanPrompt({ ...request, referenceTime });
       const projectId = assertProjectId(await projectIdReader());
       const startedAt = clock();
       const vertexAi = await vertexAiFactory(assistantVertexClientConfiguration({

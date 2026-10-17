@@ -3,6 +3,7 @@
  * perímetro e mantendo o fluxo remoto bloqueado até uma ativação autorizada.
  */
 import { AssistantContractError, deny } from './errors.mjs';
+import { createHash, randomUUID } from 'node:crypto';
 import {
   ASSISTANT_FLUTTER_CONTRACT_VERSION,
   ASSISTANT_REMOTE_KILL_SWITCH_ACTIVE,
@@ -48,6 +49,69 @@ export const ASSISTANT_MAXIMUM_VERTEX_COST_CENTS = Object.freeze({
   flash: 20,
   pro: 100,
 });
+
+// A borda converte o plano do modelo em uma proposta opaca, curta e expirada.
+// O modelo nunca escolhe calendário nem executa a escrita no aparelho.
+const createCalendarEventProposal = ({ plan, now = new Date() }) => {
+  const startsAt = new Date(plan.eventStart);
+  const endsAt = new Date(plan.eventEnd);
+  const latestAllowed = new Date(now.getTime() + 366 * 24 * 60 * 60_000);
+  if (plan.status !== 'calendar_event_proposal'
+      || plan.intent !== 'calendar_event'
+      || typeof plan.eventTitle !== 'string'
+      || plan.eventTitle.length < 2
+      || plan.eventTitle.length > 120
+      || /[\u0000-\u001F\u007F]/u.test(plan.eventTitle)
+      || !Number.isFinite(startsAt.getTime())
+      || !Number.isFinite(endsAt.getTime())
+      || startsAt <= now
+      || startsAt > latestAllowed
+      || endsAt <= startsAt
+      || endsAt.getTime() - startsAt.getTime() < 5 * 60_000
+      || endsAt.getTime() - startsAt.getTime() > 24 * 60 * 60_000) {
+    return null;
+  }
+  const proposalId = randomUUID();
+  const expiresAt = new Date(now.getTime() + 5 * 60_000).toISOString();
+  const previewDigest = createHash('sha256')
+    .update(JSON.stringify({ proposalId, title: plan.eventTitle, startsAt: startsAt.toISOString(), endsAt: endsAt.toISOString() }))
+    .digest('hex');
+  return Object.freeze({
+    status: 'action_proposal',
+    contractVersion: ASSISTANT_FLUTTER_CONTRACT_VERSION,
+    action: 'create_calendar_event',
+    proposalId,
+    previewDigest,
+    title: plan.eventTitle,
+    startsAt: startsAt.toISOString(),
+    endsAt: endsAt.toISOString(),
+    expiresAt,
+  });
+};
+
+// A borda autoriza somente o intervalo da consulta. Títulos e demais dados da
+// agenda permanecem no aparelho e nunca retornam para esta callable.
+const createCalendarQueryRequest = ({ plan, now = new Date() }) => {
+  const startsAt = new Date(plan.eventStart);
+  const endsAt = new Date(plan.eventEnd);
+  if (plan.status !== 'calendar_query'
+      || plan.intent !== 'calendar_query'
+      || !Number.isFinite(startsAt.getTime())
+      || !Number.isFinite(endsAt.getTime())
+      || startsAt >= endsAt
+      || endsAt.getTime() - startsAt.getTime() > 31 * 24 * 60 * 60_000) {
+    return null;
+  }
+  return Object.freeze({
+    status: 'local_action',
+    contractVersion: ASSISTANT_FLUTTER_CONTRACT_VERSION,
+    action: 'read_calendar_events',
+    queryId: randomUUID(),
+    startsAt: startsAt.toISOString(),
+    endsAt: endsAt.toISOString(),
+    expiresAt: new Date(now.getTime() + 5 * 60_000).toISOString(),
+  });
+};
 
 const exactKeys = (value, keys) =>
   value !== null
@@ -258,6 +322,35 @@ export function createAssistRemoteV1Callables({
             response: clarification.response,
             text: clarification.response.question,
           });
+        }
+        if (intentResult.plan.status === 'calendar_event_proposal') {
+          const proposal = createCalendarEventProposal({ plan: intentResult.plan });
+          reportRuntimeStage(
+            diagnostics,
+            'response_validation',
+            'passed',
+            proposal === null
+              ? { finalStatus: 'safe_unavailable', reason: 'response_schema_invalid' }
+              : { finalStatus: 'action_proposal' },
+          );
+          return proposal === null
+            ? ASSISTANT_SAFE_UNAVAILABLE
+            : finalizeForResponseMode({
+                response: proposal,
+                text: 'Preparei o compromisso. Confira os detalhes e confirme na tela antes de salvar na agenda.',
+              });
+        }
+        if (intentResult.plan.status === 'calendar_query') {
+          const query = createCalendarQueryRequest({ plan: intentResult.plan });
+          reportRuntimeStage(
+            diagnostics,
+            'response_validation',
+            'passed',
+            query === null
+              ? { finalStatus: 'safe_unavailable', reason: 'response_schema_invalid' }
+              : { finalStatus: 'local_action' },
+          );
+          return query ?? ASSISTANT_SAFE_UNAVAILABLE;
         }
         // A autorização crua vem somente do envelope já validado pela callable.
         // Ela é efêmera, serve à leitura própria nas Rules e nunca chega ao modelo.

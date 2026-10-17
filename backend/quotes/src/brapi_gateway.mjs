@@ -7,6 +7,21 @@ import {
 import { QuoteStatus } from './quote_mapper.mjs';
 
 const BRAPI_ENDPOINT = 'https://brapi.dev/api/quote/';
+const B3_TIME_ZONE = 'America/Sao_Paulo';
+const B3_OPEN_MINUTE = 10 * 60;
+const B3_CLOSE_MINUTE = 18 * 60;
+const CLOSED_REFRESH_GRACE_MINUTES = 45;
+const MAX_CLOSED_OBSERVATION_AGE_SECONDS = 4 * 24 * 60 * 60;
+const b3Clock = new Intl.DateTimeFormat('en-CA', {
+  timeZone: B3_TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hourCycle: 'h23',
+});
 export const BRAPI_FREE_PLAN_MAX_TARGETS = 1;
 export const BRAPI_FREE_PLAN_MAX_ACTIVE_TARGETS = 30;
 
@@ -87,13 +102,10 @@ export function mapBrapiPayload({ payload, targets, capturedAt }) {
     const target = targetsByTicker.get(ticker);
     if (!target || seen.has(ticker)) fail('quote_provider_unexpected_result');
     seen.add(ticker);
-    // A resposta oficial da BRAPI não declara marketState. A abertura deste
-    // bloco usa somente o instante observado para classificar e vencer dados.
+    // Abertura da política de sessão: a BRAPI não declara marketState neste
+    // contrato, então classificação e validade derivam de relógio confiável.
     const observedAt = requireObservedAt(result.regularMarketTime, capturedAt);
-    const staleAfter = new Date(
-      new Date(observedAt).getTime() + DEFAULT_STALE_AFTER_SECONDS * 1000,
-    );
-    if (staleAfter <= capturedAt) fail('quote_provider_stale_quote');
+    const validity = resolveQuoteValidity({ observedAt: new Date(observedAt), capturedAt });
     output.push(Object.freeze({
       ticker,
       assetType: target.assetType,
@@ -108,11 +120,94 @@ export function mapBrapiPayload({ payload, targets, capturedAt }) {
       observedAt,
       capturedAt: capturedAt.toISOString(),
       declaredDelaySeconds: DEFAULT_DECLARED_DELAY_SECONDS,
-      staleAfter: staleAfter.toISOString(),
-      status: QuoteStatus.DELAYED,
+      staleAfter: validity.staleAfter.toISOString(),
+      status: validity.status,
     }));
   }
   return Object.freeze(output);
+}
+
+function resolveQuoteValidity({ observedAt, capturedAt }) {
+  const captured = b3Parts(capturedAt);
+  const observed = b3Parts(observedAt);
+  const ageSeconds = Math.floor((capturedAt.getTime() - observedAt.getTime()) / 1000);
+  const minute = captured.hour * 60 + captured.minute;
+  const insideRegularSession = isWeekday(captured) &&
+    minute >= B3_OPEN_MINUTE && minute < B3_CLOSE_MINUTE;
+  if (insideRegularSession && sameCivilDate(captured, observed)) {
+    if (ageSeconds > DEFAULT_STALE_AFTER_SECONDS) fail('quote_provider_stale_quote');
+    return Object.freeze({
+      status: QuoteStatus.DELAYED,
+      staleAfter: new Date(observedAt.getTime() + DEFAULT_STALE_AFTER_SECONDS * 1000),
+    });
+  }
+  if (ageSeconds > MAX_CLOSED_OBSERVATION_AGE_SECONDS) fail('quote_provider_stale_quote');
+  return Object.freeze({
+    status: QuoteStatus.MARKET_CLOSED,
+    staleAfter: insideRegularSession
+      ? new Date(capturedAt.getTime() + CLOSED_REFRESH_GRACE_MINUTES * 60 * 1000)
+      : nextRegularSessionGrace(captured),
+  });
+}
+
+function b3Parts(instant) {
+  const values = Object.fromEntries(
+    b3Clock.formatToParts(instant)
+      .filter((part) => part.type !== 'literal')
+      .map((part) => [part.type, Number(part.value)]),
+  );
+  return Object.freeze({
+    year: values.year,
+    month: values.month,
+    day: values.day,
+    hour: values.hour,
+    minute: values.minute,
+    second: values.second,
+  });
+}
+
+function sameCivilDate(first, second) {
+  return first.year === second.year && first.month === second.month && first.day === second.day;
+}
+
+function isWeekday(parts) {
+  const weekday = new Date(Date.UTC(parts.year, parts.month - 1, parts.day)).getUTCDay();
+  return weekday >= 1 && weekday <= 5;
+}
+
+function nextRegularSessionGrace(captured) {
+  const capturedMinute = captured.hour * 60 + captured.minute;
+  const currentCivilDay = new Date(Date.UTC(captured.year, captured.month - 1, captured.day));
+  const currentDayCanStillOpen = isWeekday(captured) && capturedMinute < B3_OPEN_MINUTE;
+  let civilDay = currentDayCanStillOpen
+    ? currentCivilDay
+    : new Date(currentCivilDay.getTime() + 24 * 60 * 60 * 1000);
+  while (civilDay.getUTCDay() === 0 || civilDay.getUTCDay() === 6) {
+    civilDay = new Date(civilDay.getTime() + 24 * 60 * 60 * 1000);
+  }
+  return fromB3Civil({
+    year: civilDay.getUTCFullYear(),
+    month: civilDay.getUTCMonth() + 1,
+    day: civilDay.getUTCDate(),
+    hour: 10,
+    minute: CLOSED_REFRESH_GRACE_MINUTES,
+    second: 0,
+  });
+}
+
+function fromB3Civil(target) {
+  const targetAsUtc = Date.UTC(
+    target.year, target.month - 1, target.day, target.hour, target.minute, target.second,
+  );
+  let candidate = targetAsUtc;
+  for (let iteration = 0; iteration < 3; iteration += 1) {
+    const actual = b3Parts(new Date(candidate));
+    const actualAsUtc = Date.UTC(
+      actual.year, actual.month - 1, actual.day, actual.hour, actual.minute, actual.second,
+    );
+    candidate += targetAsUtc - actualAsUtc;
+  }
+  return new Date(candidate);
 }
 
 function requireObservedAt(value, capturedAt) {

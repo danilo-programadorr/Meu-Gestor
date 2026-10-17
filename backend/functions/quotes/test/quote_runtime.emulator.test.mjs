@@ -81,6 +81,55 @@ suite('Quote runtime with Firestore Emulator', () => {
     assert.equal(lease.exists, false);
   });
 
+  test('promove a mesma observação para fechamento e renova sua validade', async () => {
+    const response = {
+      ok: true,
+      json: async () => ({
+        results: [{
+          symbol: 'BBAS3',
+          regularMarketPrice: '25.50',
+          regularMarketChangePercent: '-0.25',
+          regularMarketTime: '2026-10-16T20:25:00.000Z',
+        }],
+      }),
+    };
+    const duringSession = createQuoteRuntime({
+      firestore,
+      Timestamp,
+      token: () => 'synthetic-token',
+      clock: () => new Date('2026-10-16T20:30:00.000Z'),
+      logger: { info() {}, warn() {} },
+      fetchImpl: async () => response,
+    });
+    await duringSession.refreshService.refresh({
+      requestId: 'emulator_live_20261016_203000',
+      targets: [{ ticker: 'BBAS3', assetType: 'stock' }],
+    });
+    const beforeClose = await firestore.collection('marketQuoteSnapshots').doc('BBAS3').get();
+    assert.equal(beforeClose.data().status, 'delayed');
+
+    const afterClose = createQuoteRuntime({
+      firestore,
+      Timestamp,
+      token: () => 'synthetic-token',
+      clock: () => new Date('2026-10-16T21:30:00.000Z'),
+      logger: { info() {}, warn() {} },
+      fetchImpl: async () => response,
+    });
+    await afterClose.refreshService.refresh({
+      requestId: 'emulator_closed_20261016_213000',
+      targets: [{ ticker: 'BBAS3', assetType: 'stock' }],
+    });
+
+    const stored = await firestore.collection('marketQuoteSnapshots').doc('BBAS3').get();
+    assert.equal(stored.data().status, 'marketClosed');
+    assert.equal(stored.data().staleAfter.toDate().toISOString(), '2026-10-19T13:45:00.000Z');
+    const history = await firestore.collection('marketQuoteHistory').doc('BBAS3')
+        .collection('quoteDays').doc('2026-10-16').get();
+    assert.equal(history.data().status, 'marketClosed');
+    assert.equal(history.data().capturedAt.toDate().toISOString(), '2026-10-16T21:30:00.000Z');
+  });
+
   test('falha inválida abre circuito e execução posterior recupera sem sobrescrever por zero', async () => {
     const invalidRuntime = createQuoteRuntime({
       firestore,

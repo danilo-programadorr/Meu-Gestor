@@ -57,6 +57,8 @@ final class AssistantRemoteContinuation {
 
   static const Set<String> _intents = <String>{
     'unknown',
+    'calendar_event',
+    'calendar_query',
     'financial_overview',
     'balance',
     'income',
@@ -73,6 +75,9 @@ final class AssistantRemoteContinuation {
     'social_conversation':
         'Eu sou a Luma, sua assistente financeira. Posso consultar e explicar seus dados autorizados, comparar períodos e mostrar compromissos e investimentos. O que você quer saber?',
     'intent_ambiguous': 'Me conta: o que você quer ver nas suas finanças?',
+    'calendar_title_required': 'Qual é o nome do compromisso?',
+    'calendar_time_required':
+        'Para qual dia e horário devo preparar o compromisso?',
     'period_required': 'Qual período você quer olhar?',
     'scope_required': 'Que parte das suas finanças você quer consultar?',
     'comparison_basis_required': 'O que você quer comparar e com qual período?',
@@ -89,6 +94,65 @@ final class AssistantRemoteClarification {
   final String intent;
   final String clarificationCode;
   final String question;
+}
+
+/// Proposta efêmera criada pelo backend. Ela não contém calendário escolhido
+/// e nunca autoriza escrita sem a confirmação fresca feita no aparelho.
+final class AssistantCalendarEventProposal {
+  AssistantCalendarEventProposal({
+    required this.proposalId,
+    required this.previewDigest,
+    required this.title,
+    required this.startsAt,
+    required this.endsAt,
+    required this.expiresAt,
+  }) {
+    if (proposalId.trim().length < 16 ||
+        previewDigest.trim().length < 16 ||
+        title != title.trim() ||
+        title.length < 2 ||
+        title.length > 120 ||
+        !startsAt.isUtc ||
+        !endsAt.isUtc ||
+        !expiresAt.isUtc ||
+        !startsAt.isBefore(endsAt) ||
+        endsAt.difference(startsAt) < const Duration(minutes: 5) ||
+        endsAt.difference(startsAt) > const Duration(hours: 24)) {
+      AssistantRemoteResponse._unavailable();
+    }
+  }
+
+  final String proposalId;
+  final String previewDigest;
+  final String title;
+  final DateTime startsAt;
+  final DateTime endsAt;
+  final DateTime expiresAt;
+}
+
+/// Solicitação opaca para leitura local. Somente o intervalo atravessa a
+/// callable; eventos e títulos permanecem no aparelho.
+final class AssistantCalendarQueryRequest {
+  AssistantCalendarQueryRequest({
+    required this.queryId,
+    required this.startsAt,
+    required this.endsAt,
+    required this.expiresAt,
+  }) {
+    if (queryId.trim().length < 16 ||
+        !startsAt.isUtc ||
+        !endsAt.isUtc ||
+        !expiresAt.isUtc ||
+        !startsAt.isBefore(endsAt) ||
+        endsAt.difference(startsAt) > const Duration(days: 31)) {
+      AssistantRemoteResponse._unavailable();
+    }
+  }
+
+  final String queryId;
+  final DateTime startsAt;
+  final DateTime endsAt;
+  final DateTime expiresAt;
 }
 
 /// Áudio efêmero já validado e sintetizado pelo backend. O cliente aceita
@@ -134,6 +198,8 @@ final class AssistantRemoteResponse {
   const AssistantRemoteResponse._({
     this.groundedResponse,
     this.clarification,
+    this.calendarEventProposal,
+    this.calendarQueryRequest,
     this.audio,
   });
 
@@ -144,10 +210,14 @@ final class AssistantRemoteResponse {
 
   final AssistantGroundedResponse? groundedResponse;
   final AssistantRemoteClarification? clarification;
+  final AssistantCalendarEventProposal? calendarEventProposal;
+  final AssistantCalendarQueryRequest? calendarQueryRequest;
   final AssistantRemoteAudio? audio;
 
   bool get isGrounded => groundedResponse != null;
   bool get requiresClarification => clarification != null;
+  bool get proposesCalendarEvent => calendarEventProposal != null;
+  bool get requestsCalendarQuery => calendarQueryRequest != null;
 
   static AssistantRemoteResponse fromCallableData(Object? value) {
     try {
@@ -198,6 +268,59 @@ final class AssistantRemoteResponse {
               : null,
         );
       }
+      if (_hasExactKeys(data, <String>[
+            'status',
+            'contractVersion',
+            'action',
+            'proposalId',
+            'previewDigest',
+            'title',
+            'startsAt',
+            'endsAt',
+            'expiresAt',
+            if (hasAudio) 'audio',
+          ]) &&
+          data['status'] == 'action_proposal' &&
+          data['contractVersion'] == AssistantRemoteRequest.contractVersion &&
+          data['action'] == 'create_calendar_event') {
+        final DateTime startsAt = _utcDate(data['startsAt']);
+        final DateTime endsAt = _utcDate(data['endsAt']);
+        final DateTime expiresAt = _utcDate(data['expiresAt']);
+        return AssistantRemoteResponse._(
+          calendarEventProposal: AssistantCalendarEventProposal(
+            proposalId: _string(data['proposalId']),
+            previewDigest: _string(data['previewDigest']),
+            title: _string(data['title']),
+            startsAt: startsAt,
+            endsAt: endsAt,
+            expiresAt: expiresAt,
+          ),
+          audio: hasAudio
+              ? AssistantRemoteAudio.fromCallableData(data['audio'])
+              : null,
+        );
+      }
+      if (_hasExactKeys(data, const <String>[
+            'status',
+            'contractVersion',
+            'action',
+            'queryId',
+            'startsAt',
+            'endsAt',
+            'expiresAt',
+          ]) &&
+          data['status'] == 'local_action' &&
+          data['contractVersion'] == AssistantRemoteRequest.contractVersion &&
+          data['action'] == 'read_calendar_events') {
+        return AssistantRemoteResponse._(
+          calendarQueryRequest: AssistantCalendarQueryRequest(
+            queryId: _string(data['queryId']),
+            startsAt: _utcDate(data['startsAt']),
+            endsAt: _utcDate(data['endsAt']),
+            expiresAt: _utcDate(data['expiresAt']),
+          ),
+        );
+      }
       if (!_hasExactKeys(data, <String>[
         'schemaVersion',
         'status',
@@ -240,6 +363,13 @@ final class AssistantRemoteResponse {
   static String _string(Object? value) {
     if (value is! String) _unavailable();
     return value;
+  }
+
+  static DateTime _utcDate(Object? value) {
+    if (value is! String) _unavailable();
+    final DateTime? parsed = DateTime.tryParse(value);
+    if (parsed == null || !parsed.isUtc) _unavailable();
+    return parsed;
   }
 
   static bool _isSafeClarificationQuestion(String value) {

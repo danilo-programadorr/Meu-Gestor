@@ -121,6 +121,102 @@ void main() {
     );
   });
 
+  test(
+    'proposta de agenda fica pendente até confirmação ou descarte',
+    () async {
+      final _FakeGateway gateway = _FakeGateway(
+        result: AssistantRemoteResponse.fromCallableData(<String, Object?>{
+          'status': 'action_proposal',
+          'contractVersion': 'assist-remote-v1',
+          'action': 'create_calendar_event',
+          'proposalId': 'proposal-calendar-123',
+          'previewDigest': 'digest-calendar-123',
+          'title': 'Consulta no dentista',
+          'startsAt': '2026-10-16T18:00:00.000Z',
+          'endsAt': '2026-10-16T19:00:00.000Z',
+          'expiresAt': '2026-10-15T20:05:00.000Z',
+        }),
+      );
+      final ProviderContainer container = _container(
+        gateway: gateway,
+        enabled: true,
+      );
+      addTearDown(container.dispose);
+
+      await _request(container, message: 'Marque dentista amanhã às três.');
+
+      expect(
+        container.read(assistantRemoteConversationControllerProvider).phase,
+        AssistantRemoteConversationPhase.actionProposal,
+      );
+      expect(
+        container
+            .read(assistantRemoteConversationControllerProvider)
+            .calendarEventProposal
+            ?.title,
+        'Consulta no dentista',
+      );
+      container
+          .read(assistantRemoteConversationControllerProvider.notifier)
+          .dismissActionProposal();
+      expect(
+        container
+            .read(assistantRemoteConversationControllerProvider)
+            .calendarEventProposal,
+        isNull,
+      );
+    },
+  );
+
+  test('consulta local só aceita resultado da solicitação corrente', () async {
+    final _FakeGateway gateway = _FakeGateway(
+      result: AssistantRemoteResponse.fromCallableData(<String, Object?>{
+        'status': 'local_action',
+        'contractVersion': 'assist-remote-v1',
+        'action': 'read_calendar_events',
+        'queryId': 'calendar-query-12345',
+        'startsAt': '2026-10-16T03:00:00.000Z',
+        'endsAt': '2026-10-17T03:00:00.000Z',
+        'expiresAt': '2026-10-15T20:05:00.000Z',
+      }),
+    );
+    final ProviderContainer container = _container(
+      gateway: gateway,
+      enabled: true,
+    );
+    addTearDown(container.dispose);
+
+    await _request(
+      container,
+      message: 'Lima, eu tenho algum compromisso marcado amanhã?',
+    );
+    final AssistantRemoteConversationController controller = container.read(
+      assistantRemoteConversationControllerProvider.notifier,
+    );
+    expect(
+      container.read(assistantRemoteConversationControllerProvider).phase,
+      AssistantRemoteConversationPhase.calendarQuery,
+    );
+    expect(
+      controller.completeCalendarQuery(
+        queryId: 'outra-consulta-12345',
+        answer: 'Resposta antiga.',
+      ),
+      isFalse,
+    );
+    expect(
+      controller.completeCalendarQuery(
+        queryId: 'calendar-query-12345',
+        answer: 'Não encontrei compromissos nesse período.',
+      ),
+      isTrue,
+    );
+    expect(
+      container.read(assistantRemoteConversationControllerProvider).phase,
+      AssistantRemoteConversationPhase.calendarResult,
+    );
+  });
+
   test('fallback seguro preserva áudio neural sem inventar resposta', () async {
     final Uint8List wav = Uint8List(524)
       ..setRange(0, 4, ascii.encode('RIFF'))

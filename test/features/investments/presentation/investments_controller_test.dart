@@ -244,6 +244,70 @@ void main() {
   });
 
   test(
+    'novo ativo e primeira compra são um único comando idempotente',
+    () async {
+      final _Context context = await _context();
+      addTearDown(context.dispose);
+      final InvestmentActionController controller = context.container.read(
+        investmentActionControllerProvider.notifier,
+      );
+      expect(
+        await controller.createPortfolio(
+          const InvestmentPortfolioDraft(name: 'Longo prazo', description: ''),
+        ),
+        isTrue,
+      );
+      final String portfolioId = context.repository.portfolios.single.id;
+      final TrackedInvestmentAssetDraft assetDraft =
+          TrackedInvestmentAssetDraft(
+            portfolioId: portfolioId,
+            ticker: 'VALE3',
+            name: 'Vale S.A.',
+            type: TrackedInvestmentAssetType.stock,
+          );
+      final String assetId = TrackedInvestmentAsset.documentId(
+        portfolioId: portfolioId,
+        ticker: 'VALE3',
+      );
+      final InvestmentOperationDraft operationDraft = InvestmentOperationDraft(
+        portfolioId: portfolioId,
+        assetId: assetId,
+        kind: InvestmentOperationKind.buy,
+        occurredAt: DateTime.utc(2026, 8, 3, 3),
+        quantityScaled: 100000000,
+        unitPriceScaled: 62500000,
+        feesCents: 150,
+        notes: '',
+      );
+      context.repository.nextFailure = TimeoutException('teste');
+      expect(
+        await controller.createAssetWithInitialBuy(
+          assetDraft: assetDraft,
+          operationDraft: operationDraft,
+        ),
+        isFalse,
+      );
+      expect(context.repository.assets, isEmpty);
+      expect(context.repository.operations, isEmpty);
+      expect(
+        await controller.createAssetWithInitialBuy(
+          assetDraft: assetDraft,
+          operationDraft: operationDraft,
+        ),
+        isTrue,
+      );
+      expect(context.repository.assets.single.currentQuantityScaled, 100000000);
+      expect(context.repository.assets.single.hasHistory, isTrue);
+      expect(context.repository.operations, hasLength(1));
+      expect(context.repository.createOperationIds, hasLength(2));
+      expect(
+        context.repository.createOperationIds.first,
+        context.repository.createOperationIds.last,
+      );
+    },
+  );
+
+  test(
     'retry de anulação reutiliza mutation ID e preserva o histórico',
     () async {
       final _Context context = await _context(withAsset: true);

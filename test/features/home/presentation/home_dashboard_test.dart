@@ -541,7 +541,7 @@ void main() {
     ]) {
       expect(find.text(group), findsOneWidget);
     }
-    expect(_menuItem('Assistente financeiro'), findsNothing);
+    expect(find.text('Converse com a Luma'), findsOneWidget);
 
     await tester.tap(find.text('Organização'));
     await tester.pumpAndSettle();
@@ -553,11 +553,6 @@ void main() {
 
     await tester.tap(find.text('Assistência'));
     await tester.pumpAndSettle();
-    expect(_menuItem('Assistente financeiro'), findsOneWidget);
-
-    await tester.tap(_menuItem('Assistente financeiro'));
-    await tester.pumpAndSettle();
-
     expect(tracker.assistant, 1);
   });
 

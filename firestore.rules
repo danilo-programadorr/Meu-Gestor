@@ -1259,15 +1259,18 @@ service cloud.firestore {
       return data.schemaVersion == 2
         && data.isArchived == false
         && data.archivedAt == null
-        && data.hasHistory == false
-        && data.currentQuantityScaled == 0
-        && data.lastOperationId == null
-        && data.lastOperationAt == null
         && data.createdAt == request.time
         && data.updatedAt == request.time
         && data.revision == 1
         && isActiveInvestmentPortfolio(userId, data.portfolioId)
-        && isValidInvestmentAsset(data, userId, assetId);
+        && isValidInvestmentAsset(data, userId, assetId)
+        && (
+          data.hasHistory == false
+            && data.currentQuantityScaled == 0
+            && data.lastOperationId == null
+            && data.lastOperationAt == null
+          || isValidInitialInvestmentAssetCreate(userId, assetId, data)
+        );
     }
 
     function investmentOperationFields() {
@@ -1334,18 +1337,30 @@ service cloud.firestore {
           && afterAsset.currentQuantityScaled == beforeAsset.currentQuantityScaled - operation.quantityScaled;
     }
 
-    function isValidInvestmentOperationCreate(userId, operationId) {
-      let data = request.resource.data;
-      let assetPath = investmentAssetPath(userId, data.get('assetId', ''));
-      return isValidInvestmentOperation(data, userId)
-        && data.isVoided == false
-        && data.voidedAt == null
-        && data.mutationId == operationId
-        && data.createdAt == request.time
-        && data.updatedAt == request.time
-        && data.revision == 1
-        && isActiveInvestmentPortfolio(userId, data.portfolioId)
-        && exists(assetPath)
+    // Abertura atômica: o ativo já nasce no estado resultante da primeira
+    // compra e referencia a operação criada na mesma transação.
+    function isValidInitialInvestmentAssetCreate(userId, assetId, data) {
+      let operationPath = investmentOperationPath(userId, data.lastOperationId);
+      let operation = getAfter(operationPath).data;
+      return data.hasHistory == true
+        && data.currentQuantityScaled > 0
+        && data.lastOperationId is string
+        && data.lastOperationAt is timestamp
+        && existsAfter(operationPath)
+        && isValidInvestmentOperation(operation, userId)
+        && operation.assetId == assetId
+        && operation.portfolioId == data.portfolioId
+        && operation.previousOperationId == null
+        && operation.previousOperationAt == null
+        && operation.kind == 'buy'
+        && operation.isVoided == false
+        && operation.mutationId == data.lastOperationId
+        && operation.quantityScaled == data.currentQuantityScaled
+        && operation.occurredAt == data.lastOperationAt;
+    }
+
+    function isValidInvestmentOperationOnExistingAsset(userId, operationId, data, assetPath) {
+      return exists(assetPath)
         && existsAfter(assetPath)
         && get(assetPath).data.portfolioId == data.portfolioId
         && get(assetPath).data.lastOperationId == data.previousOperationId
@@ -1358,6 +1373,52 @@ service cloud.firestore {
           get(assetPath).data,
           getAfter(assetPath).data,
           data
+        );
+    }
+
+    function isValidInvestmentOperationOnNewAsset(userId, operationId, data, assetPath) {
+      let asset = getAfter(assetPath).data;
+      return !exists(assetPath)
+        && existsAfter(assetPath)
+        && isValidInvestmentAsset(asset, userId, data.assetId)
+        && asset.createdAt == request.time
+        && asset.updatedAt == request.time
+        && asset.revision == 1
+        && asset.isArchived == false
+        && asset.hasHistory == true
+        && asset.portfolioId == data.portfolioId
+        && asset.lastOperationId == operationId
+        && asset.lastOperationAt == data.occurredAt
+        && asset.currentQuantityScaled == data.quantityScaled
+        && data.previousOperationId == null
+        && data.previousOperationAt == null
+        && data.kind == 'buy';
+    }
+
+    function isValidInvestmentOperationCreate(userId, operationId) {
+      let data = request.resource.data;
+      let assetPath = investmentAssetPath(userId, data.get('assetId', ''));
+      return isValidInvestmentOperation(data, userId)
+        && data.isVoided == false
+        && data.voidedAt == null
+        && data.mutationId == operationId
+        && data.createdAt == request.time
+        && data.updatedAt == request.time
+        && data.revision == 1
+        && isActiveInvestmentPortfolio(userId, data.portfolioId)
+        && (
+          isValidInvestmentOperationOnExistingAsset(
+            userId,
+            operationId,
+            data,
+            assetPath
+          )
+          || isValidInvestmentOperationOnNewAsset(
+            userId,
+            operationId,
+            data,
+            assetPath
+          )
         );
     }
 

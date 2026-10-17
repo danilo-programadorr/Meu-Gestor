@@ -123,6 +123,22 @@ final class PremiumGuardedInvestmentRepository implements InvestmentRepository {
   }
 
   @override
+  Future<InvestmentOperation> createAssetWithInitialBuy({
+    required String ownerId,
+    required String operationId,
+    required TrackedInvestmentAssetDraft assetDraft,
+    required InvestmentOperationDraft operationDraft,
+  }) {
+    _requireMutation(PremiumCapability.investmentsManual);
+    return _delegate.createAssetWithInitialBuy(
+      ownerId: ownerId,
+      operationId: operationId,
+      assetDraft: assetDraft,
+      operationDraft: operationDraft,
+    );
+  }
+
+  @override
   Future<TrackedInvestmentAsset> updateAsset({
     required String ownerId,
     required String assetId,

@@ -13,9 +13,18 @@ final class MethodChannelAndroidCalendarGateway
 
   @override
   Future<List<AuthorizedAndroidCalendar>> listCalendars() async {
+    return _listCalendars('listCalendars');
+  }
+
+  @override
+  Future<List<AuthorizedAndroidCalendar>> listWritableCalendars() async {
+    return _listCalendars('listWritableCalendars');
+  }
+
+  Future<List<AuthorizedAndroidCalendar>> _listCalendars(String method) async {
     try {
       final List<Object?>? raw = await _channel.invokeListMethod<Object?>(
-        'listCalendars',
+        method,
       );
       return List<AuthorizedAndroidCalendar>.unmodifiable(
         (raw ?? const <Object?>[]).map(_calendarFromPlatform),
@@ -58,13 +67,34 @@ final class MethodChannelAndroidCalendarGateway
 
   @override
   Future<void> writeConfirmedEvent({
+    required Set<String> authorizedCalendarIds,
     required AndroidCalendarExternalWriteKind kind,
-    required AndroidCalendarEventPreview event,
+    required AndroidCalendarEventDraft event,
     required AndroidCalendarWriteConfirmation confirmation,
   }) async {
-    // A UI atual não expõe escrita externa. Um incremento futuro deve validar
-    // a seleção e confirmação no Dart antes de ligar um método nativo mutável.
-    throw const AndroidCalendarUnavailableException();
+    AndroidCalendarWritePolicy.assertAllowed(
+      authorizedCalendarIds: authorizedCalendarIds,
+      kind: kind,
+      event: event,
+      confirmation: confirmation,
+      now: DateTime.now().toUtc(),
+    );
+    if (kind != AndroidCalendarExternalWriteKind.create) {
+      throw const AndroidCalendarUnavailableException();
+    }
+    try {
+      await _channel
+          .invokeMethod<void>('createConfirmedEvent', <String, Object>{
+            'calendarId': event.calendarId,
+            'title': event.title,
+            'startsAtMillis': event.startsAt.millisecondsSinceEpoch,
+            'endsAtMillis': event.endsAt.millisecondsSinceEpoch,
+          });
+    } on PlatformException {
+      throw const AndroidCalendarUnavailableException();
+    } on MissingPluginException {
+      throw const AndroidCalendarUnavailableException();
+    }
   }
 
   AuthorizedAndroidCalendar _calendarFromPlatform(Object? value) {

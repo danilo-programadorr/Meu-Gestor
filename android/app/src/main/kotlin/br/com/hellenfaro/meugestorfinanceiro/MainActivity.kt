@@ -1,6 +1,8 @@
 package br.com.hellenfaro.meugestorfinanceiro
 
 import android.Manifest
+import android.content.ContentUris
+import android.content.ContentValues
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.MediaPlayer
@@ -44,7 +46,16 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
-                    "listCalendars", "readAuthorizedEvents" -> withReadPermission(call, result)
+                    "listCalendars", "listWritableCalendars", "readAuthorizedEvents" -> withCalendarPermission(
+                        call,
+                        result,
+                        arrayOf(Manifest.permission.READ_CALENDAR),
+                    )
+                    "createConfirmedEvent" -> withCalendarPermission(
+                        call,
+                        result,
+                        arrayOf(Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR),
+                    )
                     else -> result.notImplemented()
                 }
             }
@@ -87,11 +98,16 @@ class MainActivity : FlutterActivity() {
             }
     }
 
-    private fun withReadPermission(call: MethodCall, result: MethodChannel.Result) {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALENDAR) ==
-            PackageManager.PERMISSION_GRANTED
+    private fun withCalendarPermission(
+        call: MethodCall,
+        result: MethodChannel.Result,
+        permissions: Array<String>,
+    ) {
+        if (permissions.all {
+                ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
+            }
         ) {
-            executeReadOnlyCall(call, result)
+            executeCalendarCall(call, result)
             return
         }
         if (pendingCalendarResult != null) {
@@ -102,7 +118,7 @@ class MainActivity : FlutterActivity() {
         pendingCalendarResult = result
         ActivityCompat.requestPermissions(
             this,
-            arrayOf(Manifest.permission.READ_CALENDAR),
+            permissions,
             CALENDAR_PERMISSION_REQUEST,
         )
     }
@@ -128,8 +144,8 @@ class MainActivity : FlutterActivity() {
         pendingCalendarCall = null
         pendingCalendarResult = null
         if (call == null || result == null) return
-        if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
-            executeReadOnlyCall(call, result)
+        if (grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
+            executeCalendarCall(call, result)
         } else {
             result.error("calendar_permission_denied", "Calendar permission was not granted.", null)
         }
@@ -309,11 +325,16 @@ class MainActivity : FlutterActivity() {
         speechRecognizer = null
     }
 
-    private fun executeReadOnlyCall(call: MethodCall, result: MethodChannel.Result) {
+    private fun executeCalendarCall(call: MethodCall, result: MethodChannel.Result) {
         try {
             when (call.method) {
                 "listCalendars" -> result.success(listVisibleCalendars())
+                "listWritableCalendars" -> result.success(listVisibleCalendars(writableOnly = true))
                 "readAuthorizedEvents" -> result.success(readAuthorizedEvents(call))
+                "createConfirmedEvent" -> {
+                    createConfirmedEvent(call)
+                    result.success(null)
+                }
                 else -> result.notImplemented()
             }
         } catch (_: SecurityException) {
@@ -323,7 +344,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun listVisibleCalendars(): List<Map<String, String>> {
+    private fun listVisibleCalendars(writableOnly: Boolean = false): List<Map<String, String>> {
         val projection = arrayOf(
             CalendarContract.Calendars._ID,
             CalendarContract.Calendars.CALENDAR_DISPLAY_NAME,
@@ -331,8 +352,17 @@ class MainActivity : FlutterActivity() {
         return contentResolver.query(
             CalendarContract.Calendars.CONTENT_URI,
             projection,
-            CalendarContract.Calendars.VISIBLE + " = 1",
-            null,
+            if (writableOnly) {
+                "${CalendarContract.Calendars.VISIBLE} = 1 AND " +
+                    "${CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL} >= ?"
+            } else {
+                CalendarContract.Calendars.VISIBLE + " = 1"
+            },
+            if (writableOnly) {
+                arrayOf(CalendarContract.Calendars.CAL_ACCESS_CONTRIBUTOR.toString())
+            } else {
+                null
+            },
             CalendarContract.Calendars.CALENDAR_DISPLAY_NAME + " ASC",
         )?.use { cursor ->
             buildList {
@@ -361,29 +391,34 @@ class MainActivity : FlutterActivity() {
         if (calendarIds.isEmpty() || startsAt >= endsAt) throw IllegalArgumentException()
 
         val placeholders = calendarIds.joinToString(",") { "?" }
-        val selection = "${CalendarContract.Events.CALENDAR_ID} IN ($placeholders) AND " +
-            "${CalendarContract.Events.DTSTART} < ? AND ${CalendarContract.Events.DTEND} > ?"
-        val arguments = calendarIds.toTypedArray() + arrayOf(endsAt.toString(), startsAt.toString())
+        val selection = "${CalendarContract.Instances.CALENDAR_ID} IN ($placeholders)"
+        val arguments = calendarIds.toTypedArray()
         val projection = arrayOf(
-            CalendarContract.Events._ID,
-            CalendarContract.Events.CALENDAR_ID,
-            CalendarContract.Events.TITLE,
-            CalendarContract.Events.DTSTART,
-            CalendarContract.Events.DTEND,
+            CalendarContract.Instances.EVENT_ID,
+            CalendarContract.Instances.CALENDAR_ID,
+            CalendarContract.Instances.TITLE,
+            CalendarContract.Instances.BEGIN,
+            CalendarContract.Instances.END,
         )
+        // Instances expande recorrências dentro do intervalo solicitado; ler
+        // Events diretamente perderia compromissos recorrentes de amanhã.
+        val instancesUri = CalendarContract.Instances.CONTENT_URI.buildUpon().also { builder ->
+            ContentUris.appendId(builder, startsAt)
+            ContentUris.appendId(builder, endsAt)
+        }.build()
         return contentResolver.query(
-            CalendarContract.Events.CONTENT_URI,
+            instancesUri,
             projection,
             selection,
             arguments,
-            CalendarContract.Events.DTSTART + " ASC",
+            CalendarContract.Instances.BEGIN + " ASC",
         )?.use { cursor ->
             buildList {
-                val eventId = cursor.getColumnIndexOrThrow(CalendarContract.Events._ID)
-                val calendarId = cursor.getColumnIndexOrThrow(CalendarContract.Events.CALENDAR_ID)
-                val title = cursor.getColumnIndexOrThrow(CalendarContract.Events.TITLE)
-                val starts = cursor.getColumnIndexOrThrow(CalendarContract.Events.DTSTART)
-                val ends = cursor.getColumnIndexOrThrow(CalendarContract.Events.DTEND)
+                val eventId = cursor.getColumnIndexOrThrow(CalendarContract.Instances.EVENT_ID)
+                val calendarId = cursor.getColumnIndexOrThrow(CalendarContract.Instances.CALENDAR_ID)
+                val title = cursor.getColumnIndexOrThrow(CalendarContract.Instances.TITLE)
+                val starts = cursor.getColumnIndexOrThrow(CalendarContract.Instances.BEGIN)
+                val ends = cursor.getColumnIndexOrThrow(CalendarContract.Instances.END)
                 while (cursor.moveToNext()) {
                     val titleValue = cursor.getString(title)?.trim().orEmpty()
                     val startValue = cursor.getLong(starts)
@@ -402,5 +437,43 @@ class MainActivity : FlutterActivity() {
                 }
             }
         } ?: emptyList()
+    }
+
+    // A ponte aceita somente criação após a confirmação já validada no Dart.
+    // O calendário ainda é revalidado como gravável no provedor Android.
+    private fun createConfirmedEvent(call: MethodCall) {
+        val calendarId = call.argument<String>("calendarId")
+            ?.takeIf { it.matches(Regex("[0-9]+")) }
+            ?: throw IllegalArgumentException()
+        val title = call.argument<String>("title")?.trim()
+            ?.takeIf { it.length in 2..120 && it.none(Char::isISOControl) }
+            ?: throw IllegalArgumentException()
+        val startsAt = call.argument<Number>("startsAtMillis")?.toLong()
+            ?: throw IllegalArgumentException()
+        val endsAt = call.argument<Number>("endsAtMillis")?.toLong()
+            ?: throw IllegalArgumentException()
+        if (startsAt >= endsAt || endsAt - startsAt !in 300_000L..86_400_000L) {
+            throw IllegalArgumentException()
+        }
+        val writable = contentResolver.query(
+            CalendarContract.Calendars.CONTENT_URI,
+            arrayOf(CalendarContract.Calendars._ID),
+            "${CalendarContract.Calendars._ID} = ? AND " +
+                "${CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL} >= ?",
+            arrayOf(calendarId, CalendarContract.Calendars.CAL_ACCESS_CONTRIBUTOR.toString()),
+            null,
+        )?.use { it.moveToFirst() } == true
+        if (!writable) throw IllegalArgumentException()
+
+        val values = ContentValues().apply {
+            put(CalendarContract.Events.CALENDAR_ID, calendarId.toLong())
+            put(CalendarContract.Events.TITLE, title)
+            put(CalendarContract.Events.DTSTART, startsAt)
+            put(CalendarContract.Events.DTEND, endsAt)
+            put(CalendarContract.Events.EVENT_TIMEZONE, "America/Sao_Paulo")
+        }
+        if (contentResolver.insert(CalendarContract.Events.CONTENT_URI, values) == null) {
+            throw IllegalArgumentException()
+        }
     }
 }

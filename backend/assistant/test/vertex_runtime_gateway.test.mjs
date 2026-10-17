@@ -102,6 +102,7 @@ test('planeja intenção, período e ferramenta sem receber contexto financeiro'
               clarificationQuestion: '',
               periodCode: 'current_month',
               financialTool: 'overview',
+              eventTitle: '', eventStart: '', eventEnd: '',
             }) }] } }],
           };
         },
@@ -143,6 +144,7 @@ test('planejador conhece a identidade Luma sem lista rígida de frases', async (
               clarificationQuestion: 'Eu sou a Luma, sua assistente financeira. Como posso ajudar você hoje?',
               periodCode: 'none',
               financialTool: 'none',
+              eventTitle: '', eventStart: '', eventEnd: '',
             }) }] } }],
           };
         },
@@ -162,6 +164,7 @@ test('planejador conhece a identidade Luma sem lista rígida de frases', async (
   assert.ok(prompt.instructions.some((item) => item.includes('Você é Luma')));
   assert.ok(prompt.instructions.some((item) => item.includes('o que você faz')));
   assert.ok(prompt.instructions.some((item) => item.includes('semanticamente')));
+  assert.ok(prompt.instructions.some((item) => item.includes('busca e seleciona o ticker')));
 });
 
 test('planejamento ambíguo pede esclarecimento sem selecionar leitor', async () => {
@@ -180,6 +183,7 @@ test('planejamento ambíguo pede esclarecimento sem selecionar leitor', async ()
             clarificationQuestion: 'Você quer o relatório deste mês ou do mês anterior?',
             periodCode: 'none',
             financialTool: 'none',
+            eventTitle: '', eventStart: '', eventEnd: '',
           }) }] } }],
         }),
       },
@@ -217,6 +221,7 @@ test('planejador admite listagem livre de nomes e tickers como intenção própr
               clarificationQuestion: '',
               periodCode: 'today',
               financialTool: 'investment_assets',
+              eventTitle: '', eventStart: '', eventEnd: '',
             }) }] } }],
           };
         },
@@ -235,6 +240,94 @@ test('planejador admite listagem livre de nomes e tickers como intenção própr
   const prompt = JSON.parse(calls[0].contents[0].parts[0].text);
   assert.ok(prompt.instructions.some((item) => item.includes('nomes ou seus tickers')));
   assert.ok(ASSISTANT_VERTEX_PLAN_SCHEMA.properties.intent.enum.includes('investment_assets'));
+});
+
+test('planejador produz somente prévia de compromisso com data absoluta', async () => {
+  const calls = [];
+  const reference = Date.parse('2026-10-15T15:00:00.000Z');
+  const gateway = createVertexRuntimeGateway({
+    providerFeatureEnabled: true,
+    killSwitchActive: false,
+    projectIdReader: () => 'synthetic-project',
+    clock: () => reference,
+    vertexAiFactory: async () => ({
+      models: {
+        generateContent: async (request) => {
+          calls.push(request);
+          return {
+            candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify({
+              schemaVersion: 1,
+              status: 'calendar_event_proposal',
+              intent: 'calendar_event',
+              clarificationCode: 'none',
+              clarificationQuestion: '',
+              periodCode: 'none',
+              financialTool: 'none',
+              eventTitle: 'Consulta no dentista',
+              eventStart: '2026-10-16T15:00:00-03:00',
+              eventEnd: '2026-10-16T16:00:00-03:00',
+            }) }] } }],
+          };
+        },
+      },
+    }),
+  });
+
+  const result = await gateway.plan({
+    execution: planningExecution,
+    maximumCostCents: 20,
+    request: { message: 'Marque dentista amanhã às três da tarde.' },
+  });
+
+  assert.equal(result.plan.status, 'calendar_event_proposal');
+  assert.equal(result.plan.intent, 'calendar_event');
+  const prompt = JSON.parse(calls[0].contents[0].parts[0].text);
+  assert.equal(prompt.serverTime.isoUtc, '2026-10-15T15:00:00.000Z');
+  assert.equal(prompt.serverTime.timeZone, 'America/Sao_Paulo');
+  assert.ok(prompt.instructions.some((item) => item.includes('confirmação explícita')));
+});
+
+test('planejador separa consulta local de agenda do fallback financeiro', async () => {
+  const calls = [];
+  const gateway = createVertexRuntimeGateway({
+    providerFeatureEnabled: true,
+    killSwitchActive: false,
+    projectIdReader: () => 'synthetic-project',
+    clock: () => Date.parse('2026-10-15T15:00:00.000Z'),
+    vertexAiFactory: async () => ({
+      models: {
+        generateContent: async (request) => {
+          calls.push(request);
+          return {
+            candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify({
+              schemaVersion: 1,
+              status: 'calendar_query',
+              intent: 'calendar_query',
+              clarificationCode: 'none',
+              clarificationQuestion: '',
+              periodCode: 'none',
+              financialTool: 'none',
+              eventTitle: '',
+              eventStart: '2026-10-16T00:00:00-03:00',
+              eventEnd: '2026-10-17T00:00:00-03:00',
+            }) }] } }],
+          };
+        },
+      },
+    }),
+  });
+
+  const result = await gateway.plan({
+    execution: planningExecution,
+    maximumCostCents: 20,
+    request: { message: 'Lima, eu tenho algum compromisso marcada amanhã?' },
+  });
+
+  assert.equal(result.plan.status, 'calendar_query');
+  assert.equal(result.plan.intent, 'calendar_query');
+  const prompt = JSON.parse(calls[0].contents[0].parts[0].text);
+  assert.ok(prompt.instructions.some((item) => item.includes('tem precedência')));
+  assert.ok(prompt.instructions.some((item) => item.includes('Nunca converta um pedido')));
 });
 
 test('serializa Gemini 3.8 Flash, esforço baixo e contrato estruturado completo', async () => {
@@ -256,7 +349,7 @@ test('serializa Gemini 3.8 Flash, esforço baixo e contrato estruturado completo
     'assertions', 'clarificationCode', 'intent', 'missingData', 'schemaVersion', 'status',
   ]);
   assert.deepEqual(Object.keys(ASSISTANT_VERTEX_PLAN_SCHEMA.properties).sort(), [
-    'clarificationCode', 'clarificationQuestion', 'financialTool', 'intent',
+    'clarificationCode', 'clarificationQuestion', 'eventEnd', 'eventStart', 'eventTitle', 'financialTool', 'intent',
     'periodCode', 'schemaVersion', 'status',
   ]);
   const prompt = JSON.parse(request.contents[0].parts[0].text);
@@ -315,6 +408,7 @@ test('planejador define períodos usuais e prefere esclarecer a indisponibilidad
               clarificationQuestion: '',
               periodCode: 'current_month',
               financialTool: 'expenses',
+              eventTitle: '', eventStart: '', eventEnd: '',
             }) }] } }],
           };
         },

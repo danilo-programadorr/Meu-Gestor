@@ -12,6 +12,7 @@ import 'package:meu_gestor_financeiro/core/privacy/financial_privacy_controller.
 import 'package:meu_gestor_financeiro/features/authentication/data/auth_providers.dart';
 import 'package:meu_gestor_financeiro/features/authentication/domain/auth_user.dart';
 import 'package:meu_gestor_financeiro/features/investments/data/investment_providers.dart';
+import 'package:meu_gestor_financeiro/features/investments/domain/investment_asset_directory.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_failure.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_income_event.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_operation.dart';
@@ -233,6 +234,22 @@ void main() {
       final Rect wealthRect = tester.getRect(wealthCard);
       expect(wealthRect.left, greaterThan(carouselRect.left));
       expect(wealthRect.right, lessThan(carouselRect.right));
+      expect(
+        tester
+            .getSize(
+              find.byKey(
+                const ValueKey<String>(
+                  'investment-performance-indicator-shape-0',
+                ),
+              ),
+            )
+            .width,
+        24,
+      );
+      expect(
+        find.bySemanticsLabel('Card 1 de 3 da visão da carteira'),
+        findsOneWidget,
+      );
 
       await tester.drag(carousel, const Offset(-500, 0));
       await tester.pumpAndSettle();
@@ -247,6 +264,34 @@ void main() {
       final Rect settledProfitRect = tester.getRect(profitCard);
       expect(settledProfitRect.left, greaterThan(carouselRect.left));
       expect(settledProfitRect.right, lessThan(carouselRect.right));
+      expect(
+        tester
+            .getSize(
+              find.byKey(
+                const ValueKey<String>(
+                  'investment-performance-indicator-shape-1',
+                ),
+              ),
+            )
+            .width,
+        24,
+      );
+      expect(
+        find.bySemanticsLabel('Card 2 de 3 da visão da carteira'),
+        findsOneWidget,
+      );
+
+      await tester.tap(
+        find.byKey(
+          const ValueKey<String>('investment-performance-indicator-2'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Rentabilidade da posição'), findsOneWidget);
+      expect(
+        find.bySemanticsLabel('Card 3 de 3 da visão da carteira'),
+        findsOneWidget,
+      );
 
       await _tapInvestmentTab(tester, 'Rentabilidade');
       await tester.scrollUntilVisible(
@@ -966,7 +1011,7 @@ void main() {
   });
 
   testWidgets(
-    'formulário normaliza ticker e permanece utilizável com teclado',
+    'novo ativo busca nome e registra primeira compra no mesmo envio',
     (WidgetTester tester) async {
       await tester.binding.setSurfaceSize(const Size(320, 700));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -982,22 +1027,81 @@ void main() {
       );
 
       await tester.enterText(
-        find.widgetWithText(TextFormField, 'Ticker'),
-        'vale3',
+        find.byKey(const ValueKey<String>('investment-asset-search')),
+        'vale',
+      );
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pumpAndSettle();
+      expect(find.text('Vale S.A.'), findsOneWidget);
+      final Finder valeSuggestion = find.byKey(
+        const ValueKey<String>('investment-asset-VALE3'),
+      );
+      await tester.ensureVisible(valeSuggestion);
+      await tester.tap(valeSuggestion);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey<String>('investment-selected-asset')),
+        findsOneWidget,
       );
       await tester.enterText(
-        find.widgetWithText(TextFormField, 'Nome do ativo'),
-        'Vale ON',
+        find.byKey(const ValueKey<String>('investment-initial-quantity')),
+        '10',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey<String>('investment-initial-price')),
+        '62,50',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey<String>('investment-initial-fees')),
+        '1,50',
       );
       await tester.ensureVisible(
         find.widgetWithText(FilledButton, 'Adicionar ativo'),
       );
       await tester.tap(find.widgetWithText(FilledButton, 'Adicionar ativo'));
       await tester.pumpAndSettle();
-      expect(context.repository.assets.last.ticker, 'VALE3');
+      final TrackedInvestmentAsset createdAsset = context.repository.assets
+          .singleWhere(
+            (TrackedInvestmentAsset value) => value.ticker == 'VALE3',
+          );
+      final InvestmentOperation initialBuy = context.repository.operations
+          .singleWhere(
+            (InvestmentOperation value) =>
+                value.assetId == 'portfolio-1__VALE3',
+          );
+      expect(createdAsset.name, 'Vale S.A.');
+      expect(createdAsset.hasHistory, isTrue);
+      expect(initialBuy.quantityScaled, 1000000000);
+      expect(initialBuy.unitPriceScaled, 62500000);
+      expect(initialBuy.feesCents, 150);
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('novo ativo exige seleção do catálogo e valores válidos', (
+    WidgetTester tester,
+  ) async {
+    final _WidgetContext context = await _context(withAsset: true);
+    addTearDown(context.dispose);
+    await _pump(
+      tester,
+      context,
+      const InvestmentAssetFormPage(portfolioId: 'portfolio-1'),
+    );
+
+    final Finder submitButton = find.widgetWithText(
+      FilledButton,
+      'Adicionar ativo',
+    );
+    await tester.ensureVisible(submitButton);
+    await tester.tap(submitButton);
+    await tester.pump();
+
+    expect(find.text('Selecione um ativo válido na lista.'), findsOneWidget);
+    expect(find.textContaining('quantidade válida'), findsOneWidget);
+    expect(find.textContaining('preço por unidade válido'), findsOneWidget);
+    expect(context.repository.operations, isEmpty);
+  });
 
   testWidgets(
     'proventos apresenta dados reais, gráficos, filtros e transições seguras',
@@ -1342,6 +1446,9 @@ Future<_WidgetContext> _context({
         ),
       ),
       investmentRepositoryProvider.overrideWithValue(repository),
+      investmentAssetDirectoryProvider.overrideWithValue(
+        const _FakeInvestmentAssetDirectory(),
+      ),
       investmentQuoteRepositoryProvider.overrideWithValue(quoteRepository),
       investmentClockProvider.overrideWithValue(
         () => DateTime.utc(2026, 8, 10, 12),
@@ -1383,6 +1490,32 @@ Future<_WidgetContext> _context({
     investments: investments,
     action: action,
   );
+}
+
+final class _FakeInvestmentAssetDirectory implements InvestmentAssetDirectory {
+  const _FakeInvestmentAssetDirectory();
+
+  @override
+  Future<List<InvestmentAssetDirectoryEntry>> search(String query) async {
+    final String normalized = query.trim().toUpperCase();
+    return const <InvestmentAssetDirectoryEntry>[
+          InvestmentAssetDirectoryEntry(
+            ticker: 'VALE3',
+            name: 'Vale S.A.',
+            type: TrackedInvestmentAssetType.stock,
+          ),
+          InvestmentAssetDirectoryEntry(
+            ticker: 'HGLG11',
+            name: 'CSHG Logística',
+            type: TrackedInvestmentAssetType.fii,
+          ),
+        ]
+        .where((InvestmentAssetDirectoryEntry entry) {
+          return entry.ticker.contains(normalized) ||
+              entry.name.toUpperCase().contains(normalized);
+        })
+        .toList(growable: false);
+  }
 }
 
 InvestmentIncomeEvent _incomeEvent({

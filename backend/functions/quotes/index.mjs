@@ -1,13 +1,16 @@
 import { getApps, initializeApp } from 'firebase-admin/app';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
-import { onRequest } from 'firebase-functions/v2/https';
+import { HttpsError, onCall, onRequest } from 'firebase-functions/v2/https';
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 
 import {
+  ASSET_SEARCH_FUNCTION_OPTIONS,
   brapiApiToken,
   QUOTE_CATALOG_SYNC_OPTIONS,
   QUOTE_FUNCTION_OPTIONS,
 } from './src/function_options.mjs';
+import { createAssetSearchCallable } from './src/asset_search_callable.mjs';
+import { createBrapiAssetDirectoryGateway } from './src/brapi_asset_directory_gateway.mjs';
 import {
   createFirestoreQuoteCatalogSync,
   createQuoteCatalogDocumentWritten,
@@ -42,4 +45,14 @@ export const syncInvestmentQuoteCatalog = createQuoteCatalogDocumentWritten({
   onDocumentWritten,
   options: QUOTE_CATALOG_SYNC_OPTIONS,
   syncCatalog,
+});
+
+export const searchInvestmentAssets = createAssetSearchCallable({
+  onCall,
+  HttpsError,
+  options: ASSET_SEARCH_FUNCTION_OPTIONS,
+  directory: createBrapiAssetDirectoryGateway({
+    token: () => brapiApiToken.value(),
+  }),
+  logger: console,
 });

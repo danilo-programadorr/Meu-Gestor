@@ -490,6 +490,136 @@ final class FirebaseInvestmentRepository implements InvestmentRepository {
   }
 
   @override
+  Future<InvestmentOperation> createAssetWithInitialBuy({
+    required String ownerId,
+    required String operationId,
+    required TrackedInvestmentAssetDraft assetDraft,
+    required InvestmentOperationDraft operationDraft,
+  }) async {
+    final TrackedInvestmentAssetDraft normalizedAsset = assetDraft.normalized();
+    final InvestmentOperationDraft normalizedOperation = operationDraft
+        .normalized(now: _now());
+    final String assetId = TrackedInvestmentAsset.documentId(
+      portfolioId: normalizedAsset.portfolioId,
+      ticker: normalizedAsset.ticker,
+    );
+    if (normalizedOperation.kind != InvestmentOperationKind.buy ||
+        normalizedOperation.portfolioId != normalizedAsset.portfolioId ||
+        normalizedOperation.assetId != assetId) {
+      throw const InvestmentFailure(
+        kind: InvestmentFailureKind.validation,
+        safeMessage: 'Revise o ativo e os dados da primeira compra.',
+        code: 'investment_initial_buy_reference_invalid',
+      );
+    }
+    final DocumentReference<Map<String, dynamic>> portfolioReference =
+        _portfolios(ownerId).doc(normalizedAsset.portfolioId);
+    final DocumentReference<Map<String, dynamic>> assetReference = _assets(
+      ownerId,
+    ).doc(assetId);
+    final DocumentReference<Map<String, dynamic>> operationReference =
+        _operations(ownerId).doc(operationId);
+    try {
+      await _firestore
+          .runTransaction<void>((Transaction transaction) async {
+            final DocumentSnapshot<Map<String, dynamic>> portfolioSnapshot =
+                await transaction.get(portfolioReference);
+            final DocumentSnapshot<Map<String, dynamic>> assetSnapshot =
+                await transaction.get(assetReference);
+            final DocumentSnapshot<Map<String, dynamic>> operationSnapshot =
+                await transaction.get(operationReference);
+            final InvestmentPortfolio portfolio = _portfolioFromSnapshot(
+              portfolioSnapshot,
+              ownerId,
+            );
+            if (portfolio.isArchived) {
+              throw const InvestmentFailure(
+                kind: InvestmentFailureKind.failedPrecondition,
+                safeMessage: 'Restaure a carteira antes de adicionar ativos.',
+                code: 'investment_portfolio_archived',
+              );
+            }
+            if (assetSnapshot.exists || operationSnapshot.exists) {
+              if (!assetSnapshot.exists || !operationSnapshot.exists) {
+                throw const InvestmentFailure(
+                  kind: InvestmentFailureKind.alreadyExists,
+                  safeMessage: 'Este ticker já existe nessa carteira.',
+                  code: 'investment_initial_buy_partial_conflict',
+                );
+              }
+              final TrackedInvestmentAsset existingAsset = _assetFromSnapshot(
+                assetSnapshot,
+                ownerId,
+              );
+              final InvestmentOperation existingOperation =
+                  _operationFromSnapshot(operationSnapshot, ownerId);
+              if (existingAsset.ticker == normalizedAsset.ticker &&
+                  existingAsset.name == normalizedAsset.name &&
+                  existingAsset.type == normalizedAsset.type &&
+                  FirestoreInvestmentOperationMapper.matchesDraft(
+                    existingOperation,
+                    normalizedOperation,
+                  )) {
+                return;
+              }
+              throw const InvestmentFailure(
+                kind: InvestmentFailureKind.alreadyExists,
+                safeMessage: 'Este ticker já existe nessa carteira.',
+                code: 'investment_initial_buy_conflict',
+              );
+            }
+            if (!portfolio.hasHistory) {
+              transaction.update(portfolioReference, <String, Object>{
+                'hasHistory': true,
+                'updatedAt': FieldValue.serverTimestamp(),
+                'revision': portfolio.revision + 1,
+              });
+            }
+            transaction.set(
+              assetReference,
+              FirestoreTrackedInvestmentAssetMapper.creationWithInitialBuyMap(
+                ownerId: ownerId,
+                draft: normalizedAsset,
+                operationId: operationId,
+                operation: normalizedOperation,
+              ),
+            );
+            transaction.set(
+              operationReference,
+              FirestoreInvestmentOperationMapper.creationMap(
+                ownerId: ownerId,
+                operationId: operationId,
+                draft: normalizedOperation,
+                previousOperationId: null,
+                previousOperationAt: null,
+              ),
+            );
+          })
+          .timeout(_timeout);
+      return _readOperation(ownerId, operationId);
+    } on Object catch (error) {
+      if (_isUncertain(error)) {
+        final InvestmentOperation? confirmed = await _tryReadOperation(
+          ownerId,
+          operationId,
+        );
+        if (confirmed != null &&
+            FirestoreInvestmentOperationMapper.matchesDraft(
+              confirmed,
+              normalizedOperation,
+            )) {
+          return confirmed;
+        }
+      }
+      throw _mapAndRecord(
+        'create_investment_asset_with_initial_buy',
+        'transaction',
+        error,
+      );
+    }
+  }
+
+  @override
   Future<TrackedInvestmentAsset> updateAsset({
     required String ownerId,
     required String assetId,

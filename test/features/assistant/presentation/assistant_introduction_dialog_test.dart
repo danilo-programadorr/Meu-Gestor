@@ -27,13 +27,17 @@ void main() {
     expect(continuations, 1);
   });
 
-  test('modo voz não possui fallback para TTS local do Android', () {
+  test('TTS local fica restrito à consulta privada da agenda', () {
     final String source = File(
       'lib/features/assistant/presentation/pages/assistant_conversation_page.dart',
     ).readAsStringSync();
 
-    expect(source, isNot(contains('_voice.speak(')));
-    expect(source, isNot(contains('Android pode usar a voz local')));
+    expect(RegExp(r'_voice\.speak\(').allMatches(source), hasLength(1));
+    expect(source, contains('o resultado da agenda não volta à callable'));
+    expect(
+      source,
+      contains('Respostas financeiras continuam exigindo o WAV neural'),
+    );
     expect(source, contains('_voice.playAudio('));
   });
 }

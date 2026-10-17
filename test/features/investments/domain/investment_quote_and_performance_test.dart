@@ -175,6 +175,26 @@ void main() {
     });
 
     test(
+      'usa último fechamento válido sem apresentá-lo como preço ao vivo',
+      () {
+        final result = InvestmentPerformanceCalculator.calculate(
+          positions: <InvestmentPosition>[position()],
+          quotes: <InvestmentQuote>[
+            quote(availability: InvestmentQuoteAvailability.marketClosed),
+          ],
+          receivedIncomeCents: 0,
+          referenceInstant: captured,
+        );
+        expect(result.quotedAssetCount, 1);
+        expect(result.estimatedMarketValueCents, 3500);
+        expect(
+          result.positions.single.quote?.availability,
+          InvestmentQuoteAvailability.marketClosed,
+        );
+      },
+    );
+
+    test(
       'preserva resultado realizado de posição encerrada sem inventar valor de mercado',
       () {
         final result = InvestmentPerformanceCalculator.calculate(

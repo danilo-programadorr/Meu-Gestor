@@ -66,6 +66,15 @@ abstract interface class InvestmentRepository {
     required TrackedInvestmentAssetDraft draft,
   });
 
+  /// Cria o ativo e sua primeira compra na mesma transação. Uma falha nunca
+  /// pode deixar um ativo vazio ou uma operação sem posição correspondente.
+  Future<InvestmentOperation> createAssetWithInitialBuy({
+    required String ownerId,
+    required String operationId,
+    required TrackedInvestmentAssetDraft assetDraft,
+    required InvestmentOperationDraft operationDraft,
+  });
+
   Future<TrackedInvestmentAsset> updateAsset({
     required String ownerId,
     required String assetId,

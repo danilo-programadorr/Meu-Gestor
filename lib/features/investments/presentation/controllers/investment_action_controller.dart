@@ -148,6 +148,29 @@ final class InvestmentActionController extends Notifier<InvestmentActionState> {
         ),
       );
 
+  Future<bool> createAssetWithInitialBuy({
+    required TrackedInvestmentAssetDraft assetDraft,
+    required InvestmentOperationDraft operationDraft,
+  }) async {
+    if (state.isLoading) return false;
+    final String ownerId = requireInvestmentOwner(ref);
+    return _run(
+      ownerId: ownerId,
+      successMessage: 'Ativo e primeira compra confirmados pelo servidor.',
+      operation: () {
+        _pendingOperationId ??= _repository.newOperationId(ownerId: ownerId);
+        return _repository.createAssetWithInitialBuy(
+          ownerId: ownerId,
+          operationId: _pendingOperationId!,
+          assetDraft: assetDraft,
+          operationDraft: operationDraft,
+        );
+      },
+      onSuccess: () => _pendingOperationId = null,
+      onDefiniteFailure: () => _pendingOperationId = null,
+    );
+  }
+
   Future<bool> updateAsset({
     required TrackedInvestmentAsset asset,
     required TrackedInvestmentAssetUpdate update,

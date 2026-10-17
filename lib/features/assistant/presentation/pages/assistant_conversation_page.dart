@@ -21,6 +21,8 @@ import 'package:meu_gestor_financeiro/features/assistant/presentation/controller
 import 'package:meu_gestor_financeiro/features/assistant/presentation/widgets/assistant_remote_answer_panel.dart';
 import 'package:meu_gestor_financeiro/features/authentication/data/auth_providers.dart';
 import 'package:meu_gestor_financeiro/features/authentication/domain/auth_user.dart';
+import 'package:meu_gestor_financeiro/features/calendar/domain/android_calendar_contract.dart';
+import 'package:meu_gestor_financeiro/features/calendar/presentation/controllers/android_calendar_selection_controller.dart';
 import 'package:meu_gestor_financeiro/features/profile/domain/user_profile.dart';
 import 'package:meu_gestor_financeiro/features/profile/presentation/controllers/profile_gate_controller.dart';
 
@@ -247,6 +249,16 @@ class _AssistantConversationPageState
                           const SizedBox(height: AppSpacing.md),
                           AssistantRemoteAnswerPanel(state: remoteState),
                         ],
+                        if (remoteState.calendarEventProposal
+                            case final AssistantCalendarEventProposal
+                                proposal) ...<Widget>[
+                          const SizedBox(height: AppSpacing.md),
+                          _CalendarEventProposalCard(
+                            proposal: proposal,
+                            onConfirm: () => _confirmCalendarEvent(proposal),
+                            onCancel: _remoteConversation.dismissActionProposal,
+                          ),
+                        ],
                         const SizedBox(height: AppSpacing.md),
                         if (_textMode &&
                             effectiveRemoteConsent &&
@@ -254,6 +266,7 @@ class _AssistantConversationPageState
                           AssistantTextQuestionInput(
                             controller: _textController,
                             onSend: _submitText,
+                            onUseVoice: _useVoiceMode,
                           )
                         else if (!_textMode &&
                             effectiveRemoteConsent &&
@@ -268,7 +281,7 @@ class _AssistantConversationPageState
                           ),
                         const SizedBox(height: AppSpacing.md),
                         const Text(
-                          'O app não persiste o áudio do microfone. No modo de voz, a transcrição é descartada antes da resposta. Depois da validação financeira, somente o texto aprovado é enviado ao Google Gemini-TTS e a voz neural retornada é reproduzida sem mostrar a resposta escrita. Este modo nunca altera dados financeiros.',
+                          'O app não persiste o áudio do microfone. No modo de voz, a transcrição é descartada antes da resposta. Depois da validação financeira, somente o texto aprovado é enviado ao Google Gemini-TTS. Consultas da agenda são lidas no aparelho e faladas pelo mecanismo de voz configurado no Android, sem reenviar os compromissos à callable. Este modo nunca altera dados financeiros.',
                           style: TextStyle(color: Color(0xFFD5DEE7)),
                           textAlign: TextAlign.center,
                         ),
@@ -311,6 +324,13 @@ class _AssistantConversationPageState
     if (mounted) setState(() => _textMode = true);
   }
 
+  Future<void> _useVoiceMode() async {
+    await _stopForExit();
+    if (!mounted) return;
+    setState(() => _textMode = false);
+    await _requestVoiceStart();
+  }
+
   Future<void> _submitText() async {
     if (!_isForeground || !ref.read(financialPrivacyControllerProvider)) {
       _textController.clear();
@@ -329,19 +349,21 @@ class _AssistantConversationPageState
     // sucesso, indisponibilidade e exceção encerram “Pensando” sem apagar o card.
     await _conversation.awaitTextRemoteOperation(
       operation: conversationOperation,
-      request: () => _requestRemoteAnswer(message),
+      request: () async {
+        await _requestRemoteAnswer(message);
+      },
     );
   }
 
   /// Envia somente a pergunta já validada pelo modo atual. O backend continua
   /// responsável pelo contexto, pela evidência e pela resposta segura.
-  Future<void> _requestRemoteAnswer(
+  Future<bool> _requestRemoteAnswer(
     String message, {
     bool voiceOnly = false,
   }) async {
-    if (!_isForeground) return;
-    if (!await _ensureEffectiveRemoteConsent()) return;
-    if (!mounted) return;
+    if (!_isForeground) return false;
+    if (!await _ensureEffectiveRemoteConsent()) return false;
+    if (!mounted) return false;
     await _remoteConversation.requestGroundedAnswer(
       message: message,
       aiConsentEnabled: _aiConsentEnabled,
@@ -351,6 +373,205 @@ class _AssistantConversationPageState
       financialValuesVisible: ref.read(financialPrivacyControllerProvider),
       voiceOnly: voiceOnly,
     );
+    if (!mounted) return false;
+    final AssistantCalendarQueryRequest? calendarQuery = ref
+        .read(assistantRemoteConversationControllerProvider)
+        .calendarQueryRequest;
+    if (calendarQuery == null) return false;
+    await _resolveCalendarQuery(calendarQuery, voiceOnly: voiceOnly);
+    return voiceOnly;
+  }
+
+  Future<void> _resolveCalendarQuery(
+    AssistantCalendarQueryRequest query, {
+    required bool voiceOnly,
+  }) async {
+    String answer;
+    try {
+      if (DateTime.now().toUtc().isAfter(query.expiresAt)) {
+        throw const AndroidCalendarUnavailableException();
+      }
+      final Set<String> selected = await ref.read(
+        androidCalendarSelectionControllerProvider.future,
+      );
+      final AndroidCalendarGateway gateway = ref.read(
+        androidCalendarGatewayProvider,
+      );
+      final List<AuthorizedAndroidCalendar> calendars = await gateway
+          .listCalendars();
+      if (!mounted) return;
+      final Set<String> visibleIds = calendars
+          .map((calendar) => calendar.calendarId)
+          .toSet();
+      Set<String> authorizedIds = selected.intersection(visibleIds);
+      if (authorizedIds.isEmpty) {
+        final AuthorizedAndroidCalendar? calendar = await _chooseCalendar(
+          calendars: calendars,
+          preferred: selected,
+        );
+        if (calendar == null || !mounted) {
+          throw const AndroidCalendarUnavailableException();
+        }
+        authorizedIds = <String>{calendar.calendarId};
+        final bool saved = await ref
+            .read(androidCalendarSelectionControllerProvider.notifier)
+            .save(<String>{...selected, calendar.calendarId});
+        if (!saved) throw const AndroidCalendarUnavailableException();
+      }
+      final List<AndroidCalendarEventPreview> events = await gateway
+          .readAuthorizedEvents(
+            authorizedCalendarIds: authorizedIds,
+            startsAt: query.startsAt,
+            endsAt: query.endsAt,
+          );
+      if (!mounted) return;
+      answer = _calendarAnswer(events);
+      if (!_remoteConversation.completeCalendarQuery(
+        queryId: query.queryId,
+        answer: answer,
+      )) {
+        return;
+      }
+    } on Object {
+      _remoteConversation.failCalendarQuery(queryId: query.queryId);
+      answer = ref.read(assistantRemoteConversationControllerProvider).message;
+    }
+    if (!voiceOnly || !mounted) return;
+    // Exceção local e deliberada: o resultado da agenda não volta à callable.
+    // Respostas financeiras continuam exigindo o WAV neural do backend.
+    await _voice.setEnabled(true, valuesVisible: true);
+    if (!mounted) return;
+    _conversation.speaking();
+    await _voice.speak(answer, valuesVisible: true);
+  }
+
+  String _calendarAnswer(List<AndroidCalendarEventPreview> events) {
+    if (events.isEmpty) {
+      return 'Não encontrei compromissos nesse período nas agendas selecionadas.';
+    }
+    final MaterialLocalizations localizations = MaterialLocalizations.of(
+      context,
+    );
+    final List<String> descriptions = events
+        .take(5)
+        .map((event) {
+          final DateTime localStart = event.startsAt.toLocal();
+          final String date = localizations.formatShortDate(localStart);
+          final String time = localizations.formatTimeOfDay(
+            TimeOfDay.fromDateTime(localStart),
+            alwaysUse24HourFormat: true,
+          );
+          return '${event.title}, em $date às $time';
+        })
+        .toList(growable: false);
+    final String remaining = events.length > descriptions.length
+        ? ' Também há mais ${events.length - descriptions.length}.'
+        : '';
+    return 'Encontrei ${events.length} '
+        '${events.length == 1 ? 'compromisso' : 'compromissos'}: '
+        '${descriptions.join('; ')}.$remaining';
+  }
+
+  Future<void> _confirmCalendarEvent(
+    AssistantCalendarEventProposal proposal,
+  ) async {
+    if (DateTime.now().toUtc().isAfter(proposal.expiresAt)) {
+      _remoteConversation.dismissActionProposal();
+      _showCalendarMessage(
+        'Essa confirmação expirou. Peça o compromisso novamente.',
+      );
+      return;
+    }
+    try {
+      final Set<String> selected = await ref.read(
+        androidCalendarSelectionControllerProvider.future,
+      );
+      final List<AuthorizedAndroidCalendar> calendars = await ref
+          .read(androidCalendarGatewayProvider)
+          .listWritableCalendars();
+      if (!mounted) return;
+      final List<AuthorizedAndroidCalendar> allowed = calendars
+          .where((calendar) => selected.contains(calendar.calendarId))
+          .toList(growable: false);
+      final AuthorizedAndroidCalendar? calendar = allowed.length == 1
+          ? allowed.single
+          : await _chooseCalendar(calendars: calendars, preferred: selected);
+      if (calendar == null || !mounted) return;
+      if (!selected.contains(calendar.calendarId)) {
+        final bool saved = await ref
+            .read(androidCalendarSelectionControllerProvider.notifier)
+            .save(<String>{...selected, calendar.calendarId});
+        if (!saved) throw const AndroidCalendarUnavailableException();
+      }
+      final AndroidCalendarEventDraft draft = AndroidCalendarEventDraft(
+        calendarId: calendar.calendarId,
+        title: proposal.title,
+        startsAt: proposal.startsAt,
+        endsAt: proposal.endsAt,
+        previewDigest: proposal.previewDigest,
+        expiresAt: proposal.expiresAt,
+      );
+      await ref
+          .read(androidCalendarGatewayProvider)
+          .writeConfirmedEvent(
+            authorizedCalendarIds: <String>{...selected, calendar.calendarId},
+            kind: AndroidCalendarExternalWriteKind.create,
+            event: draft,
+            confirmation: AndroidCalendarWriteConfirmation(
+              kind: AndroidCalendarExternalWriteKind.create,
+              calendarId: calendar.calendarId,
+              eventDigest: proposal.previewDigest,
+              confirmedAt: DateTime.now().toUtc(),
+            ),
+          );
+      _remoteConversation.dismissActionProposal();
+      _showCalendarMessage(
+        'Compromisso salvo na agenda ${calendar.displayName}.',
+      );
+    } on Object {
+      _showCalendarMessage(
+        'Não foi possível salvar. Confira a permissão e tente novamente.',
+      );
+    }
+  }
+
+  Future<AuthorizedAndroidCalendar?> _chooseCalendar({
+    required List<AuthorizedAndroidCalendar> calendars,
+    required Set<String> preferred,
+  }) => showDialog<AuthorizedAndroidCalendar>(
+    context: context,
+    builder: (BuildContext dialogContext) => SimpleDialog(
+      title: const Text('Salvar em qual agenda?'),
+      children: <Widget>[
+        if (calendars.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(AppSpacing.md),
+            child: Text('Nenhuma agenda disponível neste aparelho.'),
+          ),
+        for (final AuthorizedAndroidCalendar calendar in calendars)
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(dialogContext, calendar),
+            child: Row(
+              children: <Widget>[
+                Icon(
+                  preferred.contains(calendar.calendarId)
+                      ? Icons.check_circle_outline
+                      : Icons.calendar_month_outlined,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(child: Text(calendar.displayName)),
+              ],
+            ),
+          ),
+      ],
+    ),
+  );
+
+  void _showCalendarMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   bool get _aiConsentEnabled {
@@ -493,7 +714,11 @@ class _AssistantConversationPageState
     final String message = state.transcript;
     if (message.isEmpty) return;
     _conversation.clearTranscript();
-    await _requestRemoteAnswer(message, voiceOnly: true);
+    final bool handledLocally = await _requestRemoteAnswer(
+      message,
+      voiceOnly: true,
+    );
+    if (handledLocally) return;
     if (!_conversationEnabled || !_isForeground || !mounted) return;
     final AssistantRemoteConversationState remoteState = ref.read(
       assistantRemoteConversationControllerProvider,
@@ -516,6 +741,10 @@ class _AssistantConversationPageState
         !_conversationEnabled ||
         !_isForeground ||
         !mounted ||
+        ref
+                .read(assistantRemoteConversationControllerProvider)
+                .calendarEventProposal !=
+            null ||
         !ref.read(financialPrivacyControllerProvider)) {
       return;
     }
@@ -525,6 +754,85 @@ class _AssistantConversationPageState
     } finally {
       _activationInProgress = false;
     }
+  }
+}
+
+class _CalendarEventProposalCard extends StatelessWidget {
+  const _CalendarEventProposalCard({
+    required this.proposal,
+    required this.onConfirm,
+    required this.onCancel,
+  });
+
+  final AssistantCalendarEventProposal proposal;
+  final Future<void> Function() onConfirm;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final DateTime localStart = proposal.startsAt.toLocal();
+    final DateTime localEnd = proposal.endsAt.toLocal();
+    final MaterialLocalizations localizations = MaterialLocalizations.of(
+      context,
+    );
+    final String date = localizations.formatFullDate(localStart);
+    final String start = localizations.formatTimeOfDay(
+      TimeOfDay.fromDateTime(localStart),
+      alwaysUse24HourFormat: true,
+    );
+    final String end = localizations.formatTimeOfDay(
+      TimeOfDay.fromDateTime(localEnd),
+      alwaysUse24HourFormat: true,
+    );
+    return Card(
+      key: const ValueKey<String>('assistant-calendar-event-proposal'),
+      color: const Color(0xFF1B252D),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                const Icon(
+                  Icons.event_available_outlined,
+                  color: Color(0xFF76C7E3),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    'Confirmar compromisso',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(proposal.title, style: const TextStyle(color: Colors.white)),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              '$date, das $start às $end',
+              style: const TextStyle(color: Color(0xFFD5DEE7)),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            FilledButton.icon(
+              key: const ValueKey<String>('assistant-calendar-confirm-action'),
+              onPressed: () => unawaited(onConfirm()),
+              icon: const Icon(Icons.add_task_outlined),
+              label: const Text('Salvar na agenda'),
+            ),
+            TextButton(
+              key: const ValueKey<String>('assistant-calendar-cancel-action'),
+              onPressed: onCancel,
+              child: const Text('Cancelar'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -583,10 +891,12 @@ class AssistantTextQuestionInput extends StatelessWidget {
     super.key,
     required this.controller,
     required this.onSend,
+    required this.onUseVoice,
   });
 
   final TextEditingController controller;
   final Future<void> Function() onSend;
+  final Future<void> Function() onUseVoice;
 
   @override
   Widget build(BuildContext context) => Card(
@@ -614,6 +924,13 @@ class AssistantTextQuestionInput extends StatelessWidget {
             onPressed: () => unawaited(onSend()),
             icon: const Icon(Icons.send_outlined),
             label: const Text('Enviar'),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          OutlinedButton.icon(
+            key: const ValueKey<String>('assistant-use-voice-action'),
+            onPressed: () => unawaited(onUseVoice()),
+            icon: const Icon(Icons.mic_none_outlined),
+            label: const Text('Voltar ao modo de voz'),
           ),
         ],
       ),

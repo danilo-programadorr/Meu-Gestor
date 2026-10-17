@@ -26,6 +26,8 @@ export const ASSISTANT_CANONICAL_CLARIFICATION_QUESTIONS = Object.freeze({
   social_conversation:
     'Eu sou a Luma, sua assistente financeira. Posso consultar e explicar seus dados autorizados, comparar períodos e mostrar compromissos e investimentos. O que você quer saber?',
   intent_ambiguous: 'Me conta: o que você quer ver nas suas finanças?',
+  calendar_title_required: 'Qual é o nome do compromisso?',
+  calendar_time_required: 'Para qual dia e horário devo preparar o compromisso?',
   period_required: 'Qual período você quer olhar?',
   scope_required: 'Que parte das suas finanças você quer consultar?',
   comparison_basis_required: 'O que você quer comparar e com qual período?',

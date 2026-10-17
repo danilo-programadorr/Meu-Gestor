@@ -324,7 +324,7 @@ class _QuoteTile extends StatelessWidget {
   String _quoteLabel(InvestmentQuote quote) => switch (quote.availability) {
     InvestmentQuoteAvailability.available => 'Disponível',
     InvestmentQuoteAvailability.delayed => 'Atrasada',
-    InvestmentQuoteAvailability.marketClosed => 'Mercado fechado',
+    InvestmentQuoteAvailability.marketClosed => 'Último fechamento',
     InvestmentQuoteAvailability.corporateActionPossible =>
       'Possível evento corporativo',
     InvestmentQuoteAvailability.invalid => 'Cotação inválida',

@@ -43,6 +43,9 @@ enum AssistantRemoteConversationPhase {
   privacyBlocked,
   safeUnavailable,
   clarificationRequired,
+  actionProposal,
+  calendarQuery,
+  calendarResult,
   grounded,
 }
 
@@ -51,6 +54,8 @@ final class AssistantRemoteConversationState {
     required this.phase,
     required this.message,
     this.response,
+    this.calendarEventProposal,
+    this.calendarQueryRequest,
     this.audio,
   });
 
@@ -58,11 +63,15 @@ final class AssistantRemoteConversationState {
     : phase = AssistantRemoteConversationPhase.idle,
       message = 'Envie uma pergunta para conversar com o assistente.',
       response = null,
+      calendarEventProposal = null,
+      calendarQueryRequest = null,
       audio = null;
 
   final AssistantRemoteConversationPhase phase;
   final String message;
   final AssistantGroundedResponse? response;
+  final AssistantCalendarEventProposal? calendarEventProposal;
+  final AssistantCalendarQueryRequest? calendarQueryRequest;
   final AssistantRemoteAudio? audio;
 
   bool get isPreparing => phase == AssistantRemoteConversationPhase.preparing;
@@ -71,12 +80,20 @@ final class AssistantRemoteConversationState {
     AssistantRemoteConversationPhase? phase,
     String? message,
     AssistantGroundedResponse? response,
+    AssistantCalendarEventProposal? calendarEventProposal,
+    AssistantCalendarQueryRequest? calendarQueryRequest,
     AssistantRemoteAudio? audio,
     bool clearResponse = false,
   }) => AssistantRemoteConversationState(
     phase: phase ?? this.phase,
     message: message ?? this.message,
     response: clearResponse ? null : response ?? this.response,
+    calendarEventProposal: clearResponse
+        ? null
+        : calendarEventProposal ?? this.calendarEventProposal,
+    calendarQueryRequest: clearResponse
+        ? null
+        : calendarQueryRequest ?? this.calendarQueryRequest,
     audio: clearResponse ? null : audio ?? this.audio,
   );
 }
@@ -237,6 +254,31 @@ final class AssistantRemoteConversationController
             audio: result.audio,
           ),
         );
+      } else if (result.calendarEventProposal
+          case final AssistantCalendarEventProposal proposal) {
+        if (!_isCurrent(operation)) return;
+        _clearConversationMemory();
+        _setIfCurrent(
+          operation,
+          AssistantRemoteConversationState(
+            phase: AssistantRemoteConversationPhase.actionProposal,
+            message: 'Confira o compromisso antes de salvar na agenda.',
+            calendarEventProposal: proposal,
+            audio: result.audio,
+          ),
+        );
+      } else if (result.calendarQueryRequest
+          case final AssistantCalendarQueryRequest query) {
+        if (!_isCurrent(operation)) return;
+        _clearConversationMemory();
+        _setIfCurrent(
+          operation,
+          AssistantRemoteConversationState(
+            phase: AssistantRemoteConversationPhase.calendarQuery,
+            message: 'Consultando sua agenda neste aparelho.',
+            calendarQueryRequest: query,
+          ),
+        );
       } else {
         _setUnavailable(operation, audio: result.audio);
       }
@@ -264,6 +306,40 @@ final class AssistantRemoteConversationController
         message: 'A privacidade financeira bloqueia esta consulta.',
       );
     }
+  }
+
+  /// Remove a proposta depois de salvar ou cancelar para impedir reutilização.
+  void dismissActionProposal() {
+    _operation += 1;
+    _clearConversationMemory();
+    if (!_disposed) state = const AssistantRemoteConversationState.initial();
+  }
+
+  /// Aceita o resultado somente enquanto a mesma consulta local permanece
+  /// ativa; uma resposta antiga não pode reaparecer após troca de modo/tela.
+  bool completeCalendarQuery({
+    required String queryId,
+    required String answer,
+  }) {
+    if (_disposed ||
+        state.calendarQueryRequest?.queryId != queryId ||
+        answer.trim().isEmpty) {
+      return false;
+    }
+    state = AssistantRemoteConversationState(
+      phase: AssistantRemoteConversationPhase.calendarResult,
+      message: answer.trim(),
+    );
+    return true;
+  }
+
+  void failCalendarQuery({required String queryId}) {
+    if (_disposed || state.calendarQueryRequest?.queryId != queryId) return;
+    state = const AssistantRemoteConversationState(
+      phase: AssistantRemoteConversationPhase.safeUnavailable,
+      message:
+          'Não consegui consultar a agenda deste aparelho. Confira a permissão e tente novamente.',
+    );
   }
 
   void _setUnavailable(int operation, {AssistantRemoteAudio? audio}) {

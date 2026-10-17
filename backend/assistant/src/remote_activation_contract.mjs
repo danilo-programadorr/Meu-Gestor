@@ -58,6 +58,8 @@ const exactKeys = (value, keys) =>
 
 export const ASSISTANT_CONVERSATION_INTENTS = Object.freeze([
   'unknown',
+  'calendar_event',
+  'calendar_query',
   'financial_overview',
   'balance',
   'income',
@@ -73,6 +75,8 @@ export const ASSISTANT_CONVERSATION_INTENTS = Object.freeze([
 export const ASSISTANT_CLARIFICATION_CODES = Object.freeze([
   'social_conversation',
   'intent_ambiguous',
+  'calendar_title_required',
+  'calendar_time_required',
   'period_required',
   'scope_required',
   'comparison_basis_required',

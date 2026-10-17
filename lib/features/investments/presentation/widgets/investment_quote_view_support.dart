@@ -39,7 +39,7 @@ abstract final class InvestmentQuoteViewSupport {
     return switch (quote.availability) {
       InvestmentQuoteAvailability.available => 'Disponível',
       InvestmentQuoteAvailability.delayed => 'Atrasada',
-      InvestmentQuoteAvailability.marketClosed => 'Mercado fechado',
+      InvestmentQuoteAvailability.marketClosed => 'Último fechamento',
       InvestmentQuoteAvailability.corporateActionPossible =>
         'Possível evento corporativo',
       InvestmentQuoteAvailability.invalid => 'Cotação inválida',

@@ -64,8 +64,16 @@ export function createFirestoreQuoteStorage({ firestore, Timestamp }) {
         if (leaseSnapshot.data()?.requestId !== requestId) return Object.freeze({ written: false, idempotent: false });
         const current = currentSnapshot.exists ? currentSnapshot.data() : null;
         const incomingObservedAt = new Date(quote.observedAt);
+        const incomingCapturedAt = new Date(quote.capturedAt);
         const currentObservedAt = current?.observedAt?.toDate?.();
-        const shouldWrite = !currentObservedAt || incomingObservedAt > currentObservedAt;
+        const currentCapturedAt = current?.capturedAt?.toDate?.();
+        // Abertura da ordenação composta: uma captura mais nova do mesmo
+        // negócio pode promover o snapshot para último fechamento e renovar
+        // sua validade, sem permitir que observação antiga substitua a atual.
+        const shouldWrite = !currentObservedAt ||
+          incomingObservedAt > currentObservedAt ||
+          (incomingObservedAt.getTime() === currentObservedAt.getTime() &&
+            (!currentCapturedAt || incomingCapturedAt > currentCapturedAt));
         if (shouldWrite) {
           const persistedQuote = {
             ...quote,
@@ -74,8 +82,14 @@ export function createFirestoreQuoteStorage({ firestore, Timestamp }) {
             staleAfter: toTimestamp(quote.staleAfter),
           };
           transaction.set(snapshotRef, persistedQuote);
-          const historicalObservedAt = currentHistory.data()?.observedAt?.toDate?.();
-          if (!historicalObservedAt || incomingObservedAt > historicalObservedAt) {
+          const historical = currentHistory.exists ? currentHistory.data() : null;
+          const historicalObservedAt = historical?.observedAt?.toDate?.();
+          const historicalCapturedAt = historical?.capturedAt?.toDate?.();
+          const shouldWriteHistory = !historicalObservedAt ||
+            incomingObservedAt > historicalObservedAt ||
+            (incomingObservedAt.getTime() === historicalObservedAt.getTime() &&
+              (!historicalCapturedAt || incomingCapturedAt > historicalCapturedAt));
+          if (shouldWriteHistory) {
             transaction.set(historyRef, {
               ...persistedQuote,
               bucketDate: historyBucket,

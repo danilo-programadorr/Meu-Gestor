@@ -1,5 +1,5 @@
-/// Contrato para uma integração futura com o provedor de calendário Android.
-/// Nada deste contrato acessa Google Calendar, rede ou dados do aparelho.
+/// Contrato da agenda Android. Leitura e escrita permanecem locais ao aparelho;
+/// nenhuma credencial ou evento é enviado a um provedor pelo Flutter.
 enum AndroidCalendarExternalWriteKind { create, update, delete }
 
 final class AuthorizedAndroidCalendar {
@@ -29,6 +29,26 @@ final class AndroidCalendarEventPreview {
   final DateTime endsAt;
 }
 
+/// Rascunho mutável separado dos eventos lidos. O digest vem da proposta
+/// admitida e precisa coincidir com a confirmação exibida à pessoa.
+final class AndroidCalendarEventDraft {
+  const AndroidCalendarEventDraft({
+    required this.calendarId,
+    required this.title,
+    required this.startsAt,
+    required this.endsAt,
+    required this.previewDigest,
+    required this.expiresAt,
+  });
+
+  final String calendarId;
+  final String title;
+  final DateTime startsAt;
+  final DateTime endsAt;
+  final String previewDigest;
+  final DateTime expiresAt;
+}
+
 final class AndroidCalendarWriteConfirmation {
   const AndroidCalendarWriteConfirmation({
     required this.kind,
@@ -49,7 +69,7 @@ abstract final class AndroidCalendarWritePolicy {
   static void assertAllowed({
     required Set<String> authorizedCalendarIds,
     required AndroidCalendarExternalWriteKind kind,
-    required AndroidCalendarEventPreview event,
+    required AndroidCalendarEventDraft event,
     required AndroidCalendarWriteConfirmation confirmation,
     required DateTime now,
   }) {
@@ -58,7 +78,15 @@ abstract final class AndroidCalendarWritePolicy {
         !authorizedCalendarIds.contains(event.calendarId) ||
         confirmation.kind != kind ||
         confirmation.calendarId != event.calendarId ||
+        confirmation.eventDigest != event.previewDigest ||
         confirmation.eventDigest.trim().length < 16 ||
+        event.title.trim().length < 2 ||
+        event.title.length > 120 ||
+        !event.startsAt.isUtc ||
+        !event.endsAt.isUtc ||
+        !event.expiresAt.isUtc ||
+        !event.startsAt.isBefore(event.endsAt) ||
+        now.isAfter(event.expiresAt) ||
         now.difference(confirmation.confirmedAt).isNegative ||
         now.difference(confirmation.confirmedAt) > maximumConfirmationAge) {
       throw const AndroidCalendarConfirmationRequiredException();
@@ -69,6 +97,8 @@ abstract final class AndroidCalendarWritePolicy {
 abstract interface class AndroidCalendarGateway {
   Future<List<AuthorizedAndroidCalendar>> listCalendars();
 
+  Future<List<AuthorizedAndroidCalendar>> listWritableCalendars();
+
   /// Deve retornar eventos apenas dos IDs previamente autorizados pelo usuário.
   Future<List<AndroidCalendarEventPreview>> readAuthorizedEvents({
     required Set<String> authorizedCalendarIds,
@@ -78,8 +108,9 @@ abstract interface class AndroidCalendarGateway {
 
   /// Toda escrita exige confirmação de interface fresca e específica ao evento.
   Future<void> writeConfirmedEvent({
+    required Set<String> authorizedCalendarIds,
     required AndroidCalendarExternalWriteKind kind,
-    required AndroidCalendarEventPreview event,
+    required AndroidCalendarEventDraft event,
     required AndroidCalendarWriteConfirmation confirmation,
   });
 }
@@ -98,6 +129,10 @@ final class UnavailableAndroidCalendarGateway
       _unavailable();
 
   @override
+  Future<List<AuthorizedAndroidCalendar>> listWritableCalendars() async =>
+      _unavailable();
+
+  @override
   Future<List<AndroidCalendarEventPreview>> readAuthorizedEvents({
     required Set<String> authorizedCalendarIds,
     required DateTime startsAt,
@@ -106,8 +141,9 @@ final class UnavailableAndroidCalendarGateway
 
   @override
   Future<void> writeConfirmedEvent({
+    required Set<String> authorizedCalendarIds,
     required AndroidCalendarExternalWriteKind kind,
-    required AndroidCalendarEventPreview event,
+    required AndroidCalendarEventDraft event,
     required AndroidCalendarWriteConfirmation confirmation,
   }) async => _unavailable();
 }

@@ -1284,6 +1284,49 @@ describe('INV-1A carteiras e ativos de acompanhamento', () => {
     ));
   });
 
+  test('cria ativo e primeira compra somente no mesmo lote atômico', async () => {
+    const db = verifiedDb();
+    const portfolioRef = investmentPortfolioRef(db);
+    const assetRef = investmentAssetRef(db);
+    const operationRef = investmentOperationRef(db);
+    await assertSucceeds(setDoc(portfolioRef, investmentPortfolio(ownerId, {
+      hasHistory: false,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      schemaVersion: 2,
+    })));
+
+    await assertFails(setDoc(assetRef, investmentAssetV2(ownerId, {
+      currentQuantityScaled: 100000000,
+      lastOperationId: 'operation-1',
+      lastOperationAt: movementAt,
+      hasHistory: true,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    })));
+
+    const creation = writeBatch(db);
+    creation.update(portfolioRef, {
+      hasHistory: true,
+      updatedAt: serverTimestamp(),
+      revision: 2,
+    });
+    creation.set(assetRef, investmentAssetV2(ownerId, {
+      currentQuantityScaled: 100000000,
+      lastOperationId: 'operation-1',
+      lastOperationAt: movementAt,
+      hasHistory: true,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }));
+    creation.set(operationRef, investmentOperation(ownerId));
+    await assertSucceeds(creation.commit());
+
+    const asset = (await getDoc(assetRef)).data();
+    assert.equal(asset.currentQuantityScaled, 100000000);
+    assert.equal(asset.lastOperationId, 'operation-1');
+  });
+
   test('primeiro provento marca histórico atomicamente e ativo arquivado bloqueia novos', async () => {
     const db = verifiedDb();
     const portfolioRef = investmentPortfolioRef(db);

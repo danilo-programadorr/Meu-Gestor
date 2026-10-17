@@ -949,6 +949,23 @@ segue o plano operacional próprio e exige confirmação verificável após o de
   não recebem o segredo. O timeout proposto da Function é 180 s, com 5 s por
   chamada, concorrência 1, mínimo 0 e máximo 1 instância.
 
+### 43.3. INV-ASSET-ENTRY-1 — busca canônica e primeira compra
+
+Situação: implementação local em validação; callable, Rules e aplicativo ainda
+não foram publicados neste incremento.
+
+- A criação reúne seleção do ativo, data, quantidade, preço e custos. Ativo e
+  primeira compra são escritos na mesma transação idempotente; venda de uma
+  posição inexistente permanece bloqueada.
+- O nome não é digitado manualmente. Uma callable development com Auth, e-mail
+  verificado e App Check consulta o catálogo de identidade da BRAPI, limita a
+  resposta e mantém a chave somente no Secret Manager. O aplicativo usa
+  debounce e exige seleção canônica.
+- A BRAPI recebe apenas texto público de busca. UID, carteira, quantidade,
+  preço, operação e demais dados financeiros não atravessam essa fronteira.
+- Publicar a callable e as Rules ou gerar APK exige autorização própria após os
+  gates locais e revisão do impacto sobre a cota do plano Gratuito.
+
 ## 44. CRUD-AUDIT-1 + INV-CALC-2 — ações completas e calculadoras inequívocas
 
 Situação: implementado e validado somente localmente; Rules não publicadas e nenhuma ação externa executada.
@@ -1083,6 +1100,30 @@ Situação: codebase `assistant` preparado somente localmente; não há Function
 - A borda usa `firebase-functions` 7.3.2, preserva `southamerica-east1`, 256 MiB, timeout de 30 segundos, concorrência 1, mínimo 0, máximo 1 e App Check obrigatório.
 - A identidade runtime é `defineString` sem valor versionado. Sem o parâmetro no processo de deploy, a configuração não pode ser materializada; nenhum `.env`, e-mail ou projeto entra no repositório.
 - Enquanto o kill switch estiver ativo e o provedor real desligado, a callable exige Auth/e-mail verificado/App Check e retorna somente `safe_unavailable`, sem consultar perfil, contexto, custos, ledger ou qualquer banco. Flash/Pro continuam contratos internos para ativação futura autorizada.
+
+## 79. ASSIST-CALENDAR-1 — proposta confirmada na agenda Android
+
+Situação: implementação local concluída; publicação da callable e novo APK não
+foram executados neste incremento.
+
+- Pedidos pessoais de agenda são interpretados no passe de intenção sem ler
+  contexto financeiro. Título, início e fim passam por schema fechado e viram
+  proposta opaca com validade de cinco minutos; o modelo nunca executa a ação.
+- O Flutter mostra a prévia exata e só solicita acesso de escrita após o toque
+  em `Salvar na agenda`. Calendário autorizado, digest, intervalo e expiração
+  são revalidados antes da ponte Android.
+- A ponte grava somente eventos novos em calendário visível e gravável, com
+  `America/Sao_Paulo`. Atualização e exclusão continuam indisponíveis.
+- Consultas de compromissos usam um intervalo civil decidido pelo planejador,
+  mas leem localmente somente as agendas Android escolhidas. Títulos e eventos
+  não são enviados à callable; ocorrências recorrentes são expandidas pela API
+  `CalendarContract.Instances`.
+- A troca texto → voz volta a existir como ação explícita e reinicia a escuta
+  após limpar a operação anterior, impedindo que uma resposta antiga reapareça.
+- Agenda pessoal e calendário financeiro permanecem separados: a ação não cria
+  contas, lançamentos, valores, categorias nem movimentações financeiras.
+- O menu abre `Assistência — Converse com a Luma` diretamente, eliminando a
+  navegação intermediária de um único item.
 
 ## 76. ASSIST-LUMA-RESILIENCE-INTRO-1 — identidade, voz e apresentação
 

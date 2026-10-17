@@ -2813,6 +2813,9 @@ class _DashboardMenuSheetState extends State<_DashboardMenuSheet> {
                               key: const ValueKey<String>('menu-groups'),
                               onSelected: (_DashboardMenuGroupData group) =>
                                   setState(() => _selectedGroup = group),
+                              onDestination:
+                                  (_DashboardMenuDestination value) =>
+                                      Navigator.of(context).pop(value),
                             )
                           : _DashboardMenuDestinationList(
                               key: ValueKey<String>(
@@ -2863,9 +2866,14 @@ class _DashboardMenuHeader extends StatelessWidget {
 }
 
 class _DashboardMenuGroupList extends StatelessWidget {
-  const _DashboardMenuGroupList({required this.onSelected, super.key});
+  const _DashboardMenuGroupList({
+    required this.onSelected,
+    required this.onDestination,
+    super.key,
+  });
 
   final ValueChanged<_DashboardMenuGroupData> onSelected;
+  final ValueChanged<_DashboardMenuDestination> onDestination;
 
   @override
   Widget build(BuildContext context) => SingleChildScrollView(
@@ -2877,14 +2885,25 @@ class _DashboardMenuGroupList extends StatelessWidget {
             in _dashboardMenuGroups) ...<Widget>[
           Semantics(
             button: true,
-            label: '${group.title}. Abrir ${group.items.length} opções.',
-            child: ListTile(
-              minTileHeight: AppSpacing.minimumTapTarget,
-              leading: Icon(group.icon),
-              title: Text(group.title),
-              subtitle: Text(group.summary),
-              trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: () => onSelected(group),
+            label: group.directDestination == null
+                ? '${group.title}. Abrir ${group.items.length} opções.'
+                : '${group.title}. ${group.summary}. Abrir agora.',
+            child: Card(
+              margin: EdgeInsets.zero,
+              child: ListTile(
+                minTileHeight: AppSpacing.minimumTapTarget,
+                leading: Icon(group.icon),
+                title: Text(group.title),
+                subtitle: Text(group.summary),
+                trailing: Icon(
+                  group.directDestination == null
+                      ? Icons.chevron_right_rounded
+                      : Icons.arrow_forward_rounded,
+                ),
+                onTap: () => group.directDestination == null
+                    ? onSelected(group)
+                    : onDestination(group.directDestination!),
+              ),
             ),
           ),
           if (group != _dashboardMenuGroups.last)
@@ -2924,12 +2943,14 @@ class _DashboardMenuGroupData {
     required this.summary,
     required this.icon,
     required this.items,
+    this.directDestination,
   });
 
   final String title;
   final String summary;
   final IconData icon;
   final List<_DashboardMenuItemData> items;
+  final _DashboardMenuDestination? directDestination;
 }
 
 const List<_DashboardMenuGroupData> _dashboardMenuGroups =
@@ -2980,8 +3001,9 @@ const List<_DashboardMenuGroupData> _dashboardMenuGroups =
       ),
       _DashboardMenuGroupData(
         title: 'Assistência',
-        summary: 'Ajuda e orientação',
+        summary: 'Converse com a Luma',
         icon: Icons.auto_awesome_outlined,
+        directDestination: _DashboardMenuDestination.assistant,
         items: <_DashboardMenuItemData>[
           _DashboardMenuItemData(
             destination: _DashboardMenuDestination.assistant,

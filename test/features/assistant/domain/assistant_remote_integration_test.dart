@@ -137,6 +137,66 @@ void main() {
     );
   });
 
+  test('proposta de agenda exige envelope exato e instantes UTC', () {
+    final AssistantRemoteResponse response =
+        AssistantRemoteResponse.fromCallableData(<String, Object?>{
+          'status': 'action_proposal',
+          'contractVersion': 'assist-remote-v1',
+          'action': 'create_calendar_event',
+          'proposalId': 'proposal-calendar-123',
+          'previewDigest': 'digest-calendar-123',
+          'title': 'Consulta no dentista',
+          'startsAt': '2026-10-16T18:00:00.000Z',
+          'endsAt': '2026-10-16T19:00:00.000Z',
+          'expiresAt': '2026-10-15T20:05:00.000Z',
+        });
+
+    expect(response.proposesCalendarEvent, isTrue);
+    expect(response.calendarEventProposal?.title, 'Consulta no dentista');
+    expect(
+      () => AssistantRemoteResponse.fromCallableData(<String, Object?>{
+        'status': 'action_proposal',
+        'contractVersion': 'assist-remote-v1',
+        'action': 'create_calendar_event',
+        'proposalId': 'proposal-calendar-123',
+        'previewDigest': 'digest-calendar-123',
+        'title': 'Consulta no dentista',
+        'startsAt': '2026-10-16T15:00:00',
+        'endsAt': '2026-10-16T16:00:00',
+        'expiresAt': '2026-10-15T20:05:00.000Z',
+      }),
+      throwsA(isA<AssistantFailure>()),
+    );
+  });
+
+  test('consulta de agenda aceita somente intervalo local estrito', () {
+    final AssistantRemoteResponse response =
+        AssistantRemoteResponse.fromCallableData(<String, Object?>{
+          'status': 'local_action',
+          'contractVersion': 'assist-remote-v1',
+          'action': 'read_calendar_events',
+          'queryId': 'calendar-query-12345',
+          'startsAt': '2026-10-16T03:00:00.000Z',
+          'endsAt': '2026-10-17T03:00:00.000Z',
+          'expiresAt': '2026-10-15T20:05:00.000Z',
+        });
+
+    expect(response.requestsCalendarQuery, isTrue);
+    expect(response.calendarQueryRequest?.startsAt.isUtc, isTrue);
+    expect(
+      () => AssistantRemoteResponse.fromCallableData(<String, Object?>{
+        'status': 'local_action',
+        'contractVersion': 'assist-remote-v1',
+        'action': 'read_calendar_events',
+        'queryId': 'calendar-query-12345',
+        'startsAt': '2026-10-16T00:00:00',
+        'endsAt': '2026-10-17T00:00:00',
+        'expiresAt': '2026-10-15T20:05:00.000Z',
+      }),
+      throwsA(isA<AssistantFailure>()),
+    );
+  });
+
   test('aceita somente áudio WAV limitado no envelope fundamentado', () {
     final Uint8List wav = Uint8List(524)
       ..setRange(0, 4, ascii.encode('RIFF'))

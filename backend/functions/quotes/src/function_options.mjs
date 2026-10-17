@@ -28,3 +28,17 @@ export const QUOTE_CATALOG_SYNC_OPTIONS = Object.freeze({
   minInstances: 0,
   concurrency: 1,
 });
+
+/// A callable é pública apenas no perímetro da plataforma; Auth, e-mail
+/// verificado e App Check são validados antes de qualquer consulta à BRAPI.
+export const ASSET_SEARCH_FUNCTION_OPTIONS = Object.freeze({
+  region: 'southamerica-east1',
+  serviceAccount: quotesRuntimeServiceAccount,
+  memory: '256MiB',
+  timeoutSeconds: 10,
+  maxInstances: 1,
+  minInstances: 0,
+  concurrency: 10,
+  enforceAppCheck: true,
+  secrets: [brapiApiToken],
+});

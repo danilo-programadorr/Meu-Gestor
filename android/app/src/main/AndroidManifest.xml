@@ -1,5 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.READ_CALENDAR" />
+    <!-- Escrita solicitada somente após a prévia e a confirmação do compromisso. -->
+    <uses-permission android:name="android.permission.WRITE_CALENDAR" />
     <!-- Solicitada somente após a explicação e o toque em “Ativar modo de voz”. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <application

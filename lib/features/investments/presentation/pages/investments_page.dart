@@ -1221,104 +1221,99 @@ class _PerformanceCards extends StatelessWidget {
           ],
         ),
         const SizedBox(height: AppSpacing.sm),
-        SizedBox(
+        _PerformanceCarousel(
           height: carouselHeight,
-          child: PageView(
-            key: const ValueKey<String>('investment-performance-carousel'),
-            scrollDirection: Axis.horizontal,
-            clipBehavior: Clip.hardEdge,
-            children: <Widget>[
-              _PortfolioMetricCard(
-                key: const ValueKey<String>('investment-wealth-card'),
-                icon: Icons.savings_outlined,
-                title: 'Patrimônio estimado',
-                primaryValue: _moneyOrUnavailable(
-                  complete ? performance.estimatedMarketValueCents : null,
-                  visible: valuesVisible,
-                ),
-                metrics: <_PortfolioMetric>[
-                  _PortfolioMetric(
-                    label: 'Valor investido',
-                    value: InvestmentViewSupport.money(
-                      performance.investedCostCents,
-                      visible: valuesVisible,
-                    ),
-                  ),
-                  _PortfolioMetric(
-                    label: 'Variação do dia',
-                    value: _dailyVariation(performance, valuesVisible),
-                    signedValue: performance.dailyVariationBasisPoints,
-                  ),
-                ],
+          children: <Widget>[
+            _PortfolioMetricCard(
+              key: const ValueKey<String>('investment-wealth-card'),
+              icon: Icons.savings_outlined,
+              title: 'Patrimônio estimado',
+              primaryValue: _moneyOrUnavailable(
+                complete ? performance.estimatedMarketValueCents : null,
+                visible: valuesVisible,
               ),
-              _PortfolioMetricCard(
-                key: const ValueKey<String>('investment-profit-card'),
-                icon: Icons.trending_up_rounded,
-                title: 'Lucro econômico total',
-                primaryValue: _moneyOrUnavailable(
-                  complete ? performance.totalEconomicResultCents : null,
-                  visible: valuesVisible,
+              metrics: <_PortfolioMetric>[
+                _PortfolioMetric(
+                  label: 'Valor investido',
+                  value: InvestmentViewSupport.money(
+                    performance.investedCostCents,
+                    visible: valuesVisible,
+                  ),
                 ),
-                signedPrimaryValue: complete
-                    ? performance.totalEconomicResultCents
-                    : null,
-                metrics: <_PortfolioMetric>[
-                  _PortfolioMetric(
-                    label: 'Não realizado',
-                    value: _moneyOrUnavailable(
-                      complete ? performance.unrealizedResultCents : null,
-                      visible: valuesVisible,
-                    ),
-                    signedValue: complete
-                        ? performance.unrealizedResultCents
-                        : null,
-                  ),
-                  _PortfolioMetric(
-                    label: 'Realizado',
-                    value: InvestmentViewSupport.money(
-                      performance.realizedResultCents,
-                      visible: valuesVisible,
-                    ),
-                    signedValue: performance.realizedResultCents,
-                  ),
-                  _PortfolioMetric(
-                    label: 'Proventos',
-                    value: InvestmentViewSupport.money(
-                      performance.receivedIncomeCents,
-                      visible: valuesVisible,
-                    ),
-                  ),
-                ],
-              ),
-              _PortfolioMetricCard(
-                key: const ValueKey<String>('investment-return-card'),
-                icon: Icons.query_stats_outlined,
-                title: 'Rentabilidade da posição',
-                primaryValue: _basisPointsOrUnavailable(
-                  complete ? performance.openPositionReturnBasisPoints : null,
-                  visible: valuesVisible,
+                _PortfolioMetric(
+                  label: 'Variação do dia',
+                  value: _dailyVariation(performance, valuesVisible),
+                  signedValue: performance.dailyVariationBasisPoints,
                 ),
-                signedPrimaryValue: complete
-                    ? performance.openPositionReturnBasisPoints
-                    : null,
-                metrics: <_PortfolioMetric>[
-                  _PortfolioMetric(
-                    label: 'Variação do dia',
-                    value: _basisPointsOrUnavailable(
-                      performance.dailyVariationBasisPoints,
-                      visible: valuesVisible,
-                    ),
-                    signedValue: performance.dailyVariationBasisPoints,
-                  ),
-                  _PortfolioMetric(
-                    label: 'Cobertura',
-                    value:
-                        '${performance.quotedAssetCount} de ${performance.totalAssetCount} posições',
-                  ),
-                ],
+              ],
+            ),
+            _PortfolioMetricCard(
+              key: const ValueKey<String>('investment-profit-card'),
+              icon: Icons.trending_up_rounded,
+              title: 'Lucro econômico total',
+              primaryValue: _moneyOrUnavailable(
+                complete ? performance.totalEconomicResultCents : null,
+                visible: valuesVisible,
               ),
-            ],
-          ),
+              signedPrimaryValue: complete
+                  ? performance.totalEconomicResultCents
+                  : null,
+              metrics: <_PortfolioMetric>[
+                _PortfolioMetric(
+                  label: 'Não realizado',
+                  value: _moneyOrUnavailable(
+                    complete ? performance.unrealizedResultCents : null,
+                    visible: valuesVisible,
+                  ),
+                  signedValue: complete
+                      ? performance.unrealizedResultCents
+                      : null,
+                ),
+                _PortfolioMetric(
+                  label: 'Realizado',
+                  value: InvestmentViewSupport.money(
+                    performance.realizedResultCents,
+                    visible: valuesVisible,
+                  ),
+                  signedValue: performance.realizedResultCents,
+                ),
+                _PortfolioMetric(
+                  label: 'Proventos',
+                  value: InvestmentViewSupport.money(
+                    performance.receivedIncomeCents,
+                    visible: valuesVisible,
+                  ),
+                ),
+              ],
+            ),
+            _PortfolioMetricCard(
+              key: const ValueKey<String>('investment-return-card'),
+              icon: Icons.query_stats_outlined,
+              title: 'Rentabilidade da posição',
+              primaryValue: _basisPointsOrUnavailable(
+                complete ? performance.openPositionReturnBasisPoints : null,
+                visible: valuesVisible,
+              ),
+              signedPrimaryValue: complete
+                  ? performance.openPositionReturnBasisPoints
+                  : null,
+              metrics: <_PortfolioMetric>[
+                _PortfolioMetric(
+                  label: 'Variação do dia',
+                  value: _basisPointsOrUnavailable(
+                    performance.dailyVariationBasisPoints,
+                    visible: valuesVisible,
+                  ),
+                  signedValue: performance.dailyVariationBasisPoints,
+                ),
+                _PortfolioMetric(
+                  label: 'Cobertura',
+                  value:
+                      '${performance.quotedAssetCount} de ${performance.totalAssetCount} posições',
+                ),
+              ],
+            ),
+          ],
         ),
         if (!complete) ...<Widget>[
           const SizedBox(height: AppSpacing.xs),
@@ -1353,6 +1348,108 @@ class _PerformanceCards extends StatelessWidget {
     }
     if (!visible) return InvestmentViewSupport.hiddenValue;
     return '${InvestmentViewSupport.money(performance.dailyVariationCents!, visible: true)} · ${_formatBasisPoints(performance.dailyVariationBasisPoints!, visible: true)}';
+  }
+}
+
+// Mantém a posição do carrossel explícita sem revelar parte dos cards vizinhos.
+class _PerformanceCarousel extends StatefulWidget {
+  const _PerformanceCarousel({required this.height, required this.children});
+
+  final double height;
+  final List<Widget> children;
+
+  @override
+  State<_PerformanceCarousel> createState() => _PerformanceCarouselState();
+}
+
+class _PerformanceCarouselState extends State<_PerformanceCarousel> {
+  final PageController _controller = PageController();
+  int _selectedIndex = 0;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme colors = Theme.of(context).colorScheme;
+    return Column(
+      children: <Widget>[
+        SizedBox(
+          height: widget.height,
+          child: PageView(
+            key: const ValueKey<String>('investment-performance-carousel'),
+            controller: _controller,
+            scrollDirection: Axis.horizontal,
+            clipBehavior: Clip.hardEdge,
+            onPageChanged: (int index) {
+              if (_selectedIndex == index) return;
+              setState(() => _selectedIndex = index);
+            },
+            children: widget.children,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Semantics(
+          container: true,
+          explicitChildNodes: true,
+          label:
+              'Card ${_selectedIndex + 1} de ${widget.children.length} da visão da carteira',
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List<Widget>.generate(widget.children.length, (
+              int index,
+            ) {
+              final bool selected = index == _selectedIndex;
+              return Semantics(
+                button: true,
+                selected: selected,
+                label: 'Mostrar card ${index + 1}',
+                child: InkWell(
+                  key: ValueKey<String>(
+                    'investment-performance-indicator-$index',
+                  ),
+                  borderRadius: BorderRadius.circular(999),
+                  onTap: () => _controller.animateToPage(
+                    index,
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOutCubic,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.xs,
+                      vertical: AppSpacing.xs,
+                    ),
+                    child: AnimatedScale(
+                      scale: selected ? 1.12 : 1,
+                      duration: const Duration(milliseconds: 180),
+                      curve: Curves.easeOutBack,
+                      child: AnimatedContainer(
+                        key: ValueKey<String>(
+                          'investment-performance-indicator-shape-$index',
+                        ),
+                        duration: const Duration(milliseconds: 180),
+                        curve: Curves.easeOut,
+                        width: selected ? 24 : 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: selected
+                              ? colors.primary
+                              : colors.outlineVariant,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ),
+        ),
+      ],
+    );
   }
 }
 

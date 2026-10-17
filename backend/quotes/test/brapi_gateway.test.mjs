@@ -28,6 +28,52 @@ describe('BRAPI delayed quote adapter', () => {
     assert.equal(quote.staleAfter, '2026-08-18T15:45:00.000Z');
   });
 
+  test('preserva o último fechamento depois do pregão até a próxima janela de atualização', () => {
+    const [quote] = mapBrapiPayload({
+      payload: payload({ regularMarketTime: '2026-08-18T20:55:00.000Z' }),
+      targets,
+      capturedAt: new Date('2026-08-18T21:30:00.000Z'),
+    });
+    assert.equal(quote.status, 'marketClosed');
+    assert.equal(quote.staleAfter, '2026-08-19T13:45:00.000Z');
+  });
+
+  test('mantém o fechamento de sexta-feira durante o fim de semana', () => {
+    const [quote] = mapBrapiPayload({
+      payload: payload({ regularMarketTime: '2026-08-21T20:55:00.000Z' }),
+      targets,
+      capturedAt: new Date('2026-08-21T21:30:00.000Z'),
+    });
+    assert.equal(quote.status, 'marketClosed');
+    assert.equal(quote.staleAfter, '2026-08-24T13:45:00.000Z');
+  });
+
+  test('vence o fechamento anterior após a primeira atualização do próprio dia', () => {
+    const [quote] = mapBrapiPayload({
+      payload: payload({ regularMarketTime: '2026-08-17T20:55:00.000Z' }),
+      targets,
+      capturedAt: new Date('2026-08-18T11:30:00.000Z'),
+    });
+    assert.equal(quote.status, 'marketClosed');
+    assert.equal(quote.staleAfter, '2026-08-18T13:45:00.000Z');
+  });
+
+  test('distingue fechamento anterior durante a sessão e recusa observação antiga demais', () => {
+    const [quote] = mapBrapiPayload({
+      payload: payload({ regularMarketTime: '2026-08-17T20:55:00.000Z' }),
+      targets,
+      capturedAt: new Date('2026-08-18T13:05:00.000Z'),
+    });
+    assert.equal(quote.status, 'marketClosed');
+    assert.equal(quote.staleAfter, '2026-08-18T13:50:00.000Z');
+
+    assert.throws(() => mapBrapiPayload({
+      payload: payload({ regularMarketTime: '2026-08-13T20:55:00.000Z' }),
+      targets,
+      capturedAt: new Date('2026-08-18T21:30:00.000Z'),
+    }), { message: 'quote_provider_stale_quote' });
+  });
+
   test('não exige estado de mercado ausente no schema oficial e recusa dados inválidos', () => {
     assert.throws(() => mapBrapiPayload({
       payload: payload({ regularMarketPrice: 0 }), targets, capturedAt,

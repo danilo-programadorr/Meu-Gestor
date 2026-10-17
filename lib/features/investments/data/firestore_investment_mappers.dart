@@ -183,6 +183,34 @@ abstract final class FirestoreTrackedInvestmentAssetMapper {
     };
   }
 
+  /// Estado final do ativo criado junto com sua primeira compra atômica.
+  static Map<String, Object?> creationWithInitialBuyMap({
+    required String ownerId,
+    required TrackedInvestmentAssetDraft draft,
+    required String operationId,
+    required InvestmentOperationDraft operation,
+  }) {
+    final TrackedInvestmentAssetDraft normalized = draft.normalized();
+    return <String, Object?>{
+      'ownerId': ownerId,
+      'portfolioId': normalized.portfolioId,
+      'ticker': normalized.ticker,
+      'name': normalized.name,
+      'assetType': normalized.type.name,
+      'currencyCode': TrackedInvestmentAsset.supportedCurrencyCode,
+      'currentQuantityScaled': operation.quantityScaled,
+      'lastOperationId': operationId,
+      'lastOperationAt': Timestamp.fromDate(operation.occurredAt),
+      'isArchived': false,
+      'archivedAt': null,
+      'hasHistory': true,
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+      'schemaVersion': TrackedInvestmentAsset.currentSchemaVersion,
+      'revision': 1,
+    };
+  }
+
   static Map<String, Object?> updateMap({
     required TrackedInvestmentAsset asset,
     required TrackedInvestmentAssetUpdate update,

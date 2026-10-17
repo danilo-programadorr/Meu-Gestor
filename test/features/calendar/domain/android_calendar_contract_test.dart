@@ -3,12 +3,13 @@ import 'package:meu_gestor_financeiro/features/calendar/domain/android_calendar_
 
 void main() {
   final DateTime now = DateTime.utc(2026, 8, 27, 12);
-  final AndroidCalendarEventPreview event = AndroidCalendarEventPreview(
-    eventId: 'event-1',
+  final AndroidCalendarEventDraft event = AndroidCalendarEventDraft(
     calendarId: 'calendar-allowed',
     title: 'Lembrete financeiro',
     startsAt: now,
     endsAt: now.add(const Duration(hours: 1)),
+    previewDigest: 'digest-calendar-123',
+    expiresAt: now.add(const Duration(minutes: 5)),
   );
 
   test(
@@ -51,6 +52,27 @@ void main() {
         event: event,
         confirmation: confirmation,
         now: now.add(const Duration(minutes: 6)),
+      ),
+      throwsA(isA<AndroidCalendarConfirmationRequiredException>()),
+    );
+  });
+
+  test('nega digest diferente mesmo em calendário autorizado', () {
+    final AndroidCalendarWriteConfirmation confirmation =
+        AndroidCalendarWriteConfirmation(
+          kind: AndroidCalendarExternalWriteKind.create,
+          calendarId: 'calendar-allowed',
+          eventDigest: 'digest-calendar-999',
+          confirmedAt: now,
+        );
+
+    expect(
+      () => AndroidCalendarWritePolicy.assertAllowed(
+        authorizedCalendarIds: <String>{'calendar-allowed'},
+        kind: AndroidCalendarExternalWriteKind.create,
+        event: event,
+        confirmation: confirmation,
+        now: now.add(const Duration(minutes: 1)),
       ),
       throwsA(isA<AndroidCalendarConfirmationRequiredException>()),
     );

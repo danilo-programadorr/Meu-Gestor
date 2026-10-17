@@ -369,6 +369,96 @@ test('intenção não resolvida pede esclarecimento sem ler contexto financeiro'
   });
 });
 
+test('compromisso vira proposta expirada sem escrever agenda ou ler finanças', async () => {
+  const { calls, invoke } = build({
+    killSwitchActive: false,
+    providerFeatureEnabled: true,
+    providerGateway: {
+      plan: async () => {
+        calls.provider += 1;
+        return {
+          plan: {
+            schemaVersion: 1,
+            status: 'calendar_event_proposal',
+            intent: 'calendar_event',
+            clarificationCode: 'none',
+            clarificationQuestion: '',
+            periodCode: 'none',
+            financialTool: 'none',
+            eventTitle: 'Consulta no dentista',
+            eventStart: new Date(Date.now() + 3_600_000).toISOString(),
+            eventEnd: new Date(Date.now() + 7_200_000).toISOString(),
+          },
+          durationMs: 1,
+          confirmedCostCents: 1,
+          providerDiagnostics: { finishReason: 'STOP' },
+        };
+      },
+      generate: async () => { throw new Error('generate_must_not_run'); },
+    },
+  });
+
+  const response = await invoke(request({
+    data: { contractVersion: 'assist-remote-v1', message: 'Marque dentista daqui a uma hora.' },
+  }));
+
+  assert.equal(response.status, 'action_proposal');
+  assert.equal(response.action, 'create_calendar_event');
+  assert.equal(response.title, 'Consulta no dentista');
+  assert.match(response.previewDigest, /^[a-f0-9]{64}$/u);
+  assert.equal(calls.context, 0);
+  assert.equal(calls.reserve, 1);
+  assert.equal(calls.confirm, 1);
+  assert.equal(calls.provider, 1);
+});
+
+test('consulta de compromissos devolve somente intervalo para leitura local', async () => {
+  const { calls, invoke } = build({
+    killSwitchActive: false,
+    providerFeatureEnabled: true,
+    providerGateway: {
+      plan: async () => {
+        calls.provider += 1;
+        return {
+          plan: {
+            schemaVersion: 1,
+            status: 'calendar_query',
+            intent: 'calendar_query',
+            clarificationCode: 'none',
+            clarificationQuestion: '',
+            periodCode: 'none',
+            financialTool: 'none',
+            eventTitle: '',
+            eventStart: '2026-10-16T00:00:00-03:00',
+            eventEnd: '2026-10-17T00:00:00-03:00',
+          },
+          durationMs: 1,
+          confirmedCostCents: 1,
+          providerDiagnostics: { finishReason: 'STOP' },
+        };
+      },
+      generate: async () => { throw new Error('generate_must_not_run'); },
+    },
+  });
+
+  const response = await invoke(request({
+    data: {
+      contractVersion: 'assist-remote-v1',
+      message: 'Lima, eu tenho algum compromisso marcado amanhã?',
+    },
+  }));
+
+  assert.equal(response.status, 'local_action');
+  assert.equal(response.action, 'read_calendar_events');
+  assert.match(response.queryId, /^[a-f0-9-]{36}$/u);
+  assert.equal(response.startsAt, '2026-10-16T03:00:00.000Z');
+  assert.equal(response.endsAt, '2026-10-17T03:00:00.000Z');
+  assert.equal(calls.context, 0);
+  assert.equal(calls.reserve, 1);
+  assert.equal(calls.confirm, 1);
+  assert.equal(calls.provider, 1);
+});
+
 test('modo voz sintetiza somente após admitir o esclarecimento e contabiliza a chamada', async () => {
   const events = [];
   const audio = {

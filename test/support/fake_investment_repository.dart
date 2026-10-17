@@ -259,6 +259,96 @@ final class FakeInvestmentRepository implements InvestmentRepository {
   }
 
   @override
+  Future<InvestmentOperation> createAssetWithInitialBuy({
+    required String ownerId,
+    required String operationId,
+    required TrackedInvestmentAssetDraft assetDraft,
+    required InvestmentOperationDraft operationDraft,
+  }) async {
+    createOperationIds.add(operationId);
+    _throwIfNeeded();
+    final TrackedInvestmentAssetDraft normalizedAsset = assetDraft.normalized();
+    final InvestmentOperationDraft normalizedOperation = operationDraft
+        .normalized(now: DateTime.utc(2026, 8, 10, 12));
+    final String assetId = TrackedInvestmentAsset.documentId(
+      portfolioId: normalizedAsset.portfolioId,
+      ticker: normalizedAsset.ticker,
+    );
+    if (normalizedOperation.kind != InvestmentOperationKind.buy ||
+        normalizedOperation.assetId != assetId ||
+        normalizedOperation.portfolioId != normalizedAsset.portfolioId ||
+        assets.any((TrackedInvestmentAsset value) => value.id == assetId)) {
+      throw const InvestmentFailure(
+        kind: InvestmentFailureKind.alreadyExists,
+        safeMessage: 'Este ticker já existe nessa carteira.',
+      );
+    }
+    final DateTime now = DateTime.utc(2026, 8, 10, 12);
+    final TrackedInvestmentAsset asset = TrackedInvestmentAsset(
+      id: assetId,
+      ownerId: ownerId,
+      portfolioId: normalizedAsset.portfolioId,
+      ticker: normalizedAsset.ticker,
+      name: normalizedAsset.name,
+      type: normalizedAsset.type,
+      currencyCode: 'BRL',
+      currentQuantityScaled: normalizedOperation.quantityScaled,
+      lastOperationId: operationId,
+      lastOperationAt: normalizedOperation.occurredAt,
+      isArchived: false,
+      archivedAt: null,
+      hasHistory: true,
+      createdAt: now,
+      updatedAt: now,
+      schemaVersion: TrackedInvestmentAsset.currentSchemaVersion,
+      revision: 1,
+    );
+    final InvestmentOperation operation = InvestmentOperation(
+      id: operationId,
+      ownerId: ownerId,
+      portfolioId: normalizedOperation.portfolioId,
+      assetId: assetId,
+      previousOperationId: null,
+      previousOperationAt: null,
+      kind: InvestmentOperationKind.buy,
+      occurredAt: normalizedOperation.occurredAt,
+      quantityScaled: normalizedOperation.quantityScaled,
+      unitPriceScaled: normalizedOperation.unitPriceScaled,
+      feesCents: normalizedOperation.feesCents,
+      notes: normalizedOperation.notes,
+      isVoided: false,
+      voidedAt: null,
+      mutationId: operationId,
+      createdAt: now,
+      updatedAt: now,
+      schemaVersion: InvestmentOperation.currentSchemaVersion,
+      revision: 1,
+    );
+    assets.add(asset);
+    operations.add(operation);
+    final int portfolioIndex = portfolios.indexWhere(
+      (InvestmentPortfolio value) => value.id == normalizedAsset.portfolioId,
+    );
+    final InvestmentPortfolio portfolio = portfolios[portfolioIndex];
+    if (!portfolio.hasHistory) {
+      portfolios[portfolioIndex] = InvestmentPortfolio(
+        id: portfolio.id,
+        ownerId: portfolio.ownerId,
+        name: portfolio.name,
+        description: portfolio.description,
+        isArchived: portfolio.isArchived,
+        archivedAt: portfolio.archivedAt,
+        hasHistory: true,
+        createdAt: portfolio.createdAt,
+        updatedAt: now,
+        schemaVersion: portfolio.schemaVersion,
+        revision: portfolio.revision + 1,
+      );
+    }
+    return operation;
+  }
+
+  @override
   Future<TrackedInvestmentAsset> updateAsset({
     required String ownerId,
     required String assetId,
