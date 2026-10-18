@@ -16,19 +16,13 @@ enum PrivacyDataTarget {
     'users/{uid}/investmentIncomeEvents',
     isFinancial: true,
   ),
+  assistantSettings('users/{uid}/assistantSettings/remote', isFinancial: false),
+  assistantUsageLedger(
+    'assistant-controls-dev/assistantRuntime/ledger:{ownerScope}',
+    isFinancial: false,
+  ),
   premiumEntitlement('users/{uid}/entitlements/premium', isFinancial: false),
   systemAdmin('system_admins/{uid}', isFinancial: false),
-  premiumBillingEvents('_premiumBillingEvents', isFinancial: false),
-  premiumPurchaseBindings('_premiumPurchaseBindings', isFinancial: false),
-  premiumRtdnInbox('_premiumRtdnInbox', isFinancial: false),
-  premiumAcknowledgementOutbox(
-    '_premiumAcknowledgementOutbox',
-    isFinancial: false,
-  ),
-  premiumAdministrativeGrants(
-    '_premiumAdministrativeGrants',
-    isFinancial: false,
-  ),
   premiumClosedTestTesters('_premiumClosedTestTesters', isFinancial: false),
   premiumClosedTestGrants('_premiumClosedTestGrants', isFinancial: false);
 
@@ -38,7 +32,7 @@ enum PrivacyDataTarget {
   final bool isFinancial;
 }
 
-/// Manifesto fechado usado pelo futuro backend para impedir que um reset ou
+/// Manifesto fechado compartilhado com o backend para impedir que um reset ou
 /// uma exclusão se amplie por inferência para caminhos desconhecidos.
 final class PrivacyDataManifest {
   const PrivacyDataManifest._();
@@ -58,16 +52,13 @@ final class PrivacyDataManifest {
 
   static const List<PrivacyDataTarget> accountDeletionTargets =
       <PrivacyDataTarget>[
-        PrivacyDataTarget.userProfile,
         ...financialResetTargets,
+        PrivacyDataTarget.assistantSettings,
+        PrivacyDataTarget.assistantUsageLedger,
         PrivacyDataTarget.premiumEntitlement,
         PrivacyDataTarget.systemAdmin,
-        PrivacyDataTarget.premiumBillingEvents,
-        PrivacyDataTarget.premiumPurchaseBindings,
-        PrivacyDataTarget.premiumRtdnInbox,
-        PrivacyDataTarget.premiumAcknowledgementOutbox,
-        PrivacyDataTarget.premiumAdministrativeGrants,
         PrivacyDataTarget.premiumClosedTestTesters,
         PrivacyDataTarget.premiumClosedTestGrants,
+        PrivacyDataTarget.userProfile,
       ];
 }

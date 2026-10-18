@@ -21,11 +21,14 @@ export function createFirestoreQuoteCatalogSync({ firestore, Timestamp, logger =
     if (before === null && after === null) return;
     if (before && after && before.ticker !== after.ticker) fail('quote_asset_ticker_changed');
     const eventTime = requireDate(event?.time, 'quote_invalid_catalog_event_time');
-    const next = after ?? Object.freeze({
-      ticker: before.ticker,
-      assetType: before.assetType,
+    const currentSnapshot = await firestore.doc(`users/${userId}/investmentAssets/${assetId}`).get();
+    const current = mapAssetSnapshot(currentSnapshot, userId);
+    const source = current ?? after ?? before;
+    const next = current ?? Object.freeze({
+      ticker: source.ticker,
+      assetType: source.assetType,
       active: false,
-      revision: before.revision,
+      revision: source.revision,
       sourceUpdatedAt: eventTime,
     });
     const demandId = createHash('sha256').update(`${userId}\u0000${assetId}`).digest('hex');
@@ -34,7 +37,7 @@ export function createFirestoreQuoteCatalogSync({ firestore, Timestamp, logger =
     const result = await firestore.runTransaction(async (transaction) => {
       const existingSnapshot = await transaction.get(demandRef);
       const existing = existingSnapshot.exists ? existingSnapshot.data() : null;
-      if (existing && compareVersion(next, existing) <= 0) return { kind: 'ignored' };
+      if (next.active && existing && compareVersion(next, existing) <= 0) return { kind: 'ignored' };
       const demandQuery = firestore.collection(QUOTE_DEMAND_COLLECTION)
           .where('ticker', '==', next.ticker).where('active', '==', true);
       const [otherDemands, currentCatalog] = await Promise.all([
@@ -48,15 +51,19 @@ export function createFirestoreQuoteCatalogSync({ firestore, Timestamp, logger =
       const types = new Set(activeTypes);
       const demandCount = activeTypes.length;
       const now = Timestamp.fromDate(eventTime);
-      transaction.set(demandRef, {
-        ticker: next.ticker,
-        assetType: next.assetType,
-        active: next.active,
-        sourceRevision: next.revision,
-        sourceUpdatedAt: Timestamp.fromDate(next.sourceUpdatedAt),
-        updatedAt: now,
-        schemaVersion: 1,
-      });
+      if (next.active) {
+        transaction.set(demandRef, {
+          ticker: next.ticker,
+          assetType: next.assetType,
+          active: true,
+          sourceRevision: next.revision,
+          sourceUpdatedAt: Timestamp.fromDate(next.sourceUpdatedAt),
+          updatedAt: now,
+          schemaVersion: 1,
+        });
+      } else {
+        transaction.delete(demandRef);
+      }
       const previous = currentCatalog.exists ? currentCatalog.data() : null;
       const assetType = types.size === 1 ? [...types][0] : next.assetType;
       transaction.set(catalogRef, {

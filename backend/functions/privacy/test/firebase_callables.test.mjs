@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { deny } from '../../../privacy/src/errors.mjs';
 import { createFirebasePrivacyCallables } from '../src/firebase_callables.mjs';
 
 class FakeHttpsError extends Error {
-  constructor(code, message) { super(message); this.code = code; }
+  constructor(code, message, details) { super(message); this.code = code; this.details = details; }
 }
 
 const now = new Date('2026-08-20T12:00:00.000Z');
@@ -34,6 +35,7 @@ function harness() {
     }),
     advance: async ({ operationId }) => ({ operationId, type: 'financialReset', state: 'confirmed', revision: 2, createdAt: now, updatedAt: now }),
     status: async ({ operationId }) => ({ operationId, type: 'financialReset', state: 'confirmed', revision: 2, createdAt: now, updatedAt: now }),
+    authorizeContinuation: async () => false,
   };
   const callables = createFirebasePrivacyCallables({
     onCall: (options, handler) => { calls.push({ options, handler }); return handler; },
@@ -81,4 +83,40 @@ test('confirm e status aceitam somente a operação do próprio solicitante', as
   assert.equal((await h.callables.confirmPrivacyOperation(request(data))).state, 'confirmed');
   assert.equal((await h.callables.getPrivacyOperationStatus(request(data))).operationId, data.operationId);
   await rejectsCode(() => h.callables.getPrivacyOperationStatus(request({ ...data, uid: 'other' })), 'invalid-argument');
+});
+
+test('serializa recibo concluído sem UID, cursor ou chave de idempotência', async () => {
+  const h = harness();
+  h.processor.status = async ({ operationId }) => ({
+    operationId,
+    type: 'accountDeletion',
+    state: 'completed',
+    receipt: {
+      receiptId: 'privacy-receipt-synthetic-0001',
+      type: 'accountDeletion',
+      result: 'accountDeleted',
+      completedAt: now,
+      expiresAt: new Date('2026-09-19T12:00:00.000Z'),
+    },
+  });
+  const result = await h.callables.getPrivacyOperationStatus(request({
+    operationId: 'privacy-operation-synthetic-0001',
+  }));
+  assert.deepEqual(Object.keys(result).sort(), ['operationId', 'receipt', 'state', 'type']);
+  assert.equal(result.receipt.completedAt, now.toISOString());
+  assert.equal(JSON.stringify(result).includes('synthetic-user'), false);
+});
+
+test('preserva código sanitizado do domínio sem expor erro bruto', async () => {
+  const h = harness();
+  h.processor.advance = async () => { throw deny('privacy_operation_conflict'); };
+  await assert.rejects(
+    () => h.callables.confirmPrivacyOperation(request({
+      operationId: 'privacy-operation-synthetic-0001',
+    })),
+    (error) => error instanceof FakeHttpsError &&
+      error.code === 'failed-precondition' &&
+      error.details?.privacyCode === 'privacy_operation_conflict' &&
+      !error.message.includes('privacy_operation_conflict'),
+  );
 });

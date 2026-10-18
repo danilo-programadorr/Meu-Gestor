@@ -11,7 +11,30 @@ const Timestamp = { fromDate: (value) => ({ toDate: () => new Date(value) }) };
 
 /// Firestore sintético limitado às transações e consultas usadas pelo sync.
 class FakeFirestore {
-  constructor() { this.collections = new Map(); }
+  constructor() { this.collections = new Map(); this.documents = new Map(); }
+
+  doc(path) {
+    return {
+      get: async () => this.documents.get(path) ?? { exists: false },
+    };
+  }
+
+  applyEvent(value) {
+    const path = `users/${value.params.userId}/investmentAssets/${value.params.assetId}`;
+    if (!value.data.after.exists) {
+      this.documents.delete(path);
+      return;
+    }
+    const current = this.documents.get(path);
+    const currentData = current?.data?.();
+    const nextData = value.data.after.data();
+    const currentTime = currentData?.updatedAt?.toDate?.().getTime() ?? -1;
+    const nextTime = nextData.updatedAt.toDate().getTime();
+    if (nextTime > currentTime ||
+        (nextTime === currentTime && nextData.revision >= (currentData?.revision ?? -1))) {
+      this.documents.set(path, value.data.after);
+    }
+  }
 
   collection(name) {
     const store = this.collections.get(name) ?? new Map();
@@ -45,6 +68,7 @@ class FakeFirestore {
         return { exists: data !== undefined, id: reference.id, data: () => data };
       },
       set: (reference, data) => reference.store.set(reference.id, data),
+      delete: (reference) => reference.store.delete(reference.id),
     });
   }
 
@@ -70,16 +94,21 @@ function event({ userId, assetId, before = { exists: false }, after = { exists: 
   return { params: { userId, assetId }, data: { before, after }, time };
 }
 
+async function dispatch(sync, firestore, value) {
+  firestore.applyEvent(value);
+  return sync(value);
+}
+
 describe('Firestore quote catalog sync', () => {
   test('deduplica o mesmo ticker sem persistir proprietário ou carteira', async () => {
     const firestore = new FakeFirestore();
     const sync = createFirestoreQuoteCatalogSync({ firestore, Timestamp, logger: { info() {} } });
-    await sync(event({
+    await dispatch(sync, firestore, event({
       userId: 'owner-a', assetId: 'wallet-a__PETR4',
       after: snapshot({ ownerId: 'owner-a', at: '2026-10-13T12:00:00Z' }),
       time: '2026-10-13T12:00:01Z',
     }));
-    await sync(event({
+    await dispatch(sync, firestore, event({
       userId: 'owner-b', assetId: 'wallet-b__PETR4',
       after: snapshot({ ownerId: 'owner-b', at: '2026-10-13T12:01:00Z' }),
       time: '2026-10-13T12:01:01Z',
@@ -97,11 +126,11 @@ describe('Firestore quote catalog sync', () => {
     const firestore = new FakeFirestore();
     const sync = createFirestoreQuoteCatalogSync({ firestore, Timestamp, logger: { info() {} } });
     const active = snapshot({ ownerId: 'owner-a', at: '2026-10-13T12:00:00Z' });
-    await sync(event({
+    await dispatch(sync, firestore, event({
       userId: 'owner-a', assetId: 'wallet__PETR4', after: active,
       time: '2026-10-13T12:00:01Z',
     }));
-    await sync(event({
+    await dispatch(sync, firestore, event({
       userId: 'owner-a', assetId: 'wallet__PETR4', before: active,
       after: snapshot({
         ownerId: 'owner-a', revision: 2, archived: true, at: '2026-10-13T12:05:00Z',
@@ -111,23 +140,24 @@ describe('Firestore quote catalog sync', () => {
     const catalog = firestore.data(QUOTE_CATALOG_COLLECTION, 'PETR4');
     assert.equal(catalog.enabled, false);
     assert.equal(catalog.demandCount, 0);
+    assert.equal(firestore.collections.get(QUOTE_DEMAND_COLLECTION).size, 0);
   });
 
   test('ignora evento antigo e desabilita conflito de classe sem escolher silenciosamente', async () => {
     const firestore = new FakeFirestore();
     const sync = createFirestoreQuoteCatalogSync({ firestore, Timestamp, logger: { info() {} } });
-    await sync(event({
+    await dispatch(sync, firestore, event({
       userId: 'owner-a', assetId: 'first__PETR4',
       after: snapshot({ ownerId: 'owner-a', revision: 2, at: '2026-10-13T12:05:00Z' }),
       time: '2026-10-13T12:05:01Z',
     }));
-    await sync(event({
+    await dispatch(sync, firestore, event({
       userId: 'owner-a', assetId: 'first__PETR4',
       after: snapshot({ ownerId: 'owner-a', revision: 1, at: '2026-10-13T12:00:00Z' }),
       time: '2026-10-13T12:00:01Z',
     }));
     assert.equal(firestore.data(QUOTE_CATALOG_COLLECTION, 'PETR4').demandCount, 1);
-    await sync(event({
+    await dispatch(sync, firestore, event({
       userId: 'owner-b', assetId: 'second__PETR4',
       after: snapshot({
         ownerId: 'owner-b', assetType: 'fii', at: '2026-10-13T12:10:00Z',

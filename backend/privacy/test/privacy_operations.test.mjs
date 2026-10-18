@@ -75,7 +75,10 @@ test('financial reset deletes exactly the closed nine-target manifest and preser
   const completed = await complete(processor, started.operationId);
   assert.equal(completed.receipt.result, 'resetCompleted');
   for (const target of DEFAULT_PRIVACY_MANIFEST.financialReset) assert.equal((await storage.listOwned(target, owner)).length, 0);
-  for (const target of ['userProfile', 'premiumEntitlement', 'systemAdmin', 'premiumClosedTestGrants']) {
+  for (const target of [
+    'assistantSettings', 'assistantUsageLedger', 'userProfile',
+    'premiumEntitlement', 'systemAdmin', 'premiumClosedTestGrants',
+  ]) {
     assert.equal((await storage.listOwned(target, owner)).length, 1);
   }
   assert.equal((await storage.listOwned('accounts', anotherOwner)).length, 1);

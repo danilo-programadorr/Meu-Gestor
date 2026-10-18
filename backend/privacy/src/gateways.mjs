@@ -1,3 +1,5 @@
+import { createHash, randomUUID } from 'node:crypto';
+
 import { deny } from './errors.mjs';
 
 export class ServerClock {
@@ -43,7 +45,7 @@ export class DeterministicAuthDeletionGateway extends FirebaseAuthDeletionGatewa
 }
 
 export class ReceiptIdGenerator {
-  next() { throw new Error('ReceiptIdGenerator.next must be implemented'); }
+  next() { return `privacy-receipt-${randomUUID()}`; }
 }
 
 export class DeterministicReceiptIdGenerator extends ReceiptIdGenerator {
@@ -52,6 +54,22 @@ export class DeterministicReceiptIdGenerator extends ReceiptIdGenerator {
 }
 
 export class OperationIdGenerator {
+  next() { return `privacy-operation-${randomUUID()}`; }
+}
+
+export class DeterministicOperationIdGenerator extends OperationIdGenerator {
   #sequence = 0;
   next() { this.#sequence += 1; return `privacy-operation-${String(this.#sequence).padStart(16, '0')}`; }
+}
+
+export class FingerprintOperationIdGenerator extends OperationIdGenerator {
+  next(requestFingerprint) {
+    if (typeof requestFingerprint !== 'string' || !/^[a-f0-9]{64}$/.test(requestFingerprint)) {
+      throw deny('privacy_invalid_request');
+    }
+    const digest = createHash('sha256')
+      .update(`privacy-operation-v1:${requestFingerprint}`, 'utf8')
+      .digest('hex');
+    return `privacy-operation-${digest}`;
+  }
 }

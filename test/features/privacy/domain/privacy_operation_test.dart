@@ -61,6 +61,8 @@ void main() {
         PrivacyDataManifest.accountDeletionTargets,
         containsAll(<PrivacyDataTarget>[
           PrivacyDataTarget.userProfile,
+          PrivacyDataTarget.assistantSettings,
+          PrivacyDataTarget.assistantUsageLedger,
           PrivacyDataTarget.systemAdmin,
           PrivacyDataTarget.premiumEntitlement,
           PrivacyDataTarget.premiumClosedTestTesters,

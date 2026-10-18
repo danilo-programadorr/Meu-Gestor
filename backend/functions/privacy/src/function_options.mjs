@@ -17,3 +17,14 @@ export const PRIVACY_FUNCTION_OPTIONS = Object.freeze({
   concurrency: 1,
   enforceAppCheck: true,
 });
+
+export const PRIVACY_WORKER_OPTIONS = Object.freeze({
+  region: 'southamerica-east1',
+  ...(runtimeServiceAccount ? { serviceAccount: runtimeServiceAccount } : {}),
+  memory: '256MiB',
+  timeoutSeconds: 60,
+  maxInstances: 1,
+  minInstances: 0,
+  concurrency: 1,
+  retry: true,
+});

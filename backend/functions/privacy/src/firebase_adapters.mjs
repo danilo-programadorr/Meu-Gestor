@@ -28,7 +28,13 @@ export class FirebaseSessionRevocationAdapter extends SessionRevocationGateway {
 
 export class FirebaseAuthDeletionAdapter extends FirebaseAuthDeletionGateway {
   constructor(auth) { super(); this.auth = auth; }
-  async deleteUser(uid) { await this.auth.deleteUser(uid); }
+  async deleteUser(uid) {
+    try {
+      await this.auth.deleteUser(uid);
+    } catch (error) {
+      if (error?.code !== 'auth/user-not-found') throw error;
+    }
+  }
 }
 
 export class FirebaseServerClock extends ServerClock {
