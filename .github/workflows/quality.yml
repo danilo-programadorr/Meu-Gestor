@@ -16,8 +16,79 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  validate:
-    name: Formatação, análise e testes
+  flutter:
+    name: Flutter
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Obter código
+        uses: actions/checkout@v6.0.2
+
+      - name: Instalar Flutter
+        uses: subosito/flutter-action@v2.23.0
+        with:
+          flutter-version: 3.41.1
+          channel: stable
+          cache: true
+
+      - name: Resolver dependências
+        run: flutter pub get
+
+      - name: Verificar formatação
+        run: dart format --output=none --set-exit-if-changed .
+
+      - name: Executar análise estática
+        run: flutter analyze
+
+      - name: Executar testes
+        run: flutter test
+
+  node-contracts:
+    name: Contratos e Functions Node
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Obter código
+        uses: actions/checkout@v6.0.2
+
+      - name: Configurar Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            backend/functions/assistant/package-lock.json
+            backend/functions/news/package-lock.json
+            backend/functions/privacy/package-lock.json
+            backend/functions/quotes/package-lock.json
+
+      - name: Verificar versão do Node
+        run: node -e "if (Number(process.versions.node.split('.')[0]) !== 22) process.exit(1)"
+
+      - name: Instalar dependências reproduzíveis das Functions
+        run: |
+          for package in assistant news privacy quotes; do
+            npm --prefix "backend/functions/$package" ci --ignore-scripts
+          done
+
+      - name: Verificar e testar contratos locais
+        run: |
+          for package in assistant news privacy quotes; do
+            npm --prefix "backend/$package" run check
+            npm --prefix "backend/$package" test
+          done
+
+      - name: Verificar e testar Functions
+        run: |
+          for package in assistant news privacy quotes; do
+            npm --prefix "backend/functions/$package" run check
+            npm --prefix "backend/functions/$package" test
+          done
+
+  premium:
+    name: Assinaturas e Functions Premium
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -31,16 +102,6 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: backend/functions/premium/package-lock.json
-
-      - name: Instalar Flutter
-        uses: subosito/flutter-action@v2.23.0
-        with:
-          flutter-version: 3.41.1
-          channel: stable
-          cache: true
-
-      - name: Resolver dependências
-        run: flutter pub get
 
       - name: Verificar versão do Node
         run: node -e "if (Number(process.versions.node.split('.')[0]) !== 22) process.exit(1)"
@@ -65,11 +126,48 @@ jobs:
           npm run audit:production-artifact
           npm run test:production-artifact
 
-      - name: Verificar formatação
-        run: dart format --output=none --set-exit-if-changed .
+  emulators:
+    name: Rules e integrações no Emulator
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
 
-      - name: Executar análise estática
-        run: flutter analyze
+    steps:
+      - name: Obter código
+        uses: actions/checkout@v6.0.2
 
-      - name: Executar testes
-        run: flutter test
+      - name: Configurar Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            backend/functions/assistant/package-lock.json
+            backend/functions/quotes/package-lock.json
+
+      - name: Configurar Java 21 para o Firestore Emulator
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Instalar dependências reproduzíveis dos testes
+        run: |
+          npm ci --ignore-scripts
+          npm --prefix backend/functions/assistant ci --ignore-scripts
+          npm --prefix backend/functions/quotes ci --ignore-scripts
+
+      - name: Testar Rules e runtime de cotações no banco padrão
+        run: >-
+          npx --yes firebase-tools@15.28.2 emulators:exec
+          --project demo-meu-gestor-financeiro --only firestore
+          "node --test test/firestore_rules/firestore.rules.test.mjs &&
+          npm --prefix backend/functions/quotes run test:emulator"
+
+      - name: Testar controles e ledger no banco nomeado
+        run: >-
+          npx --yes firebase-tools@15.28.2
+          --config firebase.assistant-controls.json emulators:exec
+          --project demo-assistant-controls --only firestore
+          "node --test test/firestore_rules/assistant_controls.rules.test.mjs &&
+          npm --prefix backend/functions/assistant run test:emulator"

@@ -13,7 +13,7 @@ import {
 
 const app = initializeApp({
   apiKey: 'synthetic-test-key',
-  projectId: 'demo-meu-gestor-financeiro',
+  projectId: 'demo-assistant-controls',
 }, 'assistant-controls-deny-all-test');
 const database = getFirestore(app, 'assistant-controls-dev');
 connectFirestoreEmulator(database, '127.0.0.1', 8080);

@@ -2110,11 +2110,9 @@ service cloud.firestore {
           && isValidAccountCreate(userId);
         allow update: if hasFinancialMutationAccess(userId)
           && isValidAccountUpdate(userId);
-        allow delete: if hasFinancialMutationAccess(userId)
-          && isValidInvestmentAsset(resource.data, userId, assetId)
-          && resource.data.schemaVersion == 2
-          && resource.data.hasHistory == false
-          && resource.data.isArchived == true;
+        // Contas financeiras preservam histórico e só podem ser removidas pelo
+        // fluxo server-side de privacidade; o cliente nunca exclui diretamente.
+        allow delete: if false;
 
         match /{document=**} {
           allow read, write: if false;

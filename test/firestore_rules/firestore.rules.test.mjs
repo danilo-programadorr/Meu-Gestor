@@ -908,6 +908,130 @@ describe('compatibilidade e regressões das regras existentes', () => {
   });
 });
 
+// P-01: separa a negação permanente de contas da exclusão restrita de ativos.
+describe('P-01 exclusão de contas e ativos preserva recurso e identificador', () => {
+  test('nega exclusão direta de conta própria com e sem lock', async () => {
+    const db = verifiedDb();
+    await assertFails(deleteDoc(doc(db, `users/${ownerId}/accounts/account-1`)));
+
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), `users/${ownerId}/privacyLocks/current`), {
+        scope: 'accountDeletion',
+        ownerId,
+        createdAt: past,
+        schemaVersion: 1,
+      });
+    });
+
+    await assertFails(deleteDoc(doc(db, `users/${ownerId}/accounts/account-2`)));
+  });
+
+  test('nega exclusão sem ownership e acesso cruzado entre usuários', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await setDoc(
+        doc(db, `users/${ownerId}/accounts/account-owner-mismatch`),
+        account(otherId),
+      );
+      await setDoc(
+        doc(db, `users/${otherId}/accounts/account-other`),
+        account(otherId),
+      );
+    });
+
+    await assertFails(deleteDoc(doc(
+      verifiedDb(),
+      `users/${ownerId}/accounts/account-owner-mismatch`,
+    )));
+    await assertFails(deleteDoc(doc(
+      verifiedDb(),
+      `users/${otherId}/accounts/account-other`,
+    )));
+  });
+
+  test('não aceita ativo disfarçado de conta para contornar o validador', async () => {
+    const forgedId = 'portfolio-1__PETR4';
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(
+        doc(context.firestore(), `users/${ownerId}/accounts/${forgedId}`),
+        investmentAssetV2(ownerId, {
+          isArchived: true,
+          archivedAt: past,
+        }),
+      );
+    });
+
+    await assertFails(deleteDoc(doc(
+      verifiedDb(),
+      `users/${ownerId}/accounts/${forgedId}`,
+    )));
+  });
+
+  test('preserva exclusão válida de ativo vazio e arquivado', async () => {
+    const db = verifiedDb();
+    await assertSucceeds(setDoc(
+      investmentPortfolioRef(db),
+      investmentPortfolio(ownerId, {
+        hasHistory: false,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        schemaVersion: 2,
+      }),
+    ));
+    const creation = writeBatch(db);
+    creation.update(investmentPortfolioRef(db), {
+      hasHistory: true,
+      updatedAt: serverTimestamp(),
+      revision: 2,
+    });
+    creation.set(
+      investmentAssetRef(db),
+      investmentAssetV2(ownerId, {
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      }),
+    );
+    await assertSucceeds(creation.commit());
+    await assertSucceeds(updateDoc(investmentAssetRef(db), {
+      isArchived: true,
+      archivedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      revision: 2,
+    }));
+
+    await assertSucceeds(deleteDoc(investmentAssetRef(db)));
+  });
+
+  test('nega ativo com owner, caminho ou identificador inconsistentes', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await setDoc(
+        investmentAssetRef(db, 'portfolio-1__PETR4'),
+        investmentAssetV2(otherId, { isArchived: true, archivedAt: past }),
+      );
+      await setDoc(
+        investmentAssetRef(db, 'asset-id-inconsistente'),
+        investmentAssetV2(ownerId, { isArchived: true, archivedAt: past }),
+      );
+      await setDoc(
+        investmentAssetRef(db, 'portfolio-1__PETR4', otherId),
+        investmentAssetV2(otherId, { isArchived: true, archivedAt: past }),
+      );
+    });
+
+    await assertFails(deleteDoc(investmentAssetRef(verifiedDb())));
+    await assertFails(deleteDoc(investmentAssetRef(
+      verifiedDb(),
+      'asset-id-inconsistente',
+    )));
+    await assertFails(deleteDoc(investmentAssetRef(
+      verifiedDb(),
+      'portfolio-1__PETR4',
+      otherId,
+    )));
+  });
+});
+
 describe('regressão de estabilidade temporal', () => {
   test('updatedAt permanece obrigatório sem depender de affectedKeys', () => {
     const functions = [

@@ -11,6 +11,7 @@
     "prepare:shared": "node scripts/prepare-assistant-shared.mjs",
     "check": "node --check index.mjs && node --check src/function_options.mjs && node scripts/prepare-assistant-shared.mjs && node scripts/check.mjs",
     "test": "npm run prepare:shared && node --test test/*.test.mjs",
+    "test:emulator": "npm run prepare:shared && node --test test/*.emulator.test.mjs",
     "audit:production-artifact": "npm audit --omit=dev --omit=optional --audit-level=moderate"
   },
   "dependencies": {

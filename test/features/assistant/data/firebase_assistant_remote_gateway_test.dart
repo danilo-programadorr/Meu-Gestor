@@ -22,17 +22,24 @@ void main() {
       'lib/features/assistant/presentation/controllers/'
       'assistant_remote_conversation_controller.dart',
     ).readAsStringSync();
+    final String lfSource = controllerSource
+        .replaceAll('\r\n', '\n')
+        .replaceAll('\r', '\n');
+    final List<String> eolVariants = <String>[
+      lfSource,
+      lfSource.replaceAll('\n', '\r\n'),
+    ];
+    final RegExp regionalInstance = RegExp(
+      r'FirebaseFunctions\.instanceFor\(\s*'
+      r'region:\s*FirebaseAssistantRemoteGateway\.callableRegion,\s*\)',
+    );
 
     expect(FirebaseAssistantRemoteGateway.callableRegion, 'southamerica-east1');
-    expect(
-      controllerSource,
-      contains(
-        'FirebaseFunctions.instanceFor(\n'
-        '          region: FirebaseAssistantRemoteGateway.callableRegion,',
-      ),
-    );
-    expect(controllerSource, isNot(contains('FirebaseFunctions.instance)')));
-    expect(controllerSource, isNot(contains("region: 'us-central1'")));
+    for (final String source in eolVariants) {
+      expect(source, matches(regionalInstance));
+      expect(source, isNot(contains('FirebaseFunctions.instance)')));
+      expect(source, isNot(contains("region: 'us-central1'")));
+    }
   });
 
   test('flag desligada impede qualquer chamada de rede', () async {
