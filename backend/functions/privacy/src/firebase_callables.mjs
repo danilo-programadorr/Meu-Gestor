@@ -1,3 +1,5 @@
+import { PrivacyBackendFailure } from '../../../privacy/src/errors.mjs';
+
 const PROFILE_FIELDS = Object.freeze([
   'ownerId', 'displayName', 'locale', 'currencyCode', 'timeZone',
   'emailVerifiedSnapshot', 'termsVersionAccepted', 'termsAcceptedAt',
@@ -26,6 +28,7 @@ export function createFirebasePrivacyCallables({
     typeof onCall !== 'function' || typeof HttpsError !== 'function' ||
     !processor || typeof processor.request !== 'function' ||
     typeof processor.advance !== 'function' || typeof processor.status !== 'function' ||
+    typeof processor.authorizeContinuation !== 'function' ||
     typeof profileReader !== 'function' || !clock || typeof clock.now !== 'function' || !options
   ) {
     throw new TypeError('Invalid Firebase Privacy callable dependencies.');
@@ -33,50 +36,79 @@ export function createFirebasePrivacyCallables({
 
   return Object.freeze({
     preparePrivacyOperation: onCall(options, async (request) => {
-      const actor = await requireCaller({ request, HttpsError, profileReader, clock, requiresRecentAuthentication: true });
-      requireExactData(request.data, PREPARE_FIELDS, HttpsError);
-      const operation = await processor.request({
-        actor,
-        type: request.data.type,
-        confirmationPhrase: request.data.confirmationPhrase,
-        idempotencyKey: request.data.idempotencyKey,
+      return handleFailure(HttpsError, async () => {
+        const actor = await requireCaller({ request, HttpsError, profileReader, clock, requiresRecentAuthentication: true });
+        requireExactData(request.data, PREPARE_FIELDS, HttpsError);
+        const operation = await processor.request({
+          actor,
+          type: request.data.type,
+          confirmationPhrase: request.data.confirmationPhrase,
+          idempotencyKey: request.data.idempotencyKey,
+        });
+        log(logger, operation, 'prepared');
+        return sanitizeOperation(operation);
       });
-      log(logger, operation, 'prepared');
-      return sanitizeOperation(operation);
     }),
     confirmPrivacyOperation: onCall(options, async (request) => {
-      const actor = await requireCaller({ request, HttpsError, profileReader, clock, requiresRecentAuthentication: true });
-      requireExactData(request.data, OPERATION_FIELDS, HttpsError);
-      const operation = await processor.advance({ actor, operationId: request.data.operationId });
-      log(logger, operation, 'advanced');
-      return sanitizeOperation(operation);
+      return handleFailure(HttpsError, async () => {
+        requireExactData(request.data, OPERATION_FIELDS, HttpsError);
+        const actor = await requireCaller({
+          request, HttpsError, profileReader, clock, requiresRecentAuthentication: true,
+          continuation: () => processor.authorizeContinuation({
+            ownerId: request.auth.uid,
+            operationId: request.data.operationId,
+          }),
+        });
+        const operation = await processor.advance({ actor, operationId: request.data.operationId });
+        log(logger, operation, 'advanced');
+        return sanitizeOperation(operation);
+      });
     }),
     getPrivacyOperationStatus: onCall(options, async (request) => {
-      const actor = await requireCaller({ request, HttpsError, profileReader, clock, requiresRecentAuthentication: false });
-      requireExactData(request.data, OPERATION_FIELDS, HttpsError);
-      return sanitizeOperation(await processor.status({ actor, operationId: request.data.operationId }));
+      return handleFailure(HttpsError, async () => {
+        requireExactData(request.data, OPERATION_FIELDS, HttpsError);
+        const actor = await requireCaller({
+          request, HttpsError, profileReader, clock, requiresRecentAuthentication: false,
+          continuation: () => processor.authorizeContinuation({
+            ownerId: request.auth.uid,
+            operationId: request.data.operationId,
+          }),
+        });
+        return sanitizeOperation(await processor.status({ actor, operationId: request.data.operationId }));
+      });
     }),
   });
 }
 
-async function requireCaller({ request, HttpsError, profileReader, clock, requiresRecentAuthentication }) {
+async function requireCaller({ request, HttpsError, profileReader, clock, requiresRecentAuthentication, continuation }) {
   const uid = request?.auth?.uid;
   if (typeof uid !== 'string' || uid.trim() !== uid || uid.length === 0) {
-    throw new HttpsError('unauthenticated', 'Autenticação obrigatória.');
+    throw new HttpsError('unauthenticated', 'Autenticação obrigatória.', {
+      privacyCode: 'privacy_unauthenticated',
+    });
   }
   if (request.auth.token?.email_verified !== true) {
-    throw new HttpsError('permission-denied', 'E-mail verificado obrigatório.');
+    throw new HttpsError('permission-denied', 'E-mail verificado obrigatório.', {
+      privacyCode: 'privacy_email_not_verified',
+    });
   }
   if (request.app === null || request.app === undefined) {
-    throw new HttpsError('failed-precondition', 'App Check obrigatório.');
+    throw new HttpsError('failed-precondition', 'App Check obrigatório.', {
+      privacyCode: 'privacy_app_check_required',
+    });
   }
   const profile = await profileReader(uid);
-  if (!isCurrentLegalProfile(profile, uid)) {
-    throw new HttpsError('permission-denied', 'Perfil válido obrigatório.');
+  const legalProfileVerified = isCurrentLegalProfile(profile, uid);
+  if (!legalProfileVerified && !(typeof continuation === 'function' && await continuation())) {
+    throw new HttpsError('permission-denied', 'Perfil válido obrigatório.', {
+      privacyCode: 'privacy_legal_profile_required',
+    });
   }
   const now = clock.now();
   if (!(now instanceof Date) || Number.isNaN(now.valueOf())) {
-    throw new HttpsError('internal', 'Relógio do servidor indisponível.');
+    throw new HttpsError('internal', 'Relógio do servidor indisponível.', {
+      privacyCode: 'privacy_unavailable',
+    });
   }
   const authTimeSeconds = request.auth.token?.auth_time;
   const authenticatedAt = typeof authTimeSeconds === 'number'
@@ -87,7 +119,9 @@ async function requireCaller({ request, HttpsError, profileReader, clock, requir
     (!(authenticatedAt instanceof Date) || Number.isNaN(authenticatedAt.valueOf()) ||
       authenticatedAt > now || now.getTime() - authenticatedAt.getTime() > MAX_AUTH_AGE_MS)
   ) {
-    throw new HttpsError('failed-precondition', 'Confirmação recente de identidade obrigatória.');
+    throw new HttpsError('failed-precondition', 'Confirmação recente de identidade obrigatória.', {
+      privacyCode: 'privacy_recent_authentication_required',
+    });
   }
   return Object.freeze({
     uid,
@@ -125,6 +159,22 @@ function sanitizeOperation(operation) {
   if (!operation || typeof operation !== 'object' || typeof operation.operationId !== 'string') {
     throw new Error('Invalid privacy operation result.');
   }
+  if (operation.state === 'completed') {
+    const receipt = operation.receipt;
+    if (!receipt || typeof receipt.receiptId !== 'string') throw new Error('Invalid privacy receipt result.');
+    return Object.freeze({
+      operationId: operation.operationId,
+      type: operation.type,
+      state: 'completed',
+      receipt: Object.freeze({
+        receiptId: receipt.receiptId,
+        type: receipt.type,
+        result: receipt.result,
+        completedAt: serializeServerDate(receipt.completedAt),
+        expiresAt: serializeServerDate(receipt.expiresAt),
+      }),
+    });
+  }
   const result = {
     operationId: operation.operationId,
     type: operation.type,
@@ -135,6 +185,31 @@ function sanitizeOperation(operation) {
   };
   if (operation.receipt) result.receipt = structuredClone(operation.receipt);
   return Object.freeze(result);
+}
+
+async function handleFailure(HttpsError, operation) {
+  try {
+    return await operation();
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    if (!(error instanceof PrivacyBackendFailure)) {
+      throw new HttpsError('internal', 'Operação de privacidade indisponível.');
+    }
+    const code = switchCode(error.code);
+    throw new HttpsError(code, 'Operação de privacidade não concluída.', {
+      privacyCode: error.code,
+    });
+  }
+}
+
+function switchCode(code) {
+  if (['privacy_invalid_request', 'privacy_invalid_confirmation', 'privacy_cursor_invalid',
+    'privacy_invalid_transition'].includes(code)) return 'invalid-argument';
+  if (code === 'privacy_operation_not_found') return 'not-found';
+  if (code === 'privacy_authorization_denied') return 'permission-denied';
+  if (['privacy_operation_conflict', 'privacy_operation_in_progress'].includes(code)) return 'failed-precondition';
+  if (code === 'privacy_storage_confirmation_timeout') return 'deadline-exceeded';
+  return 'unavailable';
 }
 
 function serializeServerDate(value) {

@@ -143,6 +143,7 @@ jobs:
           cache-dependency-path: |
             package-lock.json
             backend/functions/assistant/package-lock.json
+            backend/functions/privacy/package-lock.json
             backend/functions/quotes/package-lock.json
 
       - name: Configurar Java 21 para o Firestore Emulator
@@ -155,6 +156,7 @@ jobs:
         run: |
           npm ci --ignore-scripts
           npm --prefix backend/functions/assistant ci --ignore-scripts
+          npm --prefix backend/functions/privacy ci --ignore-scripts
           npm --prefix backend/functions/quotes ci --ignore-scripts
 
       - name: Testar Rules e runtime de cotações no banco padrão
@@ -162,6 +164,7 @@ jobs:
           npx --yes firebase-tools@15.28.2 emulators:exec
           --project demo-meu-gestor-financeiro --only firestore
           "node --test test/firestore_rules/firestore.rules.test.mjs &&
+          npm --prefix backend/functions/privacy run test:emulator &&
           npm --prefix backend/functions/quotes run test:emulator"
 
       - name: Testar controles e ledger no banco nomeado

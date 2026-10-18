@@ -247,6 +247,12 @@ suite('Quote runtime with Firestore Emulator', () => {
         updatedAt: Timestamp.fromDate(new Date('2026-10-08T17:00:00.000Z')),
       }),
     };
+    // O trigger real observa o documento já confirmado no Firestore; a
+    // leitura autoritativa evita que um evento atrasado recrie uma demanda.
+    const assetRef = firestore.doc(
+      'users/synthetic-owner/investmentAssets/portfolio__ITUB4',
+    );
+    await assetRef.set(active.data());
     await sync({
       params: { userId: 'synthetic-owner', assetId: 'portfolio__ITUB4' },
       data: { before: empty, after: active },
@@ -268,6 +274,7 @@ suite('Quote runtime with Firestore Emulator', () => {
         updatedAt: Timestamp.fromDate(new Date('2026-10-08T17:05:00.000Z')),
       }),
     };
+    await assetRef.set(archived.data());
     await sync({
       params: { userId: 'synthetic-owner', assetId: 'portfolio__ITUB4' },
       data: { before: active, after: archived },

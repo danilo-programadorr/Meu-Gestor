@@ -44,9 +44,11 @@ abstract interface class PrivacyOperationBackend {
 /// confirmado. Ela não contém métodos para apagar dados, escrever grants ou
 /// consultar operações de terceiros.
 abstract interface class PrivacyOperationRepository {
-  Future<PrivacyOperation> request(PrivacyOperationStartCommand command);
+  Future<PrivacyOperationSnapshot> request(
+    PrivacyOperationStartCommand command,
+  );
 
-  Future<PrivacyOperation> retry(PrivacyOperationId operationId);
+  Future<PrivacyOperationSnapshot> retry(PrivacyOperationId operationId);
 
-  Future<PrivacyOperation> status(PrivacyOperationId operationId);
+  Future<PrivacyOperationSnapshot> status(PrivacyOperationId operationId);
 }

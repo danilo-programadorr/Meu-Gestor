@@ -169,6 +169,27 @@ final class AnonymousPrivacyReceipt {
     );
   }
 
+  factory AnonymousPrivacyReceipt.fromServer({
+    required String receiptId,
+    required PrivacyOperationType type,
+    required PrivacyOperationResult result,
+    required DateTime completedAt,
+    required DateTime expiresAt,
+  }) {
+    final AnonymousPrivacyReceipt receipt = AnonymousPrivacyReceipt.create(
+      receiptId: receiptId,
+      type: type,
+      result: result,
+      completedAt: completedAt,
+    );
+    if (receipt.expiresAt != expiresAt) {
+      throw const PrivacyOperationFailure(
+        PrivacyOperationFailureKind.inconsistentState,
+      );
+    }
+    return receipt;
+  }
+
   static const Duration plannedRetention = Duration(days: 30);
 
   final String receiptId;
@@ -176,4 +197,33 @@ final class AnonymousPrivacyReceipt {
   final PrivacyOperationResult result;
   final DateTime completedAt;
   final DateTime expiresAt;
+}
+
+/// Envelope recebido da borda. Uma conclusão carrega somente o recibo
+/// anônimo; progresso owner-scoped continua no objeto de operação.
+final class PrivacyOperationSnapshot {
+  const PrivacyOperationSnapshot.active(PrivacyOperation value)
+    : operation = value,
+      completedOperationId = null,
+      completedType = null,
+      receipt = null;
+
+  const PrivacyOperationSnapshot.completed({
+    required PrivacyOperationId operationId,
+    required PrivacyOperationType type,
+    required this.receipt,
+  }) : operation = null,
+       completedOperationId = operationId,
+       completedType = type;
+
+  final PrivacyOperation? operation;
+  final PrivacyOperationId? completedOperationId;
+  final PrivacyOperationType? completedType;
+  final AnonymousPrivacyReceipt? receipt;
+
+  bool get isCompleted => receipt != null;
+  PrivacyOperationId get id => operation?.id ?? completedOperationId!;
+  PrivacyOperationType get type => operation?.type ?? completedType!;
+  PrivacyOperationState get state =>
+      isCompleted ? PrivacyOperationState.completed : operation!.state;
 }

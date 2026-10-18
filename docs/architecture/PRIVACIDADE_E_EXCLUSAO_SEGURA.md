@@ -2,9 +2,9 @@
 
 ## Estado atual
 
-DATA-1A/PRIV-1A e DATA-1B/PRIV-1B existem como contratos Dart e backend ESM local com fakes determinísticos. PRIV-1E-A acrescenta somente o codebase Gen 2 local `backend/functions/privacy`, suas três callables e adaptadores Admin injetáveis. Não houve deploy, acesso Firebase, deleção real, sessão real ou publicação de Rules.
+DATA-1A/PRIV-1A e DATA-1B/PRIV-1B existem como contratos Dart e backend ESM. PRIV-1E-B conecta localmente as três callables a armazenamento Firestore paginado, worker interno, banco nomeado do Assistente e limpeza local posterior ao recibo. Não houve deploy, acesso Firebase real, deleção real, sessão real ou publicação de Rules.
 
-PRIV-1C/PRIV-1D adiciona a tela e a reautenticação local por provedores já suportados. PRIV-1E-A introduz o cliente oficial de Callables e App Check: a reautenticação renova o ID token antes da chamada e a interface consulta o estado devolvido pelo servidor. Como as Functions continuam apenas locais e a persistência Admin paginada não foi ativada, nenhuma confirmação, exclusão, sucesso visual ou limpeza local ocorre antes de um backend publicado e auditado. Rules de locks permanecem somente locais e testadas no Emulator.
+PRIV-1C/PRIV-1D adiciona a tela e a reautenticação local por provedores já suportados. PRIV-1E-A introduz o cliente oficial de Callables e App Check: a reautenticação renova o ID token antes da chamada e a interface consulta o estado devolvido pelo servidor. PRIV-1E-B conclui a composição Admin paginada e o worker, mas tudo permanece somente local; nenhuma confirmação, exclusão, limpeza real ou publicação ocorre antes de autorização específica e auditoria do ambiente. Rules de locks permanecem somente locais e testadas no Emulator.
 
 ## Fronteira futura
 

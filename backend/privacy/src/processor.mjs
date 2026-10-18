@@ -29,188 +29,204 @@ export class PrivacyOperationProcessor {
     const ownerId = actor.uid;
     const requestFingerprint = fingerprint(ownerId, type, idempotencyKey);
     const now = this.#now();
-    return this.#recoverAfterCommit(async () => this.storage.transaction((draft) => {
-      const completedReceiptId = draft.completedRequests.get(requestFingerprint);
-      if (completedReceiptId) return presentReceipt(draft.receipts.get(completedReceiptId));
-      const existingId = draft.requestIndex.get(requestFingerprint);
-      if (existingId) return presentOperation(draft.operations.get(existingId));
-      if (draft.activeByOwner.has(ownerId)) throw deny('privacy_operation_conflict');
-      const operation = {
-        id: this.operationIdGenerator.next(), ownerId, type, state: 'prepared', revision: 1,
-        createdAt: now, updatedAt: now, cursor: null, resumeState: null, authStage: null,
-      };
-      draft.operations.set(operation.id, operation);
-      draft.activeByOwner.set(ownerId, operation.id);
-      draft.requestIndex.set(requestFingerprint, operation.id);
-      return presentOperation(operation);
-    }), ownerId, requestFingerprint);
+    const operationId = this.operationIdGenerator.next(requestFingerprint);
+    return this.#recoverAfterCommit(() => this.storage.prepare({
+      ownerId, type, requestFingerprint, operationId, now,
+    }), ownerId, requestFingerprint, operationId);
   }
 
   async advance({ actor, operationId }) {
     const operation = await this.#ownedOperation(actor, operationId);
-    if (operation.state === 'failed') return this.retry({ actor, operationId });
-    if (operation.state === 'prepared') return this.#confirm(actor.uid, operationId);
-    if (operation.state === 'confirmed') return this.#lock(actor.uid, operationId);
-    if (operation.state === 'locked') return this.#beginDeleting(actor.uid, operationId);
-    if (operation.state === 'deleting') return this.#deleteBatch(actor.uid, operationId);
-    if (operation.state === 'authDeletionPending') return this.#processAuthenticationDeletion(actor, operationId);
+    return this.#advanceOwned(operation);
+  }
+
+  /// Entrada exclusiva para um worker interno acionado por documento Admin.
+  /// O ownerId vem do caminho confiável do evento, nunca do payload cliente.
+  async process({ ownerId, operationId }) {
+    if (typeof ownerId !== 'string' || !ownerId || typeof operationId !== 'string' || !operationId) {
+      throw deny('privacy_invalid_request');
+    }
+    const operation = await this.storage.readOwned({ ownerId, operationId });
+    if (operation.state === 'prepared') return presentOperation(operation);
+    return this.#advanceOwned(operation);
+  }
+
+  async authorizeContinuation({ ownerId, operationId }) {
+    const recovered = await this.storage.recover({ ownerId, operationId });
+    return recovered?.type === 'accountDeletion' &&
+      ['confirmed', 'locked', 'deleting', 'authDeletionPending', 'failed', 'completed'].includes(recovered.state);
+  }
+
+  async #advanceOwned(operation) {
+    const operationId = operation.id;
+    const ownerId = operation.ownerId;
+    if (operation.state === 'failed') return this.#retryOwned(ownerId, operationId);
+    if (operation.state === 'prepared') return this.#confirm(ownerId, operationId);
+    if (operation.state === 'confirmed') return this.#lock(ownerId, operationId);
+    if (operation.state === 'locked') return this.#beginDeleting(ownerId, operationId);
+    if (operation.state === 'deleting') return this.#deleteBatch(ownerId, operationId);
+    if (operation.state === 'authDeletionPending') return this.#processAuthenticationDeletion(ownerId, operationId);
     throw deny('privacy_invalid_transition');
   }
 
   async retry({ actor, operationId }) {
     const operation = await this.#ownedOperation(actor, operationId);
     if (operation.state !== 'failed') return presentOperation(operation);
-    return this.#recoverAfterCommit(() => this.storage.transaction((draft) => {
-      const current = this.#requireOwnedDraft(draft, actor.uid, operationId);
+    return this.#retryOwned(actor.uid, operationId);
+  }
+
+  async #retryOwned(ownerId, operationId) {
+    return this.#recoverAfterCommit(() => this.storage.updateOwned({
+      ownerId,
+      operationId,
+      update: (current) => {
       current.state = current.resumeState;
       current.resumeState = null;
       current.updatedAt = this.#now();
       current.revision += 1;
-      return presentOperation(current);
-    }), actor.uid);
+      },
+    }), ownerId, undefined, operationId);
   }
 
   /// Retorna somente o estado público da operação do próprio solicitante.
   /// O cursor completo, UID, chave de idempotência e etapas internas nunca
   /// atravessam a fronteira callable.
   async status({ actor, operationId }) {
-    return presentOperation(await this.#ownedOperation(actor, operationId));
+    this.#assertActor(actor, actor?.uid);
+    const recovered = await this.storage.recover({ ownerId: actor.uid, operationId });
+    if (!recovered) throw deny('privacy_operation_not_found');
+    return recovered;
   }
 
   async #lock(ownerId, operationId) {
-    return this.#recoverAfterCommit(() => this.storage.transaction((draft) => {
-      const operation = this.#requireOwnedDraft(draft, ownerId, operationId);
-      if (operation.state !== 'confirmed') return presentOperation(operation);
-      draft.locks.set(ownerId, { scope: operation.type === 'accountDeletion' ? 'all' : 'financial' });
-      operation.state = 'locked'; operation.updatedAt = this.#now(); operation.revision += 1;
-      return presentOperation(operation);
-    }), ownerId);
+    const current = await this.storage.readOwned({ ownerId, operationId });
+    return this.#recoverAfterCommit(() => this.storage.updateOwned({
+      ownerId,
+      operationId,
+      lockScope: current.type === 'accountDeletion' ? 'all' : 'financial',
+      update: (operation) => {
+        if (operation.state !== 'confirmed') return;
+        operation.state = 'locked'; operation.updatedAt = this.#now(); operation.revision += 1;
+      },
+    }), ownerId, undefined, operationId);
   }
 
   async #confirm(ownerId, operationId) {
-    return this.#recoverAfterCommit(() => this.storage.transaction((draft) => {
-      const operation = this.#requireOwnedDraft(draft, ownerId, operationId);
-      if (operation.state !== 'prepared') return presentOperation(operation);
-      operation.state = 'confirmed'; operation.updatedAt = this.#now(); operation.revision += 1;
-      return presentOperation(operation);
-    }), ownerId);
+    return this.#recoverAfterCommit(() => this.storage.updateOwned({
+      ownerId,
+      operationId,
+      update: (operation) => {
+        if (operation.state !== 'prepared') return;
+        operation.state = 'confirmed'; operation.updatedAt = this.#now(); operation.revision += 1;
+      },
+    }), ownerId, undefined, operationId);
   }
 
   async #beginDeleting(ownerId, operationId) {
-    return this.#recoverAfterCommit(() => this.storage.transaction((draft) => {
-      const operation = this.#requireOwnedDraft(draft, ownerId, operationId);
-      if (operation.state !== 'locked') return presentOperation(operation);
-      operation.state = 'deleting';
-      operation.cursor = { targetIndex: 0, afterDocumentId: null };
-      operation.updatedAt = this.#now(); operation.revision += 1;
-      return presentOperation(operation);
-    }), ownerId);
+    return this.#recoverAfterCommit(() => this.storage.updateOwned({
+      ownerId,
+      operationId,
+      update: (operation) => {
+        if (operation.state !== 'locked') return;
+        operation.state = 'deleting';
+        operation.cursor = { targetIndex: 0, afterDocumentId: null };
+        operation.updatedAt = this.#now(); operation.revision += 1;
+      },
+    }), ownerId, undefined, operationId);
   }
 
   async #deleteBatch(ownerId, operationId) {
-    return this.#recoverAfterCommit(() => this.storage.transaction((draft) => {
-      const operation = this.#requireOwnedDraft(draft, ownerId, operationId);
-      if (operation.state !== 'deleting') return presentOperation(operation);
-      const targets = this.manifest[operation.type];
-      const cursor = operation.cursor;
-      if (!cursor || !Number.isInteger(cursor.targetIndex) || cursor.targetIndex < 0 || cursor.targetIndex > targets.length) throw deny('privacy_cursor_invalid');
-      if (cursor.targetIndex === targets.length) return this.#afterDataDeletion(draft, operation);
-      const target = targets[cursor.targetIndex];
-      const documents = [...draft.documents.get(target).values()]
-        .filter((document) => document.ownerId === ownerId && (cursor.afterDocumentId === null || document.documentId > cursor.afterDocumentId))
-        .sort((left, right) => left.documentId.localeCompare(right.documentId));
-      const batch = documents.slice(0, this.batchSize);
-      for (const document of batch) draft.documents.get(target).delete(`${ownerId}:${document.documentId}`);
-      const hasMore = documents.length > batch.length;
-      operation.cursor = hasMore
-        ? { targetIndex: cursor.targetIndex, afterDocumentId: batch.at(-1).documentId }
-        : { targetIndex: cursor.targetIndex + 1, afterDocumentId: null };
-      operation.updatedAt = this.#now(); operation.revision += 1;
-      return presentOperation(operation);
-    }), ownerId);
+    const operation = await this.storage.readOwned({ ownerId, operationId });
+    if (operation.state !== 'deleting') return presentOperation(operation);
+    const targets = this.manifest[operation.type];
+    const cursor = operation.cursor;
+    if (!cursor || !Number.isInteger(cursor.targetIndex) || cursor.targetIndex < 0 || cursor.targetIndex > targets.length) throw deny('privacy_cursor_invalid');
+    if (cursor.targetIndex === targets.length) return this.#afterDataDeletion(operation);
+    return this.#recoverAfterCommit(() => this.storage.deleteOwnedBatch({
+      ownerId,
+      operationId,
+      target: targets[cursor.targetIndex],
+      targetIndex: cursor.targetIndex,
+      batchSize: this.batchSize,
+      now: this.#now(),
+    }), ownerId, undefined, operationId);
   }
 
-  #afterDataDeletion(draft, operation) {
-    if (operation.type === 'financialReset') return this.#completeDraft(draft, operation);
-    operation.state = 'authDeletionPending'; operation.authStage = 'revokeSessions';
-    operation.updatedAt = this.#now(); operation.revision += 1;
-    return presentOperation(operation);
+  async #afterDataDeletion(operation) {
+    if (operation.type === 'financialReset') return this.#complete(operation.ownerId, operation.id, operation.type);
+    return this.storage.updateOwned({
+      ownerId: operation.ownerId,
+      operationId: operation.id,
+      update: (current) => {
+        current.state = 'authDeletionPending'; current.authStage = 'revokeSessions';
+        current.updatedAt = this.#now(); current.revision += 1;
+      },
+    });
   }
 
-  async #processAuthenticationDeletion(actor, operationId) {
-    const ownerId = actor.uid;
-    const operation = await this.#ownedOperation(actor, operationId);
+  async #processAuthenticationDeletion(ownerId, operationId) {
+    const operation = await this.storage.readOwned({ ownerId, operationId });
     if (operation.authStage === 'revokeSessions') {
       await this.#claimExternal(ownerId, operationId, 'revokeSessions');
       try { await this.sessionGateway.revokeRefreshTokens(ownerId); }
       catch (error) { return this.#failExternal(ownerId, operationId, 'revokeSessions', error); }
-      return this.#recoverAfterCommit(() => this.storage.transaction((draft) => {
-        const current = this.#requireOwnedDraft(draft, ownerId, operationId);
+      return this.#recoverAfterCommit(() => this.storage.updateOwned({
+        ownerId,
+        operationId,
+        update: (current) => {
         current.authStage = 'deleteAuth'; current.externalLease = null; current.updatedAt = this.#now(); current.revision += 1;
-        return presentOperation(current);
-      }), ownerId);
+        },
+      }), ownerId, undefined, operationId);
     }
     if (operation.authStage === 'deleteAuth') {
       await this.#claimExternal(ownerId, operationId, 'deleteAuth');
       try { await this.authGateway.deleteUser(ownerId); }
       catch (error) { return this.#failExternal(ownerId, operationId, 'deleteAuth', error); }
-      return this.#recoverAfterCommit(() => this.storage.transaction((draft) => this.#completeDraft(draft, this.#requireOwnedDraft(draft, ownerId, operationId))), ownerId, undefined, operationId);
+      return this.#recoverAfterCommit(() => this.#complete(ownerId, operationId, operation.type), ownerId, undefined, operationId);
     }
     throw deny('privacy_inconsistent_state');
   }
 
   async #claimExternal(ownerId, operationId, stage) {
-    return this.#recoverAfterCommit(() => this.storage.transaction((draft) => {
-      const operation = this.#requireOwnedDraft(draft, ownerId, operationId);
+    return this.#recoverAfterCommit(() => this.storage.updateOwned({
+      ownerId,
+      operationId,
+      update: (operation) => {
       const now = this.#now();
       const currentLease = operation.externalLease;
       const leaseIsActive = currentLease && currentLease.stage === stage &&
         now.getTime() - new Date(currentLease.claimedAt).getTime() <= EXTERNAL_LEASE_MS;
       if (operation.state !== 'authDeletionPending' || operation.authStage !== stage || (currentLease && leaseIsActive)) throw deny('privacy_operation_in_progress');
       operation.externalLease = { stage, claimedAt: now }; operation.updatedAt = now; operation.revision += 1;
-      return presentOperation(operation);
-    }), ownerId);
+      },
+    }), ownerId, undefined, operationId);
   }
 
   async #failExternal(ownerId, operationId, stage, error) {
     if (!(error instanceof PrivacyBackendFailure)) throw error;
-    return this.#recoverAfterCommit(() => this.storage.transaction((draft) => {
-      const operation = this.#requireOwnedDraft(draft, ownerId, operationId);
+    return this.#recoverAfterCommit(() => this.storage.updateOwned({
+      ownerId,
+      operationId,
+      update: (operation) => {
       operation.state = 'failed'; operation.resumeState = 'authDeletionPending'; operation.authStage = stage;
       operation.externalLease = null; operation.updatedAt = this.#now(); operation.revision += 1;
-      return presentOperation(operation);
-    }), ownerId);
+      },
+    }), ownerId, undefined, operationId);
   }
 
-  #completeDraft(draft, operation) {
+  async #complete(ownerId, operationId, type) {
     const completedAt = this.#now();
     const receipt = {
-      receiptId: this.receiptIdGenerator.next(), type: operation.type,
-      result: operation.type === 'financialReset' ? 'resetCompleted' : 'accountDeleted',
+      receiptId: this.receiptIdGenerator.next(), type,
+      result: type === 'financialReset' ? 'resetCompleted' : 'accountDeleted',
       completedAt, expiresAt: new Date(completedAt.getTime() + 30 * 24 * 60 * 60 * 1000),
     };
-    const requestFingerprint = [...draft.requestIndex.entries()].find(([, id]) => id === operation.id)?.[0];
-    if (!requestFingerprint) throw deny('privacy_inconsistent_state');
-    draft.receipts.set(receipt.receiptId, receipt);
-    draft.completedRequests.set(requestFingerprint, receipt.receiptId);
-    draft.requestIndex.delete(requestFingerprint); draft.activeByOwner.delete(operation.ownerId); draft.locks.delete(operation.ownerId);
-    draft.operations.set(operation.id, { id: operation.id, type: operation.type, state: 'completed', receiptId: receipt.receiptId, completedAt });
-    draft.audits.push({ type: operation.type, state: 'completed', completedAt, result: receipt.result });
-    return presentReceipt(receipt);
+    return this.storage.complete({ ownerId, operationId, receipt });
   }
 
   async #ownedOperation(actor, operationId) {
     this.#assertActor(actor, actor?.uid);
-    const state = await this.storage.snapshot();
-    const operation = state.operations.get(operationId);
-    if (!operation || operation.ownerId !== actor.uid) throw deny('privacy_operation_not_found');
-    return operation;
-  }
-
-  #requireOwnedDraft(draft, ownerId, operationId) {
-    const operation = draft.operations.get(operationId);
-    if (!operation || operation.ownerId !== ownerId || draft.activeByOwner.get(ownerId) !== operationId) throw deny('privacy_operation_not_found');
-    return operation;
+    return this.storage.readOwned({ ownerId: actor.uid, operationId });
   }
 
   #assertActor(actor, requestedOwnerId) {
@@ -228,12 +244,8 @@ export class PrivacyOperationProcessor {
     try { return await operation(); }
     catch (error) {
       if (!(error instanceof PrivacyBackendFailure) || error.code !== 'privacy_storage_confirmation_timeout') throw error;
-      const state = await this.storage.snapshot();
-      if (requestFingerprint && state.completedRequests.has(requestFingerprint)) return presentReceipt(state.receipts.get(state.completedRequests.get(requestFingerprint)));
-      const activeId = state.activeByOwner.get(ownerId);
-      if (activeId) return presentOperation(state.operations.get(activeId));
-      const completed = operationId ? state.operations.get(operationId) : null;
-      if (completed?.state === 'completed') return presentReceipt(state.receipts.get(completed.receiptId));
+      const recovered = await this.storage.recover({ ownerId, requestFingerprint, operationId });
+      if (recovered) return recovered;
       throw error;
     }
   }
@@ -250,4 +262,3 @@ const presentOperation = (operation) => ({
   updatedAt: operation.updatedAt ? new Date(operation.updatedAt) : null,
   cursor: operation.cursor ? { targetIndex: operation.cursor.targetIndex } : null,
 });
-const presentReceipt = (receipt) => ({ state: 'completed', receipt: { receiptId: receipt.receiptId, type: receipt.type, result: receipt.result, completedAt: new Date(receipt.completedAt), expiresAt: new Date(receipt.expiresAt) } });

@@ -8,6 +8,7 @@ import 'package:meu_gestor_financeiro/features/privacy/data/firebase_privacy_ope
 import 'package:meu_gestor_financeiro/features/privacy/domain/privacy_operation.dart';
 import 'package:meu_gestor_financeiro/features/privacy/domain/privacy_operation_contract.dart';
 import 'package:meu_gestor_financeiro/features/privacy/domain/privacy_operation_failure.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 enum PrivacyUiStatus {
   idle,
@@ -40,7 +41,7 @@ final Provider<PrivacyOperationRepository> privacyOperationRepositoryProvider =
 final Provider<PrivacyLocalCleanupCoordinator>
 privacyLocalCleanupCoordinatorProvider =
     Provider<PrivacyLocalCleanupCoordinator>(
-      (Ref ref) => const _UnavailablePrivacyLocalCleanupCoordinator(),
+      (Ref ref) => const SharedPreferencesPrivacyLocalCleanupCoordinator(),
     );
 
 final NotifierProvider<PrivacyOperationController, PrivacyUiState>
@@ -50,7 +51,10 @@ privacyOperationControllerProvider =
     );
 
 abstract interface class PrivacyLocalCleanupCoordinator {
-  Future<void> cleanAfterServerConfirmation(PrivacyOperationType type);
+  Future<void> cleanAfterServerConfirmation({
+    required PrivacyOperationType type,
+    required String ownerId,
+  });
 }
 
 final class PrivacyOperationController extends Notifier<PrivacyUiState> {
@@ -112,28 +116,47 @@ final class PrivacyOperationController extends Notifier<PrivacyUiState> {
         );
         return;
       }
-      final PrivacyOperation operation = await ref
-          .read(privacyOperationRepositoryProvider)
-          .request(
-            PrivacyOperationStartCommand(
-              type: type,
-              confirmationPhrase: phrase,
-              idempotencyKey: PrivacyIdempotencyKey(
-                'privacy-client-request-${DateTime.now().microsecondsSinceEpoch}',
-              ),
-            ),
-          );
+      final String ownerId = token.user!.id;
+      final PrivacyOperationRepository repository = ref.read(
+        privacyOperationRepositoryProvider,
+      );
+      PrivacyOperationSnapshot snapshot = await repository.request(
+        PrivacyOperationStartCommand(
+          type: type,
+          confirmationPhrase: phrase,
+          idempotencyKey: PrivacyIdempotencyKey(
+            'privacy-client-request-${DateTime.now().microsecondsSinceEpoch}',
+          ),
+        ),
+      );
       if (epoch != _requestEpoch) {
         return;
       }
-      await ref.read(privacyOperationRepositoryProvider).status(operation.id);
-      if (epoch != _requestEpoch) {
-        return;
+      snapshot = await repository.retry(snapshot.id);
+      for (int attempt = 0; attempt < 60 && !snapshot.isCompleted; attempt++) {
+        if (epoch != _requestEpoch) return;
+        if (snapshot.state == PrivacyOperationState.retryableFailure) {
+          snapshot = await repository.retry(snapshot.id);
+        } else {
+          await Future<void>.delayed(const Duration(milliseconds: 500));
+          snapshot = await repository.status(snapshot.id);
+        }
       }
+      if (!snapshot.isCompleted) {
+        throw const PrivacyOperationFailure(
+          PrivacyOperationFailureKind.timeout,
+        );
+      }
+      await ref
+          .read(privacyLocalCleanupCoordinatorProvider)
+          .cleanAfterServerConfirmation(type: type, ownerId: ownerId);
+      if (epoch != _requestEpoch) return;
       state = PrivacyUiState._(
-        status: PrivacyUiStatus.processing,
+        status: PrivacyUiStatus.completed,
         type: type,
-        message: 'Aguardando confirmação segura do servidor.',
+        message: type == PrivacyOperationType.financialReset
+            ? 'Seus dados financeiros foram removidos.'
+            : 'Sua conta e os dados vinculados foram removidos.',
       );
     } on AuthFailure catch (failure) {
       if (epoch == _requestEpoch) {
@@ -163,12 +186,36 @@ final class PrivacyOperationController extends Notifier<PrivacyUiState> {
   }
 }
 
-final class _UnavailablePrivacyLocalCleanupCoordinator
+final class SharedPreferencesPrivacyLocalCleanupCoordinator
     implements PrivacyLocalCleanupCoordinator {
-  const _UnavailablePrivacyLocalCleanupCoordinator();
+  const SharedPreferencesPrivacyLocalCleanupCoordinator();
+
   @override
-  Future<void> cleanAfterServerConfirmation(PrivacyOperationType type) =>
-      Future<void>.error(
-        const PrivacyOperationFailure(PrivacyOperationFailureKind.unavailable),
+  Future<void> cleanAfterServerConfirmation({
+    required PrivacyOperationType type,
+    required String ownerId,
+  }) async {
+    if (ownerId.isEmpty || ownerId.length > 150 || ownerId.contains('/')) {
+      throw const PrivacyOperationFailure(
+        PrivacyOperationFailureKind.inconsistentState,
       );
+    }
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    final List<String> keys = <String>['calendar_recurrences_v1_$ownerId'];
+    if (type == PrivacyOperationType.accountDeletion) {
+      keys.addAll(<String>[
+        'android_calendar_selection_v1_$ownerId',
+        'assistant_introduction_v1_$ownerId',
+        'assistant_personalization_v1_$ownerId.mode',
+        'assistant_personalization_v1_$ownerId.customName',
+      ]);
+    }
+    for (final String key in keys) {
+      if (!await preferences.remove(key)) {
+        throw const PrivacyOperationFailure(
+          PrivacyOperationFailureKind.unavailable,
+        );
+      }
+    }
+  }
 }

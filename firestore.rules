@@ -2285,6 +2285,12 @@ service cloud.firestore {
       }
     }
 
+    // Recibos concluídos são emitidos exclusivamente pelo backend e não
+    // carregam UID, e-mail, chave de idempotência ou conteúdo apagado.
+    match /_privacyReceipts/{document=**} {
+      allow read, write: if false;
+    }
+
     match /_premiumBillingEvents/{document=**} {
       allow read, write: if false;
     }

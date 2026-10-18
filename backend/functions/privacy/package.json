@@ -9,7 +9,8 @@
   },
   "scripts": {
     "check": "node ../../privacy/scripts/check.mjs",
-    "test": "node --test test/*.test.mjs"
+    "test": "node --test test/*.test.mjs",
+    "test:emulator": "node --test test/*.emulator.mjs"
   },
   "dependencies": {
     "@google-cloud/firestore": "8.7.1",

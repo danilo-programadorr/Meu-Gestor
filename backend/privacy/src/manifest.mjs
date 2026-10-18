@@ -5,9 +5,9 @@ const financialTargets = Object.freeze([
 ]);
 
 const accountOnlyTargets = Object.freeze([
-  'userProfile', 'premiumEntitlement', 'systemAdmin', 'premiumBillingEvents',
-  'premiumPurchaseBindings', 'premiumRtdnInbox', 'premiumAcknowledgementOutbox',
-  'premiumAdministrativeGrants', 'premiumClosedTestTesters', 'premiumClosedTestGrants',
+  'assistantSettings', 'assistantUsageLedger', 'premiumEntitlement',
+  'systemAdmin', 'premiumClosedTestTesters', 'premiumClosedTestGrants',
+  'userProfile',
 ]);
 
 export const PRIVACY_TARGETS = Object.freeze([
