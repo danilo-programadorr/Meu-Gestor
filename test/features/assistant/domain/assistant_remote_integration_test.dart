@@ -7,6 +7,43 @@ import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_failur
 import 'package:meu_gestor_financeiro/features/assistant/domain/assistant_remote_integration.dart';
 
 void main() {
+  // Espelha o envelope serializado pela callable para uma saudação sem interrogação.
+  test('parser aceita fala social declarativa sem aceitar valores livres', () {
+    const String text = 'Olá! Tudo bem por aqui. Que bom conversar com você!';
+    final Map<String, Object?> envelope = <String, Object?>{
+      'status': 'clarification_required',
+      'contractVersion': 'assist-remote-v1',
+      'intent': 'unknown',
+      'clarificationCode': 'social_conversation',
+      'question': text,
+    };
+    final AssistantRemoteResponse response =
+        AssistantRemoteResponse.fromCallableData(
+          jsonDecode(jsonEncode(envelope)),
+        );
+    expect(response.clarification?.question, text);
+    expect(response.isGrounded, isFalse);
+    for (final String unsafe in <String>[
+      'Seu saldo é R\$ 100.',
+      'senha=segredo',
+    ]) {
+      expect(
+        () => AssistantRemoteResponse.fromCallableData(<String, Object?>{
+          ...envelope,
+          'question': unsafe,
+        }),
+        throwsA(isA<AssistantFailure>()),
+      );
+    }
+    expect(
+      () => AssistantRemoteResponse.fromCallableData(<String, Object?>{
+        ...envelope,
+        'clarificationCode': 'period_required',
+      }),
+      throwsA(isA<AssistantFailure>()),
+    );
+  });
+
   // Intenção: preserva o contrato mínimo entre Flutter e callable sem campo
   // de identidade, contexto financeiro, modelo, custo ou credencial.
   test('contrato remoto aceita somente mensagem segura e sem identidade', () {

@@ -108,11 +108,12 @@ const grounded = (response) => Object.freeze({
   finalStatus: 'grounded',
 });
 
-const safeClarificationQuestion = (value) => typeof value === 'string'
+// A exceção de pontuação é exclusiva da conversa social, sem remover os filtros de conteúdo.
+const safeClarificationQuestion = (value, code) => typeof value === 'string'
   && value === value.trim()
   && value.length >= 8
   && value.length <= 240
-  && value.endsWith('?')
+  && (code === 'social_conversation' || value.endsWith('?'))
   && !/[\d$]/u.test(value)
   && !unsafeText(value);
 
@@ -122,7 +123,7 @@ const clarificationRequired = ({ intent, clarificationCode, clarificationQuestio
     contractVersion: 'assist-remote-v1',
     intent,
     clarificationCode,
-    question: safeClarificationQuestion(clarificationQuestion)
+    question: safeClarificationQuestion(clarificationQuestion, clarificationCode)
       ? clarificationQuestion
       : ASSISTANT_CANONICAL_CLARIFICATION_QUESTIONS[clarificationCode],
   }),

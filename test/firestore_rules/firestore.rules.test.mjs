@@ -2272,6 +2272,7 @@ describe('INV-2C snapshots globais de cotações atrasadas', () => {
       '_marketQuoteCircuitBreakers/PETR4',
       '_marketQuoteCatalog/PETR4',
       '_marketQuoteDemands/opaque-demand',
+      '_assetSearchRateLimits/opaque-owner-scope',
     ]) {
       await assertFails(getDoc(doc(db, path)));
       await assertFails(setDoc(doc(db, path), { synthetic: true }));

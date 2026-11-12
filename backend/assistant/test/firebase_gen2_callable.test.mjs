@@ -8,6 +8,7 @@ import {
   ASSISTANT_SAFE_UNAVAILABLE,
   ASSISTANT_SAFE_UNAVAILABLE_VOICE_TEXT,
   createAssistRemoteV1Callables,
+  createVertexRuntimeGateway,
 } from '../src/index.mjs';
 
 class FakeHttpsError extends Error {
@@ -101,6 +102,41 @@ const build = (overrides = {}) => {
   });
   return { calls, invoke: callables.assistRemoteV1 };
 };
+
+// Exercita extração real do SDK, admissão e serialização sem inferência remota.
+test('saudação social declarativa atravessa gateway e callable sem leitores financeiros', async () => {
+  const answer = 'Olá! Tudo bem por aqui. Que bom conversar com você!';
+  const sdkCalls = [];
+  const gateway = createVertexRuntimeGateway({
+    providerFeatureEnabled: true, killSwitchActive: false,
+    projectIdReader: () => 'synthetic-project',
+    vertexAiFactory: async () => ({ models: { generateContent: async (input) => {
+      sdkCalls.push(input);
+      return { candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify({
+        schemaVersion: 1, status: 'clarification_required', intent: 'unknown',
+        clarificationCode: 'social_conversation', clarificationQuestion: answer,
+        periodCode: 'none', financialTool: 'none',
+        eventTitle: '', eventStart: '', eventEnd: '',
+      }) }] } }] };
+    } } }),
+  });
+  const { calls, invoke } = build({
+    providerFeatureEnabled: true, killSwitchActive: false, providerGateway: gateway,
+  });
+  const response = await invoke(request({ data: {
+    contractVersion: 'assist-remote-v1', message: 'Olá Luma tudo bem', responseMode: 'text',
+  } }));
+  assert.deepEqual(JSON.parse(JSON.stringify(response)), {
+    status: 'clarification_required', contractVersion: 'assist-remote-v1',
+    intent: 'unknown', clarificationCode: 'social_conversation', question: answer,
+  });
+  assert.equal(sdkCalls.length, 1);
+  assert.equal(calls.context, 0);
+  // O controle de custo é obrigatório inclusive para conversa social.
+  assert.equal(calls.usage, 1);
+  assert.equal(calls.reserve, 1);
+  assert.equal(calls.confirm, 1);
+});
 
 test('callable Gen 2 fixa limites conservadores, App Check e resposta safe_unavailable sem ler dados', async () => {
   let receivedOptions;

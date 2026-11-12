@@ -68,6 +68,7 @@ export {
   ASSISTANT_VERTEX_PLAN_SCHEMA,
   ASSISTANT_VERTEX_PROMPT_VERSION,
   ASSISTANT_VERTEX_RESPONSE_SCHEMA,
+  ASSISTANT_VERTEX_SECURITY_INSTRUCTION,
   assistantVertexClientConfiguration,
   createVertexRuntimeGateway,
 } from './vertex_runtime_gateway.mjs';

@@ -11,6 +11,7 @@ import {
 } from './src/function_options.mjs';
 import { createAssetSearchCallable } from './src/asset_search_callable.mjs';
 import { createBrapiAssetDirectoryGateway } from './src/brapi_asset_directory_gateway.mjs';
+import { createFirestoreAssetSearchRateLimiter } from './src/firestore_asset_search_rate_limiter.mjs';
 import {
   createFirestoreQuoteCatalogSync,
   createQuoteCatalogDocumentWritten,
@@ -31,6 +32,10 @@ const syncCatalog = createFirestoreQuoteCatalogSync({
   firestore: getFirestore(),
   Timestamp,
   logger: console,
+});
+const assetSearchRateLimiter = createFirestoreAssetSearchRateLimiter({
+  firestore: getFirestore(),
+  Timestamp,
 });
 
 export const refreshDelayedMarketQuotes = createQuoteRefreshHttp({
@@ -54,5 +59,6 @@ export const searchInvestmentAssets = createAssetSearchCallable({
   directory: createBrapiAssetDirectoryGateway({
     token: () => brapiApiToken.value(),
   }),
+  rateLimiter: assetSearchRateLimiter,
   logger: console,
 });

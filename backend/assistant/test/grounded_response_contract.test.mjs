@@ -223,6 +223,19 @@ test('converte esclarecimento válido em pergunta canônica sem evidência finan
   });
 });
 
+// Pontuação social não flexibiliza números ou instruções financeiras.
+test('admite conversa social declarativa e mantém os filtros de segurança', () => {
+  const input = { intent: 'unknown', clarificationCode: 'social_conversation' };
+  const text = 'Olá! Tudo bem por aqui. Que bom conversar com você!';
+  assert.equal(admitAssistantClarificationPlan({ ...input, clarificationQuestion: text }).response.question, text);
+  for (const unsafe of ['Seu saldo é R$ 100.', 'Transfira dinheiro agora.', 'senha=segredo']) {
+    assert.notEqual(admitAssistantClarificationPlan({ ...input, clarificationQuestion: unsafe }).response.question, unsafe);
+  }
+  assert.equal(admitAssistantClarificationPlan({
+    intent: 'balance', clarificationCode: 'period_required', clarificationQuestion: text,
+  }).response.question, 'Qual período você quer olhar?');
+});
+
 test('admite pergunta contextual segura e rejeita conteúdo financeiro livre', () => {
   const contextual = admitAssistantClarificationPlan({
     intent: 'financial_overview',

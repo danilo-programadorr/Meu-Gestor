@@ -254,7 +254,7 @@ final class AssistantRemoteResponse {
             !AssistantRemoteContinuation._clarificationQuestions.containsKey(
               code,
             ) ||
-            !_isSafeClarificationQuestion(question)) {
+            !_isSafeClarificationQuestion(question, code)) {
           _unavailable();
         }
         return AssistantRemoteResponse._(
@@ -372,12 +372,13 @@ final class AssistantRemoteResponse {
     return parsed;
   }
 
-  static bool _isSafeClarificationQuestion(String value) {
+  // Respostas sociais não precisam ser perguntas; segurança e limites permanecem iguais.
+  static bool _isSafeClarificationQuestion(String value, String code) {
     final String trimmed = value.trim();
     return value == trimmed &&
         value.length >= 8 &&
         value.length <= 240 &&
-        value.endsWith('?') &&
+        (code == 'social_conversation' || value.endsWith('?')) &&
         !RegExp(r'[\d$]').hasMatch(value) &&
         AssistantContentSafety.isSafe(value);
   }

@@ -67,6 +67,9 @@ jobs:
       - name: Verificar versão do Node
         run: node -e "if (Number(process.versions.node.split('.')[0]) !== 22) process.exit(1)"
 
+      - name: Verificar procedência e integridade das dependências
+        run: npm run check:supply-chain
+
       - name: Instalar dependências reproduzíveis das Functions
         run: |
           for package in assistant news privacy quotes; do

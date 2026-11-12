@@ -10,7 +10,7 @@ class FakeHttpsError extends Error {
   }
 }
 
-function harness(directory) {
+function harness(directory, rateLimiter = { consume: async () => undefined }) {
   const calls = [];
   const logs = [];
   const handler = createAssetSearchCallable({
@@ -18,6 +18,7 @@ function harness(directory) {
     HttpsError: FakeHttpsError,
     options: Object.freeze({ enforceAppCheck: true }),
     directory,
+    rateLimiter,
     logger: {
       info: (event, detail) => logs.push({ event, detail }),
       warn: (event, detail) => logs.push({ event, detail }),
@@ -68,4 +69,22 @@ test('reduz falha do provedor a classe sanitizada', async () => {
     detail: { outcome: 'failed', reason: 'timeout' },
   });
   assert.equal(JSON.stringify(logs).includes('raw provider detail'), false);
+});
+
+test('limita antes do provedor e não registra identidade', async () => {
+  let providerCalls = 0;
+  const error = new Error('raw limiter detail');
+  error.code = 'asset_search_rate_limit_reached';
+  const { handler, logs } = harness(
+    { search: async () => { providerCalls += 1; return []; } },
+    { consume: async () => { throw error; } },
+  );
+  await assert.rejects(() => handler(request()), { code: 'resource-exhausted' });
+  assert.equal(providerCalls, 0);
+  assert.deepEqual(logs, [{
+    event: 'asset_directory_search',
+    detail: { outcome: 'failed', reason: 'rate_limited' },
+  }]);
+  assert.equal(JSON.stringify(logs).includes('synthetic-owner'), false);
+  assert.equal(JSON.stringify(logs).includes('raw limiter detail'), false);
 });

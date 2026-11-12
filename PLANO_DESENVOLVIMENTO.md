@@ -1323,6 +1323,55 @@ autorizada.
   ausência e expiração permanecem explícitas. Matérias abrem na fonte original
   e imagens externas não são carregadas nesta primeira versão.
 
+## 80. ASSIST-SOCIAL-CONTRACT-1 — resposta social sem pergunta obrigatória
+
+Situação em 27/10/2026: correção publicada exclusivamente em development,
+revisão `assistremotev1-00026-dam`, pronta e com todo o tráfego; APK debug
+development atualizado gerado com `--no-pub` e flag remota explícita. Não houve
+inferência paga de validação nem alteração de produção.
+
+- O gateway rejeitava uma resposta social declarativa por exigir interrogação
+  em todo `clarificationQuestion`. A mesma exigência existia na admissão e no
+  parser Flutter. A reprodução sintética retornou
+  `provider_output_schema_invalid` antes da correção.
+- Somente `social_conversation` admite frase declarativa. Esclarecimentos
+  financeiros continuam exigindo pergunta; números, credenciais, recomendações
+  e demais filtros de segurança permanecem bloqueados. Não há lista de
+  saudações nem respostas fixas adicionadas.
+- O prompt resolve a contradição entre não responder consultas financeiras e
+  responder conversa social, descrevendo explicitamente o plano sem ferramenta
+  ou período. As saudações não leem contexto financeiro; uso, autorização,
+  consentimento e reserva/confirmação de custo permanecem obrigatórios.
+- Regressões cobrem SDK simulado → gateway → callable e o envelope equivalente
+  no Flutter. A causa da tentativa no aparelho permanece não comprovada sem
+  correlação dos registros. A confirmação funcional requer instalar o cliente
+  compatível e observar uma resposta social efetivamente apresentada.
+- O artefato publicado preserva a instrução de sistema contra prompt injection,
+  identidade runtime, flags e limites efetivos. As demais mudanças SEC-1 ficaram
+  fora da cópia de publicação isolada.
+- A correção autorizada dos lockfiles Assistant/Premium altera somente
+  `body-parser` para 2.4.0 e `qs` para 6.16.1, mínimo exigido pelo primeiro.
+  Instalação reproduzível, auditorias sem alertas e testes foram aprovados;
+  Premium não foi implantado e dependências diretas permaneceram idênticas.
+
+## 79. SEC-1 — baseline contra oito vetores comuns
+
+Situação: reforço implementado localmente; nenhuma publicação externa foi
+executada.
+
+- Conteúdo remoto não é interpretado como HTML. Links e imagens de notícias
+  exigem HTTPS absoluto sem credenciais embutidas antes de chegar ao launcher.
+- Rotas operacionais permanecem privadas; callables usam Auth, e-mail
+  verificado, App Check e contratos fechados. Firestore segue negado por padrão
+  e isolado por UID.
+- Segredos permanecem server-side. Um gate determinístico valida versões npm
+  fixadas, registro oficial, integridade SHA-512 e fontes Dart SDK/pub.dev.
+- A busca de ativos possui limite transacional por escopo opaco antes da BRAPI;
+  o Assistente mantém quotas, instrução de sistema contra prompt injection,
+  ferramentas enumeradas e admissão estrita de evidências.
+- O runtime não possui SQL. Qualquer introdução futura exigirá decisão e testes
+  específicos. A matriz completa está na ADR-059.
+
 ## 68. ASSIST-USAGE-COMMIT-FIX-1 — resource name canônico no commit
 
 - `documents:commit` preserva o identificador de `beginTransaction` e um

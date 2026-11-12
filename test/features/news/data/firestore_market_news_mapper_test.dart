@@ -93,4 +93,40 @@ void main() {
       throwsA(isA<MarketNewsFailure>()),
     );
   });
+
+  test('rejeita URL não HTTPS, relativa ou com credenciais embutidas', () {
+    for (final String unsafeUrl in <String>[
+      'http://example.com/noticia',
+      'javascript:alert(1)',
+      '/noticia/relativa',
+      'https://user:secret@example.com/noticia',
+    ]) {
+      final Map<String, dynamic> unsafe = feed();
+      final Map<String, dynamic> article = Map<String, dynamic>.from(
+        (unsafe['articles'] as List<Map<String, dynamic>>).single,
+      )..['articleUrl'] = unsafeUrl;
+      unsafe['articles'] = <Map<String, dynamic>>[article];
+      expect(
+        () => FirestoreMarketNewsMapper.fromMap(
+          documentId: 'market',
+          data: unsafe,
+        ),
+        throwsA(isA<MarketNewsFailure>()),
+      );
+    }
+  });
+
+  test('rejeita imagem externa que não usa HTTPS', () {
+    final Map<String, dynamic> unsafe = feed();
+    final Map<String, dynamic> article = Map<String, dynamic>.from(
+      (unsafe['articles'] as List<Map<String, dynamic>>).single,
+    )..['imageUrl'] = 'http://cdn.example.com/noticia.jpg';
+    unsafe['articles'] = <Map<String, dynamic>>[article];
+
+    expect(
+      () =>
+          FirestoreMarketNewsMapper.fromMap(documentId: 'market', data: unsafe),
+      throwsA(isA<MarketNewsFailure>()),
+    );
+  });
 }

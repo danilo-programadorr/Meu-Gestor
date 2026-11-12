@@ -82,7 +82,7 @@ abstract final class FirestoreMarketNewsMapper {
       id: _string(value, 'id'),
       title: _string(value, 'title'),
       source: _string(value, 'source'),
-      articleUrl: Uri.parse(_string(value, 'articleUrl')),
+      articleUrl: _safeHttpsUri(value, 'articleUrl'),
       imageUrl: schemaVersion == 2 ? _optionalUri(value, 'imageUrl') : null,
       publishedAt: _timestamp(value, 'publishedAt'),
     );
@@ -104,6 +104,26 @@ abstract final class FirestoreMarketNewsMapper {
     final Object? value = data[field];
     if (value == null) return null;
     if (value is! String) throw StateError('news_uri_invalid');
-    return Uri.parse(value);
+    return _parseSafeHttpsUri(value);
+  }
+
+  /// URLs externas são tratadas como dados não confiáveis. Somente HTTPS
+  /// absoluto, sem credenciais embutidas, pode alcançar o launcher ou imagem.
+  static Uri _safeHttpsUri(Map<String, dynamic> data, String field) {
+    final Object? value = data[field];
+    if (value is! String) throw StateError('news_uri_invalid');
+    return _parseSafeHttpsUri(value);
+  }
+
+  static Uri _parseSafeHttpsUri(String value) {
+    final Uri? uri = Uri.tryParse(value);
+    if (value.length > 2048 ||
+        uri == null ||
+        uri.scheme != 'https' ||
+        uri.host.isEmpty ||
+        uri.userInfo.isNotEmpty) {
+      throw StateError('news_uri_invalid');
+    }
+    return uri;
   }
 }
