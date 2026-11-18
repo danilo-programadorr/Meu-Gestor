@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
+import { onRequest } from 'firebase-functions/v2/https';
 
 import { createQuoteRefreshHttp } from '../src/quote_refresh_http.mjs';
 import { QUOTE_FUNCTION_OPTIONS } from '../src/function_options.mjs';
@@ -33,6 +34,18 @@ function handler({ refresh = async () => [], targets = [{ ticker: 'PETR4', asset
 }
 
 describe('Quote refresh Gen 2 HTTP boundary', () => {
+  // A regressão verifica o manifesto real do SDK: 'private' vazio remove o
+  // binding externo no deploy; somente o Scheduler aprovado deve ser emitido.
+  test('manifesto preserva exclusivamente o invocador Scheduler development', () => {
+    const callable = createQuoteRefreshHttp({
+      onRequest,
+      options: QUOTE_FUNCTION_OPTIONS,
+      catalog: { async readActiveTargets() { return []; } },
+      refreshService: { async refresh() { return []; } },
+    });
+    assert.deepEqual(callable.__endpoint.httpsTrigger.invoker, ['quotes-scheduler-dev@']);
+  });
+
   test('bootstrap é privado, mínimo e limitado a uma instância', () => {
     assert.deepEqual(QUOTE_FUNCTION_OPTIONS, {
       region: 'southamerica-east1',
@@ -42,7 +55,7 @@ describe('Quote refresh Gen 2 HTTP boundary', () => {
       maxInstances: 1,
       minInstances: 0,
       concurrency: 1,
-      invoker: 'private',
+      invoker: ['quotes-scheduler-dev@'],
       secrets: QUOTE_FUNCTION_OPTIONS.secrets,
     });
   });

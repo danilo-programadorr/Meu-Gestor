@@ -1,6 +1,23 @@
 # Plano de ativação development — cotações BRAPI
 
-Estado em 13/10/2026: a ampliação automática está validada somente localmente.
+## Estado operacional conferido em 16/11/2026
+
+A revisão `refreshdelayedmarketquotes-00005-lec` já está publicada em development
+com timeout 180 s, concorrência 1 e máximo de uma instância. O job existente está
+habilitado, com cron `*/30 10-18 * * 1-5` e `America/Sao_Paulo`. Após autorização,
+foi restaurada a invocação restrita da identidade do Scheduler no serviço. A
+execução acompanhada renovou quatro snapshots globais, válidos como último
+fechamento; não houve novo deploy nesta recuperação.
+
+O código local passa a declarar o invocador do Scheduler explicitamente para
+preservar o binding em futuros deploys. Essa prevenção ainda não foi publicada.
+O histórico abaixo preserva as propostas originais, inclusive limites que depois
+evoluíram no INV-2C-D, e não substitui o estado operacional conferido.
+Evidências e limites: `../diagnostics/INV-COTACOES-2026-11-15.md`.
+
+## Histórico do plano
+
+Estado original em 13/10/2026: a ampliação automática estava validada somente localmente.
 Os recursos já existentes em development não foram modificados neste checkpoint.
 Produção permanece inalterada.
 

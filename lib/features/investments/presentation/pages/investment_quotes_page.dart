@@ -9,10 +9,10 @@ import 'package:meu_gestor_financeiro/features/investments/domain/investment_per
 import 'package:meu_gestor_financeiro/features/investments/domain/investment_quote.dart';
 import 'package:meu_gestor_financeiro/features/investments/domain/scaled_investment_value.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/controllers/investment_quotes_controller.dart';
+import 'package:meu_gestor_financeiro/features/investments/presentation/controllers/investments_controller.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/widgets/investment_view_support.dart';
 
-/// Painel de leitura para snapshots globais já confirmados pelo backend futuro.
-/// A fonte local não contém snapshots e, por isso, a tela começa indisponível.
+/// Painel de leitura dos snapshots globais confirmados pelo servidor.
 class InvestmentQuotesPage extends ConsumerWidget {
   const InvestmentQuotesPage({super.key});
 
@@ -46,10 +46,8 @@ class InvestmentQuotesPage extends ConsumerWidget {
                 semanticsLabel: 'Carregando cotações confirmadas',
               ),
             ),
-            error: (Object _, StackTrace _) => _Unavailable(
-              onRetry: () =>
-                  ref.invalidate(investmentPortfolioPerformanceProvider),
-            ),
+            error: (Object _, StackTrace _) =>
+                _Unavailable(onRetry: () => _refreshSources(ref)),
             data: (InvestmentPortfolioPerformance result) => ListView(
               padding: const EdgeInsets.fromLTRB(
                 AppSpacing.compactPageHorizontal,
@@ -63,10 +61,7 @@ class InvestmentQuotesPage extends ConsumerWidget {
                 if (!result.positions.any(
                   (InvestmentPositionPerformance item) => item.quote != null,
                 )) ...<Widget>[
-                  _Unavailable(
-                    onRetry: () =>
-                        ref.invalidate(investmentPortfolioPerformanceProvider),
-                  ),
+                  _Unavailable(onRetry: () => _refreshSources(ref)),
                   const SizedBox(height: AppSpacing.md),
                 ],
                 _Filters(
@@ -88,6 +83,13 @@ class InvestmentQuotesPage extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  // Atualizar relê as fontes compartilhadas mesmo quando a tela anterior
+  // continua observando-as; recalcular só o resultado reutilizava o cache.
+  void _refreshSources(WidgetRef ref) {
+    ref.invalidate(investmentsControllerProvider);
+    ref.invalidate(investmentQuotesProvider);
   }
 }
 

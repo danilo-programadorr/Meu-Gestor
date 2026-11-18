@@ -967,6 +967,31 @@ não foram publicados neste incremento.
 - Publicar a callable e as Rules ou gerar APK exige autorização própria após os
   gates locais e revisão do impacto sobre a cota do plano Gratuito.
 
+### 43.4. INV-COTACOES-RECOVERY-1 — recuperação do agendamento development
+
+Estado em 16/11/2026: bloqueio operacional removido com autorização do
+proprietário; reparos preventivos de código validados localmente, sem nova
+publicação ou APK neste incremento.
+
+- O Scheduler estava ativo, mas o Cloud Run rejeitava as invocações com HTTP
+  403 antes do handler. Os quatro snapshots globais estavam vencidos desde
+  outubro. Foi restaurado somente `roles/run.invoker` para a identidade dedicada
+  do Scheduler no serviço de cotações, mantendo-o privado.
+- A execução acompanhada posterior à propagação concluiu com HTTP 200,
+  marcadores de processamento e quatro capturas renovadas e válidas. O cron,
+  timezone, quotas e limites existentes foram preservados. Não houve novo
+  deploy, consumo de IA nem acesso a produção.
+- A configuração local explicita o invocador autorizado no manifesto do SDK,
+  evitando que um novo deploy com `private` recrie uma lista vazia de acesso.
+  Essa prevenção ainda precisa acompanhar a próxima publicação autorizada.
+- O botão de atualização da rota secundária agora invalida as fontes
+  compartilhadas, não apenas a projeção que reutilizava resultados antigos.
+  Regressões cobrem ausência e erro de leitura; a mudança no aparelho depende
+  de build posterior, sem ser necessária para aproveitar a recuperação backend.
+- Evidências, testes e limites ficam em
+  `docs/diagnostics/INV-COTACOES-2026-11-15.md`. A confirmação visual no aparelho
+  e a execução de uma janela regular de pregão ainda não foram observadas.
+
 ## 44. CRUD-AUDIT-1 + INV-CALC-2 — ações completas e calculadoras inequívocas
 
 Situação: implementado e validado somente localmente; Rules não publicadas e nenhuma ação externa executada.

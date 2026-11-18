@@ -28,6 +28,7 @@ import 'package:meu_gestor_financeiro/features/investments/presentation/pages/in
 import 'package:meu_gestor_financeiro/features/investments/presentation/pages/investment_income_form_page.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/pages/investment_operation_form_page.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/pages/investment_portfolio_form_page.dart';
+import 'package:meu_gestor_financeiro/features/investments/presentation/pages/investment_quotes_page.dart';
 import 'package:meu_gestor_financeiro/features/investments/presentation/pages/investments_page.dart';
 import 'package:meu_gestor_financeiro/features/profile/data/user_profile_providers.dart';
 import 'package:meu_gestor_financeiro/features/profile/presentation/controllers/profile_gate_controller.dart';
@@ -48,6 +49,60 @@ import '../../../support/profile_fixtures.dart';
 
 void main() {
   setUpAll(() => initializeDateFormatting('pt_BR'));
+
+  // Regressão da rota secundária: o resumo pode continuar observando a mesma
+  // consulta. Tentar novamente deve reler a fonte, não só recalcular o cache.
+  for (final bool initialFailure in <bool>[false, true]) {
+    testWidgets(
+      'atualizar cotações relê a fonte após ${initialFailure ? 'falha' : 'ausência'}',
+      (WidgetTester tester) async {
+        final _WidgetContext context = await _context(withOperations: true);
+        addTearDown(context.dispose);
+        if (initialFailure) {
+          context.quoteRepository.nextFailure = const InvestmentFailure(
+            kind: InvestmentFailureKind.unavailable,
+            safeMessage: 'Falha sintética de leitura.',
+            code: 'synthetic_quote_failure',
+          );
+        }
+        final subscription = context.container.listen(
+          investmentQuotesProvider,
+          (_, _) {},
+        );
+        addTearDown(subscription.close);
+        await _pump(tester, context, const InvestmentQuotesPage());
+        expect(find.text('Cotações indisponíveis'), findsOneWidget);
+        final int previousReads = context.quoteRepository.readCalls;
+        context.quoteRepository.quotes.addAll(<InvestmentQuote>[
+          _quote(),
+          _quote(
+            ticker: 'HGLG11',
+            type: TrackedInvestmentAssetType.fii,
+            price: '170',
+          ),
+        ]);
+
+        await tester.ensureVisible(find.text('Atualizar estado'));
+        await tester.tap(find.text('Atualizar estado'));
+        await tester.pumpAndSettle();
+
+        expect(context.quoteRepository.readCalls, previousReads + 1);
+        expect(find.text('Cotações indisponíveis'), findsNothing);
+        expect(
+          find.text('2 de 2 posições abertas possuem uma cotação confirmada.'),
+          findsOneWidget,
+        );
+        expect(
+          context.container
+              .read(investmentPortfolioPerformanceProvider)
+              .requireValue
+              .estimatedMarketValueCents,
+          69000,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   testWidgets(
     'estado vazio explica acompanhamento manual sem dados fictícios',

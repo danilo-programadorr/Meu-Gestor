@@ -13,7 +13,9 @@ export const QUOTE_FUNCTION_OPTIONS = Object.freeze({
   maxInstances: 1,
   minInstances: 0,
   concurrency: 1,
-  invoker: 'private',
+  // A lista explícita mantém o serviço privado e impede que um redeploy
+  // remova o Scheduler autorizado. O CLI resolve @ no projeto de destino.
+  invoker: ['quotes-scheduler-dev@'],
   secrets: [brapiApiToken],
 });
 
